@@ -3,43 +3,138 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>1v1.nz — Head-to-head browser games</title>
-  <meta name="description" content="1v1.nz — a collection of head-to-head browser games. Challenge the computer or a friend." />
+  <title>1v1 Games Online — Free 1 versus 1 Browser Multiplayer | 1v1.nz</title>
+  <meta name="description" content="Play free 1v1 games online at 1v1.nz — 1 versus 1 multiplayer browser games vs a friend or vs computer. Battleship, Connect 4, and more head-to-head classics." />
+  <meta name="keywords" content="1v1, 1 versus 1, multiplayer, browser games, free, vs friend, vs computer, Battleship, Connect 4" />
+  <link rel="canonical" href="https://1v1.nz/" />
+  <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="64x64" />
+  <link rel="apple-touch-icon" href="/assets/favicon.png" />
+  <meta name="theme-color" content="#07152c" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="1v1.nz" />
+  <meta property="og:title" content="1v1 Games Online — Free 1 versus 1 Browser Multiplayer | 1v1.nz" />
+  <meta property="og:description" content="Free 1v1 multiplayer browser games. Play Battleship and Connect 4 vs a friend or vs computer — no download, no account required." />
+  <meta property="og:url" content="https://1v1.nz/" />
+  <meta property="og:image" content="https://1v1.nz/assets/og-home.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:locale" content="en_US" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="1v1 Games Online — Free 1 versus 1 Browser Multiplayer | 1v1.nz" />
+  <meta name="twitter:description" content="Free 1v1 multiplayer browser games. Battleship &amp; Connect 4 — vs friend or vs computer." />
+  <meta name="twitter:image" content="https://1v1.nz/assets/og-home.png" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://1v1.nz/#website",
+        "url": "https://1v1.nz/",
+        "name": "1v1.nz",
+        "description": "Free 1 versus 1 multiplayer browser games — play vs a friend or vs computer.",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "ItemList",
+        "@id": "https://1v1.nz/#games",
+        "name": "1v1 games on 1v1.nz",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Battleship",
+            "url": "https://1v1.nz/battleship/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Connect 4",
+            "url": "https://1v1.nz/connect-4/"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: flex-start; justify-content: center;
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       background: radial-gradient(1200px 800px at 50% 20%, #10294f 0%, #07152c 60%, #040b18 100%);
       color: #eaf1ff;
-      padding: 24px;
+      padding: 28px 20px 48px;
+      line-height: 1.5;
     }
-    main { text-align: center; max-width: 560px; }
-    h1 { font-size: clamp(2.5rem, 8vw, 4rem); letter-spacing: -0.02em; }
+    main { text-align: center; max-width: 640px; width: 100%; }
+    h1 { font-size: clamp(2.5rem, 8vw, 4rem); letter-spacing: -0.02em; line-height: 1.05; }
     h1 .vs { color: #ff5d5d; }
-    p.tag { margin-top: 12px; color: #9db4d8; font-size: 1.05rem; }
-    .games { margin-top: 36px; display: grid; gap: 12px; }
+    p.tag { margin-top: 12px; color: #9db4d8; font-size: 1.08rem; }
+    p.intro { margin-top: 18px; color: #c5d4ec; font-size: 1rem; text-align: left; }
+    .games { margin-top: 32px; display: grid; gap: 12px; }
     a.game {
       display: flex; align-items: center; justify-content: space-between;
       padding: 18px 22px; border-radius: 14px;
       background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
       color: #fff; text-decoration: none; font-size: 1.15rem; font-weight: 600;
       transition: transform .12s ease, background .12s ease;
+      gap: 12px; text-align: left;
     }
     a.game:hover { background: rgba(255,255,255,0.11); transform: translateY(-2px); }
-    a.game small { font-weight: 400; color: #9db4d8; }
-    footer { margin-top: 40px; color: #5f7396; font-size: .85rem; }
+    a.game small { font-weight: 400; color: #9db4d8; white-space: nowrap; }
+    .faq {
+      margin-top: 40px; text-align: left;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 22px 20px;
+    }
+    .faq h2 { font-size: 1.15rem; margin-bottom: 14px; color: #eaf1ff; }
+    .faq details { margin: 10px 0; }
+    .faq summary {
+      cursor: pointer; font-weight: 600; color: #d7e4f8;
+      list-style: none; padding: 6px 0;
+    }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary::before { content: "+ "; color: #38bdf8; font-weight: 700; }
+    .faq details[open] summary::before { content: "− "; }
+    .faq p { margin-top: 6px; color: #9db4d8; font-size: .95rem; padding-left: 1.1em; }
+    footer { margin-top: 36px; color: #5f7396; font-size: .85rem; }
   </style>
 </head>
 <body>
   <main>
     <h1>1<span class="vs">v</span>1.nz</h1>
-    <p class="tag">Head-to-head browser games. You versus the machine — real opponents coming soon.</p>
-    <div class="games">
-      <a class="game" href="/connect-4">Connect Four <small>vs Computer &middot; 3 difficulties</small></a>
-      <a class="game" href="/battleship">Battleship <small>vs Computer &middot; Online &middot; Public matches</small></a>
+    <p class="tag">Head-to-head games — free 1 versus 1 multiplayer in your browser</p>
+    <p class="intro">
+      1v1.nz is a hub for free 1v1 browser games you can play vs a friend or vs the computer.
+      No downloads, no account required — just open a game and start a head-to-head match.
+    </p>
+    <div class="games" role="list">
+      <a class="game" role="listitem" href="/battleship/">Battleship <small>vs Friend &middot; vs CPU</small></a>
+      <a class="game" role="listitem" href="/connect-4/">Connect 4 <small>vs Computer &middot; 3 difficulties</small></a>
     </div>
+
+    <section class="faq" aria-label="Frequently asked questions">
+      <h2>FAQ</h2>
+      <details open>
+        <summary>What is 1v1.nz?</summary>
+        <p>1v1.nz is a collection of free 1 versus 1 multiplayer browser games — classic head-to-head titles like Battleship and Connect 4, playable on phone or desktop.</p>
+      </details>
+      <details>
+        <summary>Can I play vs a friend?</summary>
+        <p>Yes. Battleship supports online 1v1 matches against a friend. Connect 4 currently plays vs the computer, with friend modes planned.</p>
+      </details>
+      <details>
+        <summary>Do I need an account?</summary>
+        <p>No. Every game on 1v1.nz runs free in the browser with no sign-up required.</p>
+      </details>
+    </section>
+
     <footer>More 1v1 games on the way.</footer>
   </main>
 </body>
