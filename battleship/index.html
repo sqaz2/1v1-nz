@@ -149,11 +149,13 @@
     background: rgba(255,122,69,.75); border-color: #ffb08a;
     background-image: url("assets/fx-explosion.png");
     background-size: 90% 90%; background-repeat: no-repeat; background-position: center;
+    z-index: 3;
   }
   .bcell.sunk {
     background: rgba(161,29,38,.8); border-color: #e06a72;
     background-image: url("assets/fx-explosion.png");
     background-size: 85% 85%; background-repeat: no-repeat; background-position: center;
+    z-index: 3;
   }
   .bcell.sunk::after {
     content: ""; position: absolute; left: 12%; right: 12%; top: 48%; height: 2px; background: rgba(255,255,255,.75);
@@ -162,14 +164,17 @@
   .bcell.last { box-shadow: 0 0 0 2px var(--gold), 0 0 12px var(--gold); animation: pulse 1.4s ease-in-out infinite; }
   @keyframes pulse { 50% { box-shadow: 0 0 0 2px var(--gold), 0 0 4px var(--gold); } }
 
-  /* Spanning ship sprites (art faces right; .vert rotates 90deg CW → bow down). */
+  /* Ship sprites pinned to measured cell boxes (not CSS grid spans — gap/padding drift).
+     Art faces right; .vert rotates 90deg CW → bow down. Hit/sunk cells keep z-index 3 above hulls. */
   .ship-sprite {
     pointer-events: none;
     z-index: 2;
-    position: relative;
-    container-type: size;
+    position: absolute;
+    left: 0; top: 0;
     display: block;
-    overflow: visible;
+    overflow: hidden;
+    box-sizing: border-box;
+    margin: 0; padding: 0;
   }
   .ship-sprite img {
     display: block;
@@ -186,9 +191,12 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    width: calc(var(--size) * 100cqw);
-    height: 88cqw;
+    /* Pre-rotate: width = box height, height ≈ box width so 90deg CW fills the tall cell span. */
+    width: var(--box-h, 100%);
+    height: calc(var(--box-w, 100%) * 0.88);
+    max-width: none;
     transform: translate(-50%, -50%) rotate(90deg);
+    object-fit: contain;
   }
   .ship-sprite.sunk img { filter: drop-shadow(0 2px 5px rgba(0,0,0,.7)) grayscale(.35) brightness(.85); }
   .ship-sprite.hit:not(.sunk) img { filter: drop-shadow(0 2px 5px rgba(0,0,0,.7)) saturate(1.1); }
@@ -603,16 +611,19 @@
             cell.type = 'button';
             cell.className = 'bcell';
             cell.dataset.row = r; cell.dataset.col = c;
+            cell.style.gridRow = String(r + 1);
+            cell.style.gridColumn = String(c + 1);
             cell.setAttribute('role', 'gridcell');
             cell.setAttribute('aria-label', `Row ${r + 1}, column ${c + 1}`);
             el.appendChild(cell);
             cells[r].push(cell);
           }
         }
+        observeShipSpriteLayout(el);
         return cells;
       }
 
-      // ---------- ship sprites (span exact cell counts) ----------
+      // ---------- ship sprites (pinned to measured cell boxes) ----------
       function shipCellsNorm(ship) {
         const raw = Array.isArray(ship.cells) ? ship.cells : [];
         return raw.map(cell => {
@@ -635,8 +646,65 @@
         }
         return 0;
       }
+      /** Expected coverage cells for a sprite at (r0,c0) with size/orientation. */
+      function spriteCoverageCells(r0, c0, size, horizontal) {
+        const out = [];
+        for (let i = 0; i < size; i++) out.push(horizontal ? [r0, c0 + i] : [r0 + i, c0]);
+        return out;
+      }
+      function cellKeys(cells) {
+        return cells.map(([r, c]) => r + ',' + c).sort().join('|');
+      }
+      /** Position a .ship-sprite from getBoundingClientRect of start/end bcells (relative to .bgrid). */
+      function layoutShipSprite(gridEl, el, r0, c0, size, horizontal) {
+        if (!gridEl || !el) return;
+        const endR = horizontal ? r0 : r0 + size - 1;
+        const endC = horizontal ? c0 + size - 1 : c0;
+        const start = gridEl.querySelector(':scope > .bcell[data-row="' + r0 + '"][data-col="' + c0 + '"]');
+        const end = gridEl.querySelector(':scope > .bcell[data-row="' + endR + '"][data-col="' + endC + '"]');
+        if (!start || !end) return;
+        const gridRect = gridEl.getBoundingClientRect();
+        const sRect = start.getBoundingClientRect();
+        const eRect = end.getBoundingClientRect();
+        if (gridRect.width < 1 || sRect.width < 1) return; // hidden / not laid out yet
+        const left = sRect.left - gridRect.left;
+        const top = sRect.top - gridRect.top;
+        const width = eRect.right - sRect.left;
+        const height = eRect.bottom - sRect.top;
+        el.style.position = 'absolute';
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
+        el.style.width = width + 'px';
+        el.style.height = height + 'px';
+        el.style.gridRow = '';
+        el.style.gridColumn = '';
+        el.style.setProperty('--size', String(size));
+        el.style.setProperty('--box-w', width + 'px');
+        el.style.setProperty('--box-h', height + 'px');
+        el.dataset.r0 = String(r0);
+        el.dataset.c0 = String(c0);
+        el.dataset.size = String(size);
+        el.dataset.orient = horizontal ? 'h' : 'v';
+      }
+      function relayoutShipSprites(gridEl) {
+        if (!gridEl) return;
+        gridEl.querySelectorAll(':scope > .ship-sprite').forEach(el => {
+          const r0 = +el.dataset.r0, c0 = +el.dataset.c0, size = +el.dataset.size;
+          const horizontal = el.dataset.orient === 'h';
+          if (Number.isFinite(r0) && Number.isFinite(c0) && size > 0) {
+            layoutShipSprite(gridEl, el, r0, c0, size, horizontal);
+          }
+        });
+      }
+      function observeShipSpriteLayout(gridEl) {
+        if (!gridEl || gridEl._shipSpriteRO) return;
+        const ro = new ResizeObserver(() => relayoutShipSprites(gridEl));
+        ro.observe(gridEl);
+        gridEl._shipSpriteRO = ro;
+      }
       function syncShipSprites(gridEl, ships) {
         if (!gridEl) return;
+        observeShipSpriteLayout(gridEl);
         gridEl.querySelectorAll(':scope > .ship-sprite:not(.ghost)').forEach(el => el.remove());
         if (!Array.isArray(ships) || !ships.length) return;
         const used = new Set();
@@ -648,26 +716,25 @@
           const r0 = Math.min(...rows), c0 = Math.min(...cols);
           const size = cells.length;
           const horizontal = rows.every(v => v === rows[0]);
+          // Sanity: logical ship cells must equal sprite coverage for (r0,c0,size,orient).
+          const cover = spriteCoverageCells(r0, c0, size, horizontal);
+          if (cellKeys(cells) !== cellKeys(cover)) {
+            console.warn('[battleship] ship cells ≠ sprite coverage', cells, cover);
+          }
           const el = document.createElement('div');
           el.className = 'ship-sprite ' + (horizontal ? 'horiz' : 'vert');
           if (ship.sunk) el.classList.add('sunk');
           else if (Array.isArray(ship.hits) && ship.hits.length) el.classList.add('hit');
-          el.style.setProperty('--size', String(size));
           el.setAttribute('aria-hidden', 'true');
-          if (horizontal) {
-            el.style.gridRow = String(r0 + 1);
-            el.style.gridColumn = (c0 + 1) + ' / span ' + size;
-          } else {
-            el.style.gridColumn = String(c0 + 1);
-            el.style.gridRow = (r0 + 1) + ' / span ' + size;
-          }
           const img = document.createElement('img');
           img.src = SHIP_DEFS[defIdx].art;
           img.alt = '';
           img.draggable = false;
           el.appendChild(img);
           gridEl.appendChild(el);
+          layoutShipSprite(gridEl, el, r0, c0, size, horizontal);
         }
+        requestAnimationFrame(() => relayoutShipSprites(gridEl));
       }
 
       // ---------- fleet validation ----------
@@ -816,21 +883,17 @@
           const valid = !preview.some(([rr, cc]) => rr < 0 || rr > 9 || cc < 0 || cc > 9 || shipAt.has(rr + ',' + cc));
           ghostEl = document.createElement('div');
           ghostEl.className = 'ship-sprite ghost ' + (horizontal ? 'horiz' : 'vert') + (valid ? ' valid' : ' invalid');
-          ghostEl.style.setProperty('--size', String(size));
           ghostEl.setAttribute('aria-hidden', 'true');
-          if (horizontal) {
-            ghostEl.style.gridRow = String(r + 1);
-            ghostEl.style.gridColumn = (c + 1) + ' / span ' + size;
-          } else {
-            ghostEl.style.gridColumn = String(c + 1);
-            ghostEl.style.gridRow = (r + 1) + ' / span ' + size;
-          }
           const img = document.createElement('img');
           img.src = SHIP_DEFS[selected].art;
           img.alt = '';
           img.draggable = false;
           ghostEl.appendChild(img);
           gridEl.appendChild(ghostEl);
+          layoutShipSprite(gridEl, ghostEl, r, c, size, horizontal);
+          requestAnimationFrame(() => {
+            if (ghostEl) layoutShipSprite(gridEl, ghostEl, r, c, size, horizontal);
+          });
         }
         function cellFromPoint(clientX, clientY) {
           const el = document.elementFromPoint(clientX, clientY);
@@ -1038,7 +1101,7 @@
         for (const ship of fleet) {
           if (ship.cells.some(([sr, sc]) => sr === r && sc === c)) {
             if (!ship.hits.some(([hr, hc]) => hr === r && hc === c)) ship.hits.push([r, c]);
-            const sunk = ship.cells.every(([sr, sc]) => ship.hits.some(([hr, hc]) => hr === r && hc === c));
+            const sunk = ship.cells.every(([sr, sc]) => ship.hits.some(([hr, hc]) => hr === sr && hc === sc));
             if (sunk && !ship.sunk) {
               ship.sunk = true;
               ship.cells.forEach(([sr, sc]) => sunkSet.add(sr + ',' + sc));
