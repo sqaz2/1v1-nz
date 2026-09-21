@@ -173,7 +173,8 @@
     .invite-code { margin: 4px 0 8px; font-family: "Paytone One", sans-serif; font-size: clamp(38px, 10vw, 68px); letter-spacing: .12em; line-height: 1; color: var(--board); }
     .waiting-line { display: inline-flex; align-items: center; gap: 9px; color: var(--ink) !important; font-weight: 700; }
     .waiting-line::before, .connection-indicator::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 5px color-mix(in srgb, var(--gold) 22%, transparent); }
-    .connection-indicator { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .connection-recovery { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .connection-indicator { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: 12px; font-weight: 700; }
     .connection-indicator::before { background: var(--board-hi); box-shadow: 0 0 0 4px color-mix(in srgb, var(--board-hi) 18%, transparent); animation: reconnectPulse 1s ease-in-out infinite alternate; }
     @keyframes reconnectPulse { to { opacity: .35; } }
     .scorebar {
@@ -434,6 +435,71 @@
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
       #sky { display: none; }
     }
+    /* Online lobby: multi-game sessions, game header, chat */
+    .lobby-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .session-list { display: grid; gap: 10px; }
+    .lobby-empty { color: var(--muted); font-size: 14px; }
+    .session-entry { display: flex; gap: 8px; align-items: stretch; }
+    .session-open {
+      position: relative; flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px;
+      background: color-mix(in srgb, var(--paper) 72%, transparent); color: var(--ink);
+      cursor: pointer; text-align: left;
+    }
+    .session-open:hover { border-color: var(--board-hi); }
+    .session-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .session-name { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .session-code { font-size: 11px; color: var(--muted); letter-spacing: .14em; font-weight: 700; }
+    .session-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .session-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 9%, transparent); white-space: nowrap; }
+    .session-badge.yours { background: var(--red); color: #fff; }
+    .session-badge.theirs { background: color-mix(in srgb, var(--gold) 34%, transparent); }
+    .session-badge.warn { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
+    .session-badge.muted { opacity: .72; }
+    .session-series { font-size: 12px; color: var(--muted); font-weight: 700; white-space: nowrap; }
+    .session-entry.has-attention .session-open { border-color: var(--red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 18%, transparent); }
+    .session-dot { position: absolute; top: 9px; right: 9px; width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 22%, transparent); }
+    .session-unread { font-size: 11px; font-weight: 700; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--board); color: #fff; display: inline-flex; align-items: center; justify-content: center; }
+    .session-leave { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 12px; min-width: 44px; cursor: pointer; font-size: 15px; }
+    .session-leave:hover { color: var(--red); border-color: var(--red); }
+    .online-note { min-height: 20px; color: var(--muted) !important; font-size: 13px; font-weight: 600; }
+
+    .game-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; margin-bottom: 12px; }
+    .gh-info { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
+    .gh-info strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 38vw; }
+    .gh-series { border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; padding: 3px 8px; border-radius: 8px; }
+    .gh-series:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+    .gh-actions { display: flex; gap: 8px; align-items: center; }
+    .gh-button { position: relative; min-height: 38px; padding: 7px 12px; border-radius: 11px; border: 1px solid var(--line); background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); font-weight: 700; font-size: 13px; cursor: pointer; }
+    .gh-button .dot { position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+    .gh-button.gh-danger { color: var(--red); }
+
+    .waiting-card { text-align: center; padding: 26px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; margin-bottom: 12px; }
+    .waiting-card > p { color: var(--muted); margin: 0; }
+
+    .chat-panel {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; max-height: 64vh;
+      display: flex; flex-direction: column; background: var(--panel);
+      border-top: 1px solid var(--line); border-radius: 18px 18px 0 0;
+      box-shadow: 0 -18px 50px rgba(10,30,70,.25);
+      padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
+    }
+    .chat-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .chat-head strong { font-size: 15px; }
+    .chat-history { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; min-height: 110px; }
+    .chat-msg { max-width: 84%; align-self: flex-start; background: color-mix(in srgb, var(--ink) 8%, transparent); border-radius: 4px 14px 14px 14px; padding: 8px 11px; }
+    .chat-msg.mine { align-self: flex-end; background: var(--board); color: #fff; border-radius: 14px 4px 14px 14px; }
+    .chat-meta { font-size: 11px; font-weight: 700; opacity: .7; margin-bottom: 3px; }
+    .chat-text { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+    .voice-bubble { display: inline-flex; align-items: center; gap: 9px; border: 0; background: transparent; color: inherit; font-weight: 700; font-size: 14px; cursor: pointer; padding: 5px 2px; }
+    .voice-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 12%, transparent); font-size: 12px; }
+    .chat-msg.mine .voice-icon { background: rgba(255,255,255,.25); }
+    .chat-form { display: flex; gap: 8px; margin-top: 10px; }
+    .chat-form input { flex: 1; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 15px; background: color-mix(in srgb, var(--paper) 72%, transparent); color: var(--ink); }
+    .mic-button { min-width: 48px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--ink) 7%, transparent); font-size: 18px; cursor: pointer; }
+    .mic-button.recording { background: var(--red); border-color: var(--red); animation: reconnectPulse 1s ease-in-out infinite alternate; }
+    .chat-rec { color: var(--red) !important; font-size: 13px; font-weight: 700; margin: 8px 0 0 !important; }
+    .chat-rec button { margin-left: 8px; border: 1px solid var(--red); background: transparent; color: var(--red); border-radius: 9px; padding: 5px 10px; font-weight: 700; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -457,8 +523,13 @@
       </div>
 
       <section class="online-panel" id="onlinePanel" aria-label="Online multiplayer" hidden>
+        <div class="lobby-head">
+          <h2>Online games</h2>
+          <button type="button" class="online-button" id="lobbyNewGame">+ New game</button>
+        </div>
+        <div class="session-list" id="sessionList" role="list" aria-label="Your games"></div>
+        <p class="online-note" id="lobbyNote" aria-live="polite"></p>
         <div id="onlineSetup">
-          <h2>Play online</h2>
           <p>Choose a guest name, then create a room or join with a six-letter code.</p>
           <form class="online-form" id="onlineForm">
             <label>Display name
@@ -474,18 +545,31 @@
             <p class="online-error" id="onlineError" aria-live="polite"></p>
           </form>
         </div>
-        <div class="invite-block" id="onlineLobby" hidden>
-          <p>Your invite code</p>
-          <div class="invite-code" id="inviteCode">——</div>
-          <p class="waiting-line" id="lobbyStatus">Waiting for opponent…</p>
-          <div class="online-actions" style="justify-content:center; margin-top:16px">
-            <button class="online-button" type="button" id="copyLobbyLink">Copy invite link</button>
-            <button class="online-button secondary" type="button" id="leaveOnline">Leave room</button>
-          </div>
-          <p class="online-error" id="lobbyError" aria-live="polite"></p>
-        </div>
       </section>
 
+      <div class="game-header" id="gameHeader" hidden>
+        <button type="button" class="gh-button" id="backToLobby" aria-label="Back to games">&#8249; Games</button>
+        <div class="gh-info">
+          <strong id="ghOpponent">Opponent</strong>
+          <button type="button" class="gh-series" id="ghSeries" title="Series score — tap to reset">Series 0&ndash;0</button>
+        </div>
+        <div class="gh-actions">
+          <button type="button" class="gh-button" id="chatToggle" aria-label="Open chat">&#128172;<span class="dot" id="chatDot" hidden></span></button>
+          <button type="button" class="gh-button gh-danger" id="resignButton" hidden>Resign</button>
+          <button type="button" class="gh-button" id="leaveGameButton">Leave</button>
+        </div>
+      </div>
+      <div class="waiting-card" id="waitingCard" hidden>
+        <p>Your invite code</p>
+        <div class="invite-code" id="inviteCode">&mdash;&mdash;</div>
+        <p class="waiting-line" id="lobbyStatus">Connecting&hellip;</p>
+        <div class="online-actions" style="justify-content:center; margin-top:16px">
+          <button class="online-button" type="button" id="shareInvite">Share invite</button>
+          <button class="online-button" type="button" id="retryLobbyConnection" hidden>Retry connection</button>
+          <button class="online-button secondary" type="button" id="leaveOnline">Leave room</button>
+        </div>
+        <p class="online-error" id="lobbyError" aria-live="polite"></p>
+      </div>
       <div class="scorebar" id="scorebar" aria-label="Score">
         <div class="player active" id="redPlayer">
           <span class="chip red"></span>
@@ -529,11 +613,28 @@
           <button type="button" class="new-round" id="newRound">New round</button>
           <div class="game-over-actions" id="onlineGameActions" hidden>
             <button type="button" class="new-round" id="rematch">Rematch</button>
-            <button type="button" class="online-button secondary" id="copyGameLink">Copy invite link</button>
+            <button type="button" class="online-button secondary" id="copyGameLink">Share invite</button>
           </div>
         </div>
       </div>
-      <p class="connection-indicator" id="connectionIndicator" aria-live="polite" hidden>Reconnecting…</p>
+      <div class="chat-panel" id="chatPanel" hidden aria-label="Game chat">
+        <div class="chat-head">
+          <strong id="chatTitle">Chat</strong>
+          <button type="button" class="gh-button" id="chatClose" aria-label="Close chat">&#10005;</button>
+        </div>
+        <div class="chat-history" id="chatHistory" aria-live="polite"></div>
+        <p class="chat-rec" id="chatRec" hidden>&#9679; Recording <span id="chatRecTime">0</span>s&hellip; <button type="button" id="chatRecStop">Stop &amp; send</button></p>
+        <form class="chat-form" id="chatForm">
+          <button type="button" class="mic-button" id="micButton" aria-label="Record voice note" title="Record voice note">&#127908;</button>
+          <input id="chatInput" maxlength="500" placeholder="Message&hellip;" autocomplete="off" aria-label="Chat message">
+          <button type="submit" class="online-button">Send</button>
+        </form>
+      </div>
+      <div class="connection-recovery" id="connectionRecovery" hidden>
+        <p class="connection-indicator" id="connectionIndicator" aria-live="polite">Reconnecting…</p>
+        <button class="online-button" type="button" id="retryGameConnection" hidden>Retry connection</button>
+        <button class="online-button" type="button" id="takeoverButton" hidden>Take over here</button>
+      </div>
       <p class="hint" id="gameHint">Choose any column. First to connect four wins.</p>
     </section>
   </main>
@@ -565,13 +666,38 @@
       const createGame = document.getElementById('createGame');
       const joinGame = document.getElementById('joinGame');
       const onlineError = document.getElementById('onlineError');
-      const onlineLobby = document.getElementById('onlineLobby');
+      const lobbyNewGame = document.getElementById('lobbyNewGame');
+      const sessionList = document.getElementById('sessionList');
+      const lobbyNote = document.getElementById('lobbyNote');
+      const gameHeader = document.getElementById('gameHeader');
+      const backToLobby = document.getElementById('backToLobby');
+      const ghOpponent = document.getElementById('ghOpponent');
+      const ghSeries = document.getElementById('ghSeries');
+      const chatToggle = document.getElementById('chatToggle');
+      const chatDot = document.getElementById('chatDot');
+      const resignButton = document.getElementById('resignButton');
+      const leaveGameButton = document.getElementById('leaveGameButton');
+      const waitingCard = document.getElementById('waitingCard');
       const inviteCode = document.getElementById('inviteCode');
       const lobbyStatus = document.getElementById('lobbyStatus');
       const lobbyError = document.getElementById('lobbyError');
-      const copyLobbyLink = document.getElementById('copyLobbyLink');
+      const shareInvite = document.getElementById('shareInvite');
+      const retryLobbyConnection = document.getElementById('retryLobbyConnection');
       const leaveOnline = document.getElementById('leaveOnline');
+      const connectionRecovery = document.getElementById('connectionRecovery');
       const connectionIndicator = document.getElementById('connectionIndicator');
+      const retryGameConnection = document.getElementById('retryGameConnection');
+      const takeoverButton = document.getElementById('takeoverButton');
+      const chatPanel = document.getElementById('chatPanel');
+      const chatTitle = document.getElementById('chatTitle');
+      const chatHistory = document.getElementById('chatHistory');
+      const chatForm = document.getElementById('chatForm');
+      const chatInput = document.getElementById('chatInput');
+      const micButton = document.getElementById('micButton');
+      const chatRec = document.getElementById('chatRec');
+      const chatRecTime = document.getElementById('chatRecTime');
+      const chatRecStop = document.getElementById('chatRecStop');
+      const chatClose = document.getElementById('chatClose');
       const onlineGameActions = document.getElementById('onlineGameActions');
       const rematch = document.getElementById('rematch');
       const copyGameLink = document.getElementById('copyGameLink');
@@ -586,9 +712,10 @@
       let scores = [0,0], moveHistory = [], audio;
       const FALLBACK_API_BASE = 'https://1v1.nz';
       const ROOM_UNAVAILABLE_MESSAGE = 'Could not join that room. It may be full or no longer available.';
-      let socket = null, roomCode = '', onlineName = '', onlineToken = '', onlineColor = 0;
-      let onlineApiBase = null;
-      let onlineState = null, reconnectTimer = 0, reconnectAttempt = 0, keepaliveTimer = 0, intentionalClose = false;
+      const CONNECT_TIMEOUT_MS = 8000;
+      const MESSAGE_WATCHDOG_MS = 45000;
+      const MAX_CONNECT_FAILURES = 4;
+      // (online session-system state is declared in the lobby engine block below)
 
       for (let c = 0; c < COLS; c++) {
         const m = document.createElement('span');
@@ -643,7 +770,10 @@
       }
       function showMarker(col) {
         if (locked || ended || grid[0][col]) return clearMarker();
-        if (mode === 'online' && (!onlineState || onlineState.status !== 'playing' || onlineState.turn !== onlineColor || !socket || socket.readyState !== WebSocket.OPEN)) return clearMarker();
+        if (mode === 'online') {
+          const s = activeSession;
+          if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || !s.socket || s.socket.readyState !== WebSocket.OPEN) return clearMarker();
+        }
         arena.dataset.hover = col;
         markers.children[col].classList.add('hover');
       }
@@ -654,8 +784,9 @@
       function play(col) {
         if (locked || ended || grid[0][col]) return;
         if (mode === 'online') {
-          if (!onlineState || onlineState.status !== 'playing' || onlineState.turn !== onlineColor || !socket || socket.readyState !== WebSocket.OPEN) return;
-          socket.send(JSON.stringify({t: 'move', col}));
+          const s = activeSession;
+          if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || !s.socket || s.socket.readyState !== WebSocket.OPEN) return;
+          s.socket.send(JSON.stringify({t: 'move', col}));
           clearMarker();
           return;
         }
@@ -873,62 +1004,28 @@
         status.hidden = !visible;
         gameHint.hidden = !visible;
       }
-      function closeOnlineConnection() {
-        intentionalClose = true;
-        clearTimeout(reconnectTimer);
-        clearInterval(keepaliveTimer);
-        reconnectTimer = 0;
-        keepaliveTimer = 0;
-        connectionIndicator.hidden = true;
-        if (socket) {
-          socket.onclose = null;
-          socket.close();
-          socket = null;
-        }
+      // ---------- Online multi-game lobby (sessions, chat, voice notes) ----------
+      const SESSIONS_KEY = 'c4_sessions';
+      const VOICE_MAX_SECONDS = 30;
+      const ROOM_GONE_PATTERN = /not found|room is full|is full|expired|closed|invalid|gone|does not exist/i;
+      const memFallbackStore = {};
+      function storeGet(key) {
+        try { return window.localStorage.getItem(key); }
+        catch (_) { return Object.prototype.hasOwnProperty.call(memFallbackStore, key) ? memFallbackStore[key] : null; }
       }
-      function resetOnlineSession() {
-        closeOnlineConnection();
-        setOnlineBusy(false);
-        roomCode = ''; onlineToken = ''; onlineColor = 0; onlineState = null; reconnectAttempt = 0;
-        onlineSetup.hidden = false;
-        onlineLobby.hidden = true;
-        onlineError.textContent = '';
-        lobbyError.textContent = '';
-        onlinePanel.hidden = false;
-        setGameSurface(false);
-        newRound.hidden = true;
-        onlineGameActions.hidden = true;
+      function storeSet(key, value) {
+        try { window.localStorage.setItem(key, value); }
+        catch (_) { memFallbackStore[key] = value; }
       }
-      function switchMode(next) {
-        if (mode === 'online' && next !== 'online') closeOnlineConnection();
-        mode = next; scores = [0,0]; scoreText.textContent = '0—0';
-        scoreText.nextElementSibling.textContent = 'wins';
-        twoPlayer.classList.toggle('active', mode === 'two');
-        vsCpu.classList.toggle('active', mode === 'cpu');
-        playOnline.classList.toggle('active', mode === 'online');
-        difficultyControl.hidden = mode !== 'cpu';
-        if (mode === 'online') {
-          resetOnlineSession();
-          displayName.focus();
-          return;
-        }
-        onlinePanel.hidden = true;
-        setGameSurface(true);
-        newRound.hidden = false;
-        onlineGameActions.hidden = true;
-        redName.textContent = mode === 'cpu' ? 'You' : 'Red';
-        updateCpuLabel();
-        reset();
-      }
-      function setDifficulty(next) {
-        difficulty = next;
-        difficultyButtons.forEach(button => button.classList.toggle('active', button.dataset.difficulty === difficulty));
-        scores = [0,0]; scoreText.textContent = '0—0';
-        updateCpuLabel();
-        reset();
-      }
+      let sessions = [];
+      let activeSession = null;
+      let chatOpenFor = null;
+      let lobbyNoteTimer = 0;
+      let voiceRecorder = null, voiceChunks = [], voiceStart = 0, voiceSendIt = true;
+      let voiceCapTimer = 0, voiceTickTimer = 0, voiceStream = null;
+
       function cleanCode(value) {
-        return value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
+        return String(value || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
       }
       function validName() {
         const value = displayName.value.trim().replace(/\s+/g, ' ').slice(0, 24);
@@ -943,22 +1040,586 @@
         createGame.disabled = busy;
         joinGame.disabled = busy;
       }
-      function inviteLink() {
-        return `https://1v1.nz/connect-4/?code=${encodeURIComponent(roomCode)}`;
+      function inviteLinkFor(s) {
+        return `https://1v1.nz/connect-4/?code=${encodeURIComponent(s.code)}`;
       }
-      async function copyInvite(button) {
-        if (!roomCode) return;
-        const text = inviteLink();
+      async function shareInviteLink(s, button) {
+        if (!s) return;
+        const url = inviteLinkFor(s);
+        if (navigator.share) {
+          try { await navigator.share({ title: 'Play Connect Four with me', url }); } catch (_) {}
+          return;
+        }
         try {
-          await navigator.clipboard.writeText(text);
+          await navigator.clipboard.writeText(url);
         } catch (_) {
           const area = document.createElement('textarea');
-          area.value = text; area.style.position = 'fixed'; area.style.opacity = '0';
-          document.body.appendChild(area); area.select(); document.execCommand('copy'); area.remove();
+          area.value = url; area.style.position = 'fixed'; area.style.opacity = '0';
+          document.body.appendChild(area); area.select();
+          try { document.execCommand('copy'); } catch (_) {}
+          area.remove();
         }
-        const original = button.textContent;
-        button.textContent = 'Link copied';
-        setTimeout(() => { button.textContent = original; }, 1600);
+        if (button) {
+          const original = button.textContent;
+          button.textContent = 'Link copied';
+          setTimeout(() => { button.textContent = original; }, 1600);
+        }
+      }
+
+      // ----- session store -----
+      function makeSession(record) {
+        const series = (record && record.series) || {};
+        return {
+          code: cleanCode(record && record.code),
+          token: (record && record.token) || '',
+          name: (record && record.name) || 'You',
+          color: (record && record.color) || 0,
+          apiBase: record && 'apiBase' in record ? record.apiBase : null,
+          series: { w: Math.max(0, series.w | 0), l: Math.max(0, series.l | 0) },
+          socket: null, state: null, seatConfirmed: false,
+          intentionalClose: false, superseded: false, dropped: false,
+          reconnectAttempt: 0, connectFailures: 0, lastMessageAt: 0,
+          phase: 'idle', phaseError: '',
+          chat: [], chatUnread: 0, attention: false,
+          timers: { reconnect: 0, connectTimeout: 0, keepalive: 0, watchdog: 0 },
+        };
+      }
+      function sessionByCode(code) {
+        const clean = cleanCode(code);
+        return sessions.find(s => s.code === clean) || null;
+      }
+      function persistSessions() {
+        try {
+          const records = sessions.filter(s => !s.dropped).map(s => ({
+            code: s.code, token: s.token, name: s.name, color: s.color, apiBase: s.apiBase,
+            series: { w: s.series.w, l: s.series.l },
+          }));
+          storeSet(SESSIONS_KEY, JSON.stringify(records));
+        } catch (_) {}
+      }
+      function loadStoredSessions() {
+        let records = [];
+        try { records = JSON.parse(storeGet(SESSIONS_KEY) || '[]'); } catch (_) { records = []; }
+        sessions = (Array.isArray(records) ? records : [])
+          .filter(r => r && cleanCode(r.code).length === 6)
+          .map(makeSession);
+      }
+      function showLobbyNote(text) {
+        lobbyNote.textContent = text || '';
+        clearTimeout(lobbyNoteTimer);
+        if (text) lobbyNoteTimer = setTimeout(() => { lobbyNote.textContent = ''; }, 9000);
+      }
+      function dropSession(s, note) {
+        if (!s || s.dropped) return;
+        s.dropped = true;
+        closeSessionSocket(s, true);
+        sessions = sessions.filter(x => x !== s);
+        persistSessions();
+        if (chatOpenFor === s) { chatOpenFor = null; chatPanel.hidden = true; }
+        if (activeSession === s) { activeSession = null; showLobby(); }
+        setOnlineBusy(false);
+        renderLobby();
+        if (note) showLobbyNote(note);
+      }
+      function leaveSession(s) {
+        if (!s || s.dropped) return;
+        const playing = s.state && s.state.status === 'playing';
+        if (playing && !confirm('Leave this game? Leaving mid-game counts as a loss.')) return;
+        try {
+          if (s.socket && s.socket.readyState === WebSocket.OPEN) s.socket.send(JSON.stringify({ t: 'leave' }));
+        } catch (_) {}
+        setTimeout(() => dropSession(s, playing ? 'You left the game.' : ''), 450);
+      }
+
+      // ----- per-session connection -----
+      function clearSessionTimers(s) {
+        clearTimeout(s.timers.reconnect);
+        clearTimeout(s.timers.connectTimeout);
+        clearInterval(s.timers.keepalive);
+        clearInterval(s.timers.watchdog);
+        s.timers.reconnect = 0; s.timers.connectTimeout = 0;
+        s.timers.keepalive = 0; s.timers.watchdog = 0;
+      }
+      function closeSessionSocket(s, intentional) {
+        if (intentional) s.intentionalClose = true;
+        clearSessionTimers(s);
+        const current = s.socket;
+        s.socket = null;
+        if (current && current.readyState < WebSocket.CLOSING) { try { current.close(); } catch (_) {} }
+      }
+      function setPhase(s, phase, error = '') {
+        s.phase = phase;
+        s.phaseError = error;
+        if (s === activeSession && mode === 'online') renderGameView();
+        renderLobby();
+      }
+      function scheduleSessionReconnect(s, immediate = false) {
+        if (s.intentionalClose || s.dropped || s.superseded) return;
+        if (s.connectFailures >= MAX_CONNECT_FAILURES) {
+          setPhase(s, 'failed', 'Could not reconnect to the game server. Check your connection, then retry.');
+          return;
+        }
+        setPhase(s, 'reconnecting');
+        clearTimeout(s.timers.reconnect);
+        const delay = immediate ? 0 : Math.min(8000, 700 * Math.pow(1.7, s.reconnectAttempt++));
+        s.timers.reconnect = setTimeout(() => connectSession(s), delay);
+      }
+      function socketBaseFor(s) {
+        if (s.apiBase === FALLBACK_API_BASE) return 'wss://1v1.nz';
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${location.host}`;
+      }
+      function connectSession(s) {
+        if (!s || s.dropped || s.superseded) return;
+        if (s.socket && (s.socket.readyState === WebSocket.OPEN || s.socket.readyState === WebSocket.CONNECTING)) return;
+        s.intentionalClose = false;
+        clearSessionTimers(s);
+        setPhase(s, (s.seatConfirmed || s.connectFailures) ? 'reconnecting' : 'connecting');
+        let ws;
+        try {
+          ws = new WebSocket(`${socketBaseFor(s)}/api/rooms/${encodeURIComponent(s.code)}/ws`);
+        } catch (_) {
+          s.connectFailures++;
+          scheduleSessionReconnect(s);
+          return;
+        }
+        s.socket = ws;
+        s.timers.connectTimeout = setTimeout(() => {
+          if (s.socket === ws && ws.readyState !== WebSocket.OPEN) ws.close();
+        }, CONNECT_TIMEOUT_MS);
+        ws.addEventListener('open', () => {
+          if (s.socket !== ws) return;
+          clearTimeout(s.timers.connectTimeout);
+          s.timers.connectTimeout = 0;
+          s.lastMessageAt = Date.now();
+          const hello = { t: 'hello', name: s.name };
+          if (s.token) hello.token = s.token;
+          try { ws.send(JSON.stringify(hello)); } catch (_) {}
+          s.timers.keepalive = setInterval(() => {
+            if (s.socket === ws && ws.readyState === WebSocket.OPEN) { try { ws.send(JSON.stringify({ t: 'ping' })); } catch (_) {} }
+          }, 20000);
+          s.timers.watchdog = setInterval(() => {
+            if (s.socket === ws && ws.readyState === WebSocket.OPEN && Date.now() - s.lastMessageAt >= MESSAGE_WATCHDOG_MS) ws.close();
+          }, 5000);
+        });
+        ws.addEventListener('message', event => {
+          if (s.socket !== ws) return;
+          s.lastMessageAt = Date.now();
+          let message;
+          try { message = JSON.parse(event.data); } catch (_) { return; }
+          handleSessionMessage(s, message);
+        });
+        ws.addEventListener('close', event => {
+          if (s.socket !== ws) return;
+          s.socket = null;
+          clearSessionTimers(s);
+          if (s.intentionalClose || s.dropped) return;
+          if (event && event.code === 4400) {
+            // Seat reclaimed by another tab: stop auto-reconnect, offer takeover.
+            s.superseded = true;
+            setPhase(s, 'superseded');
+            return;
+          }
+          if (!s.seatConfirmed && s.apiBase === null && location.host !== '1v1.nz') {
+            s.apiBase = FALLBACK_API_BASE;
+            persistSessions();
+            scheduleSessionReconnect(s, true);
+            return;
+          }
+          s.connectFailures++;
+          scheduleSessionReconnect(s);
+        });
+        ws.addEventListener('error', () => {
+          if (s.socket === ws && ws.readyState < WebSocket.CLOSING) ws.close();
+        });
+      }
+      function retryActiveSession() {
+        const s = activeSession;
+        if (!s || s.dropped || s.superseded) return;
+        s.connectFailures = 0;
+        s.reconnectAttempt = 0;
+        lobbyError.textContent = '';
+        closeSessionSocket(s, true);
+        s.intentionalClose = false;
+        connectSession(s);
+      }
+      function takeoverSession() {
+        const s = activeSession;
+        if (!s) return;
+        s.superseded = false;
+        s.intentionalClose = false;
+        s.connectFailures = 0;
+        s.reconnectAttempt = 0;
+        connectSession(s);
+      }
+      function reconnectWhenAvailable() {
+        if (mode !== 'online') return;
+        for (const s of sessions) {
+          if (s.dropped || s.superseded || s.intentionalClose) continue;
+          if (!s.socket || s.socket.readyState === WebSocket.CLOSED) {
+            s.connectFailures = 0;
+            s.reconnectAttempt = 0;
+            connectSession(s);
+          }
+        }
+      }
+
+      // ----- incoming messages -----
+      function normalizeChatMessage(raw) {
+        const msg = raw || {};
+        return {
+          kind: 'text',
+          from: String(msg.from || 'Opponent').slice(0, 24),
+          color: msg.color | 0,
+          text: String(msg.text || '').slice(0, 500),
+          ts: msg.ts || Date.now(),
+        };
+      }
+      function chatMessageDuplicate(s, m) {
+        return s.chat.some(existing =>
+          existing.kind === m.kind &&
+          existing.from === m.from &&
+          (m.kind === 'voice' || existing.text === m.text) &&
+          Math.abs((existing.ts || 0) - (m.ts || 0)) < 15000
+        );
+      }
+      function pushChatMessage(s, m) {
+        if (!chatMessageDuplicate(s, m)) {
+          s.chat.push(m);
+          if (s.chat.length > 80) s.chat = s.chat.slice(-80);
+          return true;
+        }
+        return false;
+      }
+      function receiveChatMessage(s, m) {
+        const added = pushChatMessage(s, m);
+        if (!added) return;
+        if (chatOpenFor === s && !chatPanel.hidden) renderChat(s);
+        else {
+          s.chatUnread++;
+          if (s === activeSession) chatDot.hidden = false;
+          renderLobby();
+        }
+      }
+      function handleSessionMessage(s, message) {
+        if (!message || typeof message.t !== 'string') return;
+        if (message.t === 'joined') {
+          setOnlineBusy(false);
+          s.token = message.token || s.token;
+          s.color = message.color || s.color;
+          s.seatConfirmed = true;
+          s.connectFailures = 0;
+          s.reconnectAttempt = 0;
+          s.superseded = false;
+          if (s.apiBase === null) s.apiBase = location.host === '1v1.nz' ? FALLBACK_API_BASE : '';
+          persistSessions();
+          setPhase(s, 'confirmed');
+          if (message.state) applyState(s, message.state);
+        } else if (message.t === 'state' && message.state) {
+          applyState(s, message.state);
+        } else if (message.t === 'chat' && message.msg) {
+          receiveChatMessage(s, normalizeChatMessage(message.msg));
+        } else if (message.t === 'voice' && message.data) {
+          receiveChatMessage(s, {
+            kind: 'voice',
+            from: String(message.from || 'Opponent').slice(0, 24),
+            color: message.color | 0,
+            data: message.data,
+            dur: Math.min(60, Math.max(1, message.dur | 0)),
+            ts: message.ts || Date.now(),
+          });
+        } else if (message.t === 'error') {
+          handleSessionError(s, message.msg || 'The room could not be joined.');
+        }
+      }
+      function handleSessionError(s, text) {
+        if (!s.seatConfirmed || ROOM_GONE_PATTERN.test(text)) {
+          dropSession(s, s.seatConfirmed ? 'That game has ended.' : (text || ROOM_UNAVAILABLE_MESSAGE));
+          return;
+        }
+        if (s === activeSession && mode === 'online') {
+          if (s.state && (s.state.status === 'playing' || s.state.status === 'over')) statusText.textContent = text;
+          else lobbyError.textContent = text;
+        }
+      }
+      function applyState(s, state) {
+        const prev = s.state;
+        s.state = state;
+        s.code = cleanCode(state.code || s.code);
+        if (prev && prev.status !== 'over' && state.status === 'over') countSeriesResult(s, state);
+        if (prev && prev.status === 'playing' && state.status === 'playing' &&
+            prev.turn !== s.color && state.turn === s.color) {
+          yourTurnAlert(s);
+        }
+        if (Array.isArray(state.chat)) {
+          for (const raw of state.chat.slice(-50)) pushChatMessage(s, normalizeChatMessage(raw));
+          if (chatOpenFor === s && !chatPanel.hidden) renderChat(s);
+        }
+        if (s === activeSession && mode === 'online') renderGameView();
+        renderLobby();
+      }
+      function countSeriesResult(s, state) {
+        const winner = state.winner | 0;
+        if (!winner || winner === 3 || !s.color) return;
+        if (winner === s.color) s.series.w++;
+        else s.series.l++;
+        persistSessions();
+      }
+      function yourTurnAlert(s) {
+        if (s !== activeSession) s.attention = true;
+        try {
+          sound(660);
+          setTimeout(() => { try { sound(880); } catch (_) {} }, 150);
+          if (document.hidden && 'vibrate' in navigator) navigator.vibrate(200);
+        } catch (_) {}
+        renderLobby();
+      }
+
+      // ----- lobby rendering -----
+      function opponentOf(s) {
+        const players = (s.state && Array.isArray(s.state.players)) ? s.state.players : [];
+        return players.find(p => p.color && p.color !== s.color) || null;
+      }
+      function opponentName(s) {
+        const opp = opponentOf(s);
+        return (opp && opp.name) ? opp.name : 'Waiting for opponent…';
+      }
+      function sessionBadge(s) {
+        if (s.superseded) return ['Open in another tab', 'warn'];
+        if (s.phase === 'failed') return ['Connection failed', 'warn'];
+        if (!s.state) return [s.phase === 'reconnecting' ? 'Reconnecting…' : 'Connecting…', 'muted'];
+        const st = s.state;
+        if (st.status === 'waiting') return ['Waiting', 'muted'];
+        if (st.status === 'over') return ['Finished', 'muted'];
+        return st.turn === s.color ? ['Your turn', 'yours'] : ['Their turn', 'theirs'];
+      }
+      function renderLobby() {
+        sessionList.innerHTML = '';
+        if (!sessions.length) {
+          const empty = document.createElement('p');
+          empty.className = 'lobby-empty';
+          empty.textContent = 'No online games yet — create one below or join with an invite code.';
+          sessionList.appendChild(empty);
+          return;
+        }
+        for (const s of sessions) {
+          const entry = document.createElement('div');
+          entry.className = 'session-entry' + (s.attention ? ' has-attention' : '');
+          entry.setAttribute('role', 'listitem');
+          const open = document.createElement('button');
+          open.type = 'button';
+          open.className = 'session-open';
+          open.setAttribute('aria-label', `Open game with ${opponentName(s)}, room ${s.code}`);
+          const nameEl = document.createElement('strong');
+          nameEl.className = 'session-name';
+          nameEl.textContent = opponentName(s);
+          const codeEl = document.createElement('span');
+          codeEl.className = 'session-code';
+          codeEl.textContent = s.code;
+          const titleWrap = document.createElement('span');
+          titleWrap.className = 'session-title';
+          titleWrap.append(nameEl, codeEl);
+          const metaEl = document.createElement('span');
+          metaEl.className = 'session-meta';
+          const [badgeText, badgeKind] = sessionBadge(s);
+          const badge = document.createElement('span');
+          badge.className = 'session-badge ' + badgeKind;
+          badge.textContent = badgeText;
+          const series = document.createElement('span');
+          series.className = 'session-series';
+          series.textContent = `${s.series.w}–${s.series.l}`;
+          series.title = 'Series score';
+          metaEl.append(badge, series);
+          if (s.chatUnread > 0) {
+            const unread = document.createElement('span');
+            unread.className = 'session-unread';
+            unread.textContent = s.chatUnread > 9 ? '9+' : String(s.chatUnread);
+            unread.title = 'Unread messages';
+            metaEl.appendChild(unread);
+          }
+          open.append(titleWrap, metaEl);
+          if (s.attention) {
+            const dot = document.createElement('span');
+            dot.className = 'session-dot';
+            dot.setAttribute('aria-label', 'Your turn');
+            open.appendChild(dot);
+          }
+          open.addEventListener('click', () => openSession(s.code));
+          const leave = document.createElement('button');
+          leave.type = 'button';
+          leave.className = 'session-leave';
+          leave.setAttribute('aria-label', `Leave game ${s.code}`);
+          leave.textContent = '✕';
+          leave.addEventListener('click', event => { event.stopPropagation(); leaveSession(s); });
+          entry.append(open, leave);
+          sessionList.appendChild(entry);
+        }
+      }
+
+      // ----- navigation -----
+      function openSession(code) {
+        const s = sessionByCode(code);
+        if (!s || s.dropped) return;
+        activeSession = s;
+        s.attention = false;
+        onlinePanel.hidden = true;
+        chatPanel.hidden = true;
+        chatOpenFor = null;
+        renderGameView();
+        renderLobby();
+        if (!s.superseded && (!s.socket || (s.socket.readyState !== WebSocket.OPEN && s.socket.readyState !== WebSocket.CONNECTING))) {
+          connectSession(s);
+        }
+      }
+      function showLobby() {
+        activeSession = null;
+        chatOpenFor = null;
+        chatPanel.hidden = true;
+        gameHeader.hidden = true;
+        waitingCard.hidden = true;
+        connectionRecovery.hidden = true;
+        onlinePanel.hidden = false;
+        setGameSurface(false);
+        newRound.hidden = true;
+        onlineGameActions.hidden = true;
+        renderLobby();
+      }
+      function switchMode(next) {
+        // Sessions keep their sockets alive in the background while in other modes.
+        mode = next; scores = [0,0]; scoreText.textContent = '0—0';
+        scoreText.nextElementSibling.textContent = 'wins';
+        twoPlayer.classList.toggle('active', mode === 'two');
+        vsCpu.classList.toggle('active', mode === 'cpu');
+        playOnline.classList.toggle('active', mode === 'online');
+        difficultyControl.hidden = mode !== 'cpu';
+        if (mode === 'online') {
+          setOnlineBusy(false);
+          showLobby();
+          return;
+        }
+        onlinePanel.hidden = true;
+        gameHeader.hidden = true;
+        waitingCard.hidden = true;
+        chatPanel.hidden = true;
+        chatOpenFor = null;
+        connectionRecovery.hidden = true;
+        setGameSurface(true);
+        newRound.hidden = false;
+        onlineGameActions.hidden = true;
+        redName.textContent = mode === 'cpu' ? 'You' : 'Red';
+        updateCpuLabel();
+        reset();
+      }
+      function setDifficulty(next) {
+        difficulty = next;
+        difficultyButtons.forEach(button => button.classList.toggle('active', button.dataset.difficulty === difficulty));
+        scores = [0,0]; scoreText.textContent = '0—0';
+        updateCpuLabel();
+        reset();
+      }
+
+      // ----- game view -----
+      function renderGameView() {
+        const s = activeSession;
+        if (!s || mode !== 'online') return;
+        onlinePanel.hidden = true;
+        gameHeader.hidden = false;
+        ghOpponent.textContent = opponentName(s);
+        ghSeries.textContent = `Series ${s.series.w}–${s.series.l}`;
+        chatDot.hidden = s.chatUnread === 0;
+        const st = s.state;
+        const inGame = st && st.status !== 'waiting';
+        if (s.superseded) {
+          setGameSurface(false);
+          waitingCard.hidden = false;
+          inviteCode.textContent = s.code;
+          lobbyStatus.textContent = 'Open in another tab';
+          lobbyError.textContent = '';
+          shareInvite.hidden = true;
+          retryLobbyConnection.hidden = true;
+          renderRecoveryBanner(s);
+          return;
+        }
+        shareInvite.hidden = false;
+        if (!inGame) {
+          setGameSurface(false);
+          onlineGameActions.hidden = true;
+          waitingCard.hidden = false;
+          inviteCode.textContent = s.code;
+          lobbyError.textContent = '';
+          if (s.phase === 'failed') {
+            lobbyStatus.textContent = 'Unable to connect';
+            lobbyError.textContent = s.phaseError;
+            retryLobbyConnection.hidden = false;
+          } else {
+            lobbyStatus.textContent = s.phase === 'connecting' ? 'Connecting…' : s.phase === 'reconnecting' ? 'Reconnecting…' : 'Waiting for opponent…';
+            retryLobbyConnection.hidden = true;
+          }
+          renderRecoveryBanner(s);
+          return;
+        }
+        waitingCard.hidden = true;
+        renderSessionState(s);
+        renderRecoveryBanner(s);
+      }
+      function renderRecoveryBanner(s) {
+        takeoverButton.hidden = !s.superseded;
+        if (s.superseded) {
+          connectionRecovery.hidden = false;
+          connectionIndicator.textContent = 'This game is open in another tab.';
+          retryGameConnection.hidden = true;
+          return;
+        }
+        if (s.phase === 'connecting' || s.phase === 'reconnecting' || s.phase === 'failed') {
+          connectionRecovery.hidden = false;
+          connectionIndicator.textContent = s.phase === 'failed'
+            ? (s.phaseError || 'Connection lost')
+            : s.phase === 'connecting' ? 'Connecting…' : 'Reconnecting…';
+          retryGameConnection.hidden = s.phase !== 'failed';
+          return;
+        }
+        connectionRecovery.hidden = true;
+        retryGameConnection.hidden = true;
+      }
+      function renderSessionState(s) {
+        const state = s.state;
+        if (!state) return;
+        setGameSurface(true);
+        turn = state.turn || 1;
+        ended = state.status === 'over';
+        const players = Array.isArray(state.players) ? state.players : [];
+        const red = players.find(player => player.color === 1);
+        const gold = players.find(player => player.color === 2);
+        redName.textContent = red?.name || 'Red';
+        goldName.textContent = gold?.name || 'Yellow';
+        scoreText.textContent = s.code;
+        scoreText.nextElementSibling.textContent = 'room';
+        renderOnlineBoard(Array.isArray(state.board) ? state.board : Array.from({length: ROWS}, () => Array(COLS).fill(0)), state.winningCells || []);
+        newRound.hidden = true;
+        const mine = players.find(player => player.color === s.color);
+        const opponent = players.find(player => player.color !== s.color);
+        redPlayer.classList.toggle('active', state.status === 'playing' && state.turn === 1);
+        goldPlayer.classList.toggle('active', state.status === 'playing' && state.turn === 2);
+        status.classList.toggle('gold', state.turn === 2);
+        arena.style.setProperty('--turn-color', state.turn === 1 ? 'var(--red)' : 'var(--gold)');
+        const opponentGone = !opponent || opponent.connected === false;
+        locked = state.status !== 'playing' || state.turn !== s.color || opponentGone || !mine?.connected;
+        resignButton.hidden = state.status !== 'playing';
+        if (state.status === 'over') {
+          const result = state.winner === 3 ? 'A perfect draw' : state.winner === s.color ? 'You win!' : `${players.find(player => player.color === state.winner)?.name || (state.winner === 1 ? 'Red' : 'Yellow')} wins`;
+          statusText.textContent = result;
+          onlineGameActions.hidden = false;
+          if (state.winner === s.color) {
+            celebrate(s.color === 1 ? '#f04455' : '#ffbf2f');
+            sound(520, true);
+          }
+        } else {
+          onlineGameActions.hidden = true;
+          if (opponentGone) statusText.textContent = 'Opponent disconnected — waiting for them to return';
+          else if (state.turn === s.color) statusText.textContent = 'Your move';
+          else statusText.textContent = `${players.find(player => player.color === state.turn)?.name || 'Opponent'} to move`;
+        }
+        clearMarker();
       }
       function renderOnlineBoard(nextBoard, winningCells = []) {
         const previous = grid ? grid.map(row => row.slice()) : Array.from({length: ROWS}, () => Array(COLS).fill(0));
@@ -986,125 +1647,17 @@
           burstAt(newest.cell, newest.value === 1 ? '#f04455' : '#ffbf2f', 8);
         }
       }
-      function renderOnlineState(state) {
-        onlineState = state;
-        roomCode = cleanCode(state.code || roomCode);
-        inviteCode.textContent = roomCode || '——';
-        turn = state.turn || 1;
-        ended = state.status === 'over';
-        const players = Array.isArray(state.players) ? state.players : [];
-        const red = players.find(player => player.color === 1);
-        const gold = players.find(player => player.color === 2);
-        redName.textContent = red?.name || 'Red';
-        goldName.textContent = gold?.name || 'Yellow';
-        scoreText.textContent = roomCode;
-        scoreText.nextElementSibling.textContent = 'room';
-        renderOnlineBoard(Array.isArray(state.board) ? state.board : Array.from({length: ROWS}, () => Array(COLS).fill(0)), state.winningCells || []);
-        if (state.status === 'waiting') {
-          onlinePanel.hidden = false;
-          onlineSetup.hidden = true;
-          onlineLobby.hidden = false;
-          setGameSurface(false);
-          lobbyStatus.textContent = 'Waiting for opponent…';
-          onlineGameActions.hidden = true;
-          return;
-        }
-        onlinePanel.hidden = true;
-        setGameSurface(true);
-        newRound.hidden = true;
-        const mine = players.find(player => player.color === onlineColor);
-        const opponent = players.find(player => player.color !== onlineColor);
-        redPlayer.classList.toggle('active', state.status === 'playing' && state.turn === 1);
-        goldPlayer.classList.toggle('active', state.status === 'playing' && state.turn === 2);
-        status.classList.toggle('gold', state.turn === 2);
-        arena.style.setProperty('--turn-color', state.turn === 1 ? 'var(--red)' : 'var(--gold)');
-        const opponentGone = !opponent || opponent.connected === false;
-        locked = state.status !== 'playing' || state.turn !== onlineColor || opponentGone || !mine?.connected;
-        if (state.status === 'over') {
-          const result = state.winner === 3 ? 'A perfect draw' : state.winner === onlineColor ? 'You win!' : `${players.find(player => player.color === state.winner)?.name || (state.winner === 1 ? 'Red' : 'Yellow')} wins`;
-          statusText.textContent = result;
-          onlineGameActions.hidden = false;
-          if (state.winner === onlineColor) {
-            celebrate(onlineColor === 1 ? '#f04455' : '#ffbf2f');
-            sound(520, true);
-          }
-        } else {
-          onlineGameActions.hidden = true;
-          if (opponentGone) statusText.textContent = 'Opponent disconnected — waiting for them to return';
-          else if (state.turn === onlineColor) statusText.textContent = 'Your move';
-          else statusText.textContent = `${players.find(player => player.color === state.turn)?.name || 'Opponent'} to move`;
-        }
-        clearMarker();
-      }
-      function scheduleReconnect() {
-        if (intentionalClose || mode !== 'online' || !roomCode || !onlineToken) return;
-        connectionIndicator.hidden = false;
-        clearTimeout(reconnectTimer);
-        const delay = Math.min(8000, 700 * Math.pow(1.7, reconnectAttempt++));
-        reconnectTimer = setTimeout(connectOnline, delay);
-      }
-      function connectOnline() {
-        if (mode !== 'online' || !roomCode || !onlineName) return;
-        intentionalClose = false;
-        clearTimeout(reconnectTimer);
-        const sameOriginProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const socketBase = onlineApiBase === FALLBACK_API_BASE
-          ? 'wss://1v1.nz'
-          : `${sameOriginProtocol}//${location.host}`;
-        socket = new WebSocket(`${socketBase}/api/rooms/${encodeURIComponent(roomCode)}/ws`);
-        socket.addEventListener('open', () => {
-          const hello = {t: 'hello', name: onlineName};
-          if (onlineToken) hello.token = onlineToken;
-          socket.send(JSON.stringify(hello));
-          reconnectAttempt = 0;
-          connectionIndicator.hidden = true;
-          clearInterval(keepaliveTimer);
-          keepaliveTimer = setInterval(() => {
-            if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({t: 'ping'}));
-          }, 20000);
-        });
-        socket.addEventListener('message', event => {
-          let message;
-          try { message = JSON.parse(event.data); } catch (_) { return; }
-          if (message.t === 'joined') {
-            setOnlineBusy(false);
-            onlineToken = message.token || onlineToken;
-            onlineColor = message.color || onlineColor;
-            if (message.state) renderOnlineState(message.state);
-          } else if (message.t === 'state' && message.state) {
-            renderOnlineState(message.state);
-          } else if (message.t === 'error') {
-            const text = message.msg || 'The room could not be joined.';
-            if (onlineState?.status === 'playing' || onlineState?.status === 'over') statusText.textContent = text;
-            else (onlineState?.status === 'waiting' ? lobbyError : onlineError).textContent = text;
-          }
-        });
-        socket.addEventListener('close', () => {
-          clearInterval(keepaliveTimer);
-          if (intentionalClose || mode !== 'online') return;
-          if (onlineToken) scheduleReconnect();
-          else {
-            setOnlineBusy(false);
-            onlinePanel.hidden = false;
-            onlineSetup.hidden = false;
-            onlineLobby.hidden = true;
-            setGameSurface(false);
-            onlineError.textContent = ROOM_UNAVAILABLE_MESSAGE;
-          }
-        });
-        socket.addEventListener('error', () => socket.close());
-      }
+
+      // ----- create / join -----
       async function createOnlineGame() {
         const name = validName();
         if (!name) return;
-        onlineName = name;
         onlineError.textContent = '';
         setOnlineBusy(true);
         let room = null;
         let selectedBase = null;
         let lastFailure = 'network';
-        const bases = onlineApiBase === null ? ['', FALLBACK_API_BASE] : [onlineApiBase];
-        for (const apiBase of bases) {
+        for (const apiBase of ['', FALLBACK_API_BASE]) {
           const endpoint = apiBase ? `${apiBase}/api/rooms` : '/api/rooms';
           let response;
           try {
@@ -1121,8 +1674,7 @@
           if (!response.ok) continue;
           let candidate;
           try { candidate = await response.json(); } catch (_) { continue; }
-          const candidateCode = cleanCode(candidate.code || '');
-          if (candidateCode.length !== 6 || !candidate.token) continue;
+          if (cleanCode(candidate.code || '').length !== 6 || !candidate.token) continue;
           room = candidate;
           selectedBase = apiBase;
           break;
@@ -1134,15 +1686,10 @@
               : 'Could not reach the game server. Check your connection and try again.';
             return;
           }
-          onlineApiBase = selectedBase;
-          roomCode = cleanCode(room.code || '');
-          onlineToken = room.token;
-          onlineColor = room.color || 1;
-          onlineSetup.hidden = true;
-          onlineLobby.hidden = false;
-          inviteCode.textContent = roomCode;
-          lobbyStatus.textContent = 'Waiting for opponent…';
-          connectOnline();
+          const s = makeSession({ code: room.code, token: room.token, name, color: room.color || 1, apiBase: selectedBase });
+          sessions.unshift(s);
+          persistSessions();
+          openSession(s.code);
         } finally {
           setOnlineBusy(false);
         }
@@ -1157,11 +1704,197 @@
           joinCode.focus();
           return;
         }
-        onlineName = name; roomCode = code; onlineToken = ''; onlineColor = 0; onlineState = null;
+        const existing = sessionByCode(code);
+        if (existing) {
+          openSession(code);
+          return;
+        }
+        const s = makeSession({ code, token: '', name, color: 0, apiBase: null });
+        sessions.unshift(s);
+        persistSessions();
         onlineError.textContent = '';
         setOnlineBusy(true);
-        connectOnline();
+        openSession(code);
       }
+      async function roomAlive(s) {
+        const base = s.apiBase || '';
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 6000);
+          const response = await fetch(`${base}/api/rooms/${encodeURIComponent(s.code)}`, { signal: controller.signal });
+          clearTimeout(timer);
+          return response.status !== 404;
+        } catch (_) {
+          return true;
+        }
+      }
+      async function restoreAllSessions() {
+        const results = await Promise.all(sessions.slice().map(async s => ({ s, alive: await roomAlive(s) })));
+        let ended = 0;
+        for (const { s, alive } of results) {
+          if (!alive) { dropSession(s); ended++; continue; }
+          connectSession(s);
+        }
+        if (ended > 0) showLobbyNote(ended === 1 ? 'One of your saved games has ended.' : `${ended} of your saved games have ended.`);
+      }
+
+      // ----- chat -----
+      function openChat() {
+        const s = activeSession;
+        if (!s) return;
+        chatOpenFor = s;
+        s.chatUnread = 0;
+        chatDot.hidden = true;
+        chatTitle.textContent = `Chat · ${opponentName(s)}`;
+        renderChat(s);
+        chatPanel.hidden = false;
+        renderLobby();
+        setTimeout(() => { try { chatInput.focus({ preventScroll: true }); } catch (_) { chatInput.focus(); } }, 60);
+      }
+      function closeChat() {
+        stopVoiceRecording(false);
+        chatOpenFor = null;
+        chatPanel.hidden = true;
+      }
+      function renderChat(s) {
+        chatHistory.innerHTML = '';
+        for (const m of s.chat) chatHistory.appendChild(chatBubble(m, s));
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      }
+      function chatBubble(m, s) {
+        const mine = m.color !== 0 && m.color === s.color;
+        const wrap = document.createElement('div');
+        wrap.className = 'chat-msg' + (mine ? ' mine' : '');
+        const meta = document.createElement('div');
+        meta.className = 'chat-meta';
+        const when = m.ts ? new Date(m.ts) : null;
+        meta.textContent = (mine ? 'You' : (m.from || 'Opponent')) + (when ? ` · ${when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '');
+        wrap.appendChild(meta);
+        if (m.kind === 'voice') {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'voice-bubble';
+          btn.setAttribute('aria-label', `Play voice note, ${m.dur || 0} seconds`);
+          const icon = document.createElement('span');
+          icon.className = 'voice-icon';
+          icon.textContent = '▶';
+          const label = document.createElement('span');
+          label.textContent = `Voice note · ${m.dur || 0}s`;
+          btn.append(icon, label);
+          let audioEl = null, playing = false;
+          btn.addEventListener('click', () => {
+            try {
+              if (!audioEl) {
+                audioEl = new Audio('data:audio/webm;base64,' + m.data);
+                audioEl.addEventListener('play', () => { playing = true; icon.textContent = '⏸'; });
+                const stopped = () => { playing = false; icon.textContent = '▶'; };
+                audioEl.addEventListener('pause', stopped);
+                audioEl.addEventListener('ended', stopped);
+              }
+              if (playing) audioEl.pause();
+              else audioEl.play().catch(() => {});
+            } catch (_) {}
+          });
+          wrap.appendChild(btn);
+        } else {
+          const body = document.createElement('div');
+          body.className = 'chat-text';
+          body.textContent = m.text;
+          wrap.appendChild(body);
+        }
+        return wrap;
+      }
+      function sendChatMessage() {
+        const s = chatOpenFor || activeSession;
+        if (!s || s.dropped) return;
+        const text = chatInput.value.trim().slice(0, 500);
+        if (!text) return;
+        chatInput.value = '';
+        try {
+          if (s.socket && s.socket.readyState === WebSocket.OPEN) s.socket.send(JSON.stringify({ t: 'chat', text }));
+        } catch (_) {}
+        receiveChatMessage(s, { kind: 'text', from: s.name, color: s.color, text, ts: Date.now() });
+      }
+
+      // ----- voice notes (live relay only, never stored server-side) -----
+      function cleanupVoiceStream() {
+        if (voiceStream) { try { voiceStream.getTracks().forEach(t => t.stop()); } catch (_) {} voiceStream = null; }
+      }
+      async function toggleVoiceRecording() {
+        if (voiceRecorder) { stopVoiceRecording(true); return; }
+        const s = chatOpenFor || activeSession;
+        if (!s || s.dropped) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+          chatRec.hidden = false;
+          chatRecTime.textContent = 'voice notes are not supported in this browser';
+          setTimeout(() => { chatRec.hidden = true; }, 2200);
+          return;
+        }
+        try {
+          voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (_) {
+          chatRec.hidden = false;
+          chatRecTime.textContent = 'microphone unavailable';
+          setTimeout(() => { if (!voiceRecorder) chatRec.hidden = true; }, 2200);
+          return;
+        }
+        const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+        voiceRecorder = mime ? new MediaRecorder(voiceStream, { mimeType: mime }) : new MediaRecorder(voiceStream);
+        voiceChunks = [];
+        voiceStart = Date.now();
+        voiceSendIt = true;
+        voiceRecorder.ondataavailable = event => { if (event.data && event.data.size) voiceChunks.push(event.data); };
+        voiceRecorder.onstop = () => finishVoiceRecording(s);
+        try { voiceRecorder.start(); } catch (_) { stopVoiceRecording(false); return; }
+        chatRec.hidden = false;
+        chatRecTime.textContent = '0';
+        micButton.classList.add('recording');
+        voiceTickTimer = setInterval(() => {
+          chatRecTime.textContent = String(Math.min(VOICE_MAX_SECONDS, Math.round((Date.now() - voiceStart) / 1000)));
+        }, 500);
+        voiceCapTimer = setTimeout(() => stopVoiceRecording(true), VOICE_MAX_SECONDS * 1000);
+      }
+      function stopVoiceRecording(sendIt) {
+        clearTimeout(voiceCapTimer);
+        clearInterval(voiceTickTimer);
+        voiceCapTimer = 0; voiceTickTimer = 0;
+        micButton.classList.remove('recording');
+        voiceSendIt = !!sendIt;
+        const rec = voiceRecorder;
+        voiceRecorder = null;
+        if (rec && rec.state !== 'inactive') { try { rec.stop(); } catch (_) { cleanupVoiceStream(); chatRec.hidden = true; } }
+        else { cleanupVoiceStream(); chatRec.hidden = true; }
+      }
+      function finishVoiceRecording(s) {
+        clearTimeout(voiceCapTimer);
+        clearInterval(voiceTickTimer);
+        voiceCapTimer = 0; voiceTickTimer = 0;
+        micButton.classList.remove('recording');
+        cleanupVoiceStream();
+        chatRec.hidden = true;
+        const sendIt = voiceSendIt;
+        voiceSendIt = true;
+        const chunks = voiceChunks;
+        voiceChunks = [];
+        if (!sendIt || !chunks.length || !s || s.dropped) return;
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const dur = Math.max(1, Math.min(60, Math.round((Date.now() - voiceStart) / 1000)));
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const dataUrl = String(reader.result || '');
+            const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+            if (!base64 || base64.length > 650000) return;
+            if (s.socket && s.socket.readyState === WebSocket.OPEN) {
+              s.socket.send(JSON.stringify({ t: 'voice', data: base64, dur }));
+            }
+            receiveChatMessage(s, { kind: 'voice', from: s.name, color: s.color, data: base64, dur, ts: Date.now() });
+          } catch (_) {}
+        };
+        try { reader.readAsDataURL(blob); } catch (_) {}
+      }
+
+      // ----- online UI wiring -----
       twoPlayer.addEventListener('click', () => switchMode('two'));
       vsCpu.addEventListener('click', () => switchMode('cpu'));
       playOnline.addEventListener('click', () => switchMode('online'));
@@ -1170,12 +1903,45 @@
       createGame.addEventListener('click', createOnlineGame);
       onlineForm.addEventListener('submit', event => { event.preventDefault(); joinOnlineGame(); });
       joinCode.addEventListener('input', () => { joinCode.value = cleanCode(joinCode.value); });
-      copyLobbyLink.addEventListener('click', () => copyInvite(copyLobbyLink));
-      copyGameLink.addEventListener('click', () => copyInvite(copyGameLink));
-      leaveOnline.addEventListener('click', () => resetOnlineSession());
+      lobbyNewGame.addEventListener('click', () => { onlineSetup.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); displayName.focus(); });
+      shareInvite.addEventListener('click', () => shareInviteLink(activeSession, shareInvite));
+      copyGameLink.addEventListener('click', () => shareInviteLink(activeSession, copyGameLink));
+      retryLobbyConnection.addEventListener('click', retryActiveSession);
+      retryGameConnection.addEventListener('click', retryActiveSession);
+      takeoverButton.addEventListener('click', takeoverSession);
+      leaveOnline.addEventListener('click', () => { if (activeSession) leaveSession(activeSession); });
+      backToLobby.addEventListener('click', showLobby);
+      chatToggle.addEventListener('click', () => { chatPanel.hidden ? openChat() : closeChat(); });
+      chatClose.addEventListener('click', closeChat);
+      chatForm.addEventListener('submit', event => { event.preventDefault(); sendChatMessage(); });
+      micButton.addEventListener('click', toggleVoiceRecording);
+      chatRecStop.addEventListener('click', () => stopVoiceRecording(true));
+      resignButton.addEventListener('click', () => {
+        const s = activeSession;
+        if (!s || !s.state || s.state.status !== 'playing') return;
+        if (confirm('Resign this game?')) {
+          try { if (s.socket && s.socket.readyState === WebSocket.OPEN) s.socket.send(JSON.stringify({ t: 'resign' })); } catch (_) {}
+        }
+      });
+      leaveGameButton.addEventListener('click', () => { if (activeSession) leaveSession(activeSession); });
+      ghSeries.addEventListener('click', () => {
+        const s = activeSession;
+        if (!s) return;
+        if (confirm(`Reset your series score against ${opponentName(s)}?`)) {
+          s.series = { w: 0, l: 0 };
+          persistSessions();
+          renderGameView();
+          renderLobby();
+        }
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reconnectWhenAvailable();
+      });
+      addEventListener('online', reconnectWhenAvailable);
       rematch.addEventListener('click', () => {
-        if (socket?.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({t: 'rematch'}));
+        const s = activeSession;
+        if (s && s.socket && s.socket.readyState === WebSocket.OPEN) {
+          s.socket.send(JSON.stringify({t: 'rematch'}));
           rematch.disabled = true;
           setTimeout(() => { rematch.disabled = false; }, 1000);
         }
@@ -1317,14 +2083,26 @@
       addEventListener('pointermove', e => {mouse.x=e.clientX;mouse.y=e.clientY;});
       addEventListener('resize', resize); resize(); background(); reset();
 
+      loadStoredSessions();
       const sharedCode = cleanCode(new URLSearchParams(location.search).get('code') || '');
       if (sharedCode.length === 6) {
-        joinCode.value = sharedCode;
         switchMode('online');
-        onlineSetup.querySelector('p').textContent = `Enter a guest name to join room ${sharedCode}.`;
-        joinCode.closest('label').hidden = true;
-        createGame.hidden = true;
-        joinGame.textContent = `Join ${sharedCode}`;
+        const existing = sessionByCode(sharedCode);
+        if (existing) {
+          // Reclaim the saved seat in this tab instead of joining as a stranger.
+          showLobbyNote('Welcome back — reconnecting to your game…');
+          openSession(sharedCode);
+        } else {
+          joinCode.value = sharedCode;
+          const setupIntro = onlineSetup.querySelector('p');
+          if (setupIntro) setupIntro.textContent = `Enter a guest name to join room ${sharedCode}.`;
+          joinCode.closest('label').hidden = true;
+          createGame.hidden = true;
+          joinGame.textContent = `Join ${sharedCode}`;
+          displayName.focus();
+        }
+      } else {
+        restoreAllSessions();
       }
     })();
   </script>
