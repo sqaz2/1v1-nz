@@ -5,7 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#071120">
 <title>Battleship · 1v1.nz</title>
-<link rel="icon" href="assets/icon.png" type="image/png">
+<meta name="description" content="Phone-first Battleship on 1v1.nz — sink the fleet vs CPU or a friend online.">
+<link rel="icon" href="assets/icon.png" type="image/png" sizes="256x256">
+<link rel="shortcut icon" href="assets/icon.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/icon.png" sizes="256x256">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="1v1.nz">
+<meta property="og:title" content="Battleship · 1v1.nz">
+<meta property="og:description" content="Phone-first Battleship — sink the fleet vs CPU or a friend online.">
+<meta property="og:url" content="https://1v1.nz/battleship/">
+<meta property="og:image" content="https://1v1.nz/battleship/assets/hero.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="675">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Battleship · 1v1.nz">
+<meta name="twitter:description" content="Phone-first Battleship — sink the fleet vs CPU or a friend online.">
+<meta name="twitter:image" content="https://1v1.nz/battleship/assets/hero.jpg">
 <style>
   :root {
     --bg0: #050d1a; --bg1: #0a1c36; --card: #0c1f3d; --card2: #0f2749;
@@ -157,10 +172,6 @@
     background-size: 85% 85%; background-repeat: no-repeat; background-position: center;
     z-index: 3;
   }
-  .bcell.sunk::after {
-    content: ""; position: absolute; left: 12%; right: 12%; top: 48%; height: 2px; background: rgba(255,255,255,.75);
-    transform: rotate(-18deg);
-  }
   .bcell.last { box-shadow: 0 0 0 2px var(--gold), 0 0 12px var(--gold); animation: pulse 1.4s ease-in-out infinite; }
   @keyframes pulse { 50% { box-shadow: 0 0 0 2px var(--gold), 0 0 4px var(--gold); } }
 
@@ -198,8 +209,88 @@
     transform: translate(-50%, -50%) rotate(90deg);
     object-fit: contain;
   }
-  .ship-sprite.sunk img { filter: drop-shadow(0 2px 5px rgba(0,0,0,.7)) grayscale(.35) brightness(.85); }
+  .ship-sprite.sunk img {
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,.85)) grayscale(.55) brightness(.48) contrast(1.15);
+  }
   .ship-sprite.hit:not(.sunk) img { filter: drop-shadow(0 2px 5px rgba(0,0,0,.7)) saturate(1.1); }
+  /* Crack lines + soft smoke over sunk hull (own board sprites). */
+  .ship-sprite.sunk::before {
+    content: ""; position: absolute; inset: 8% 6%; z-index: 2; pointer-events: none;
+    background:
+      linear-gradient(118deg, transparent 46%, rgba(0,0,0,.75) 48%, rgba(40,10,10,.9) 50%, transparent 52%),
+      linear-gradient(28deg, transparent 42%, rgba(0,0,0,.55) 49%, rgba(255,180,120,.35) 50%, transparent 58%),
+      linear-gradient(-12deg, transparent 55%, rgba(0,0,0,.65) 57%, transparent 60%);
+    mix-blend-mode: multiply; opacity: .9;
+  }
+  .ship-sprite.sunk .wreck-smoke {
+    position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: visible;
+  }
+  .ship-sprite.sunk .wreck-smoke i {
+    position: absolute; width: 10px; height: 10px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(180,190,200,.55) 0%, rgba(90,100,110,.25) 45%, transparent 70%);
+    left: var(--sx, 50%); bottom: var(--sy, 35%);
+    animation: wreck-smoke-rise var(--dur, 2.4s) ease-out infinite;
+    animation-delay: var(--delay, 0s);
+    opacity: 0; filter: blur(1px);
+  }
+  @keyframes wreck-smoke-rise {
+    0%   { transform: translate(-50%, 0) scale(.55); opacity: 0; }
+    12%  { opacity: .55; }
+    55%  { opacity: .35; }
+    100% { transform: translate(calc(-50% + var(--drift, 6px)), -28px) scale(1.35); opacity: 0; }
+  }
+  /* Enemy / cell sunk: keep explosion, add light smoke wisps (phone-readable). */
+  .bcell.sunk::before,
+  .bcell.shipsunk::before {
+    content: ""; position: absolute; left: 50%; bottom: 42%; width: 7px; height: 7px;
+    margin-left: -3.5px; border-radius: 50%; pointer-events: none; z-index: 4;
+    background: radial-gradient(circle, rgba(200,210,220,.5) 0%, transparent 70%);
+    animation: cell-smoke 2.1s ease-out infinite;
+    filter: blur(.6px);
+  }
+  .bcell.sunk::after {
+    content: ""; position: absolute; left: 12%; right: 12%; top: 48%; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255,220,180,.85), transparent);
+    transform: rotate(-18deg); box-shadow: 0 3px 0 rgba(0,0,0,.45);
+    pointer-events: none; z-index: 4;
+  }
+  .bcell.shipsunk::after {
+    content: ""; position: absolute; left: 18%; right: 22%; top: 52%; height: 1.5px;
+    background: rgba(255,200,160,.55); transform: rotate(14deg);
+    pointer-events: none; z-index: 4;
+  }
+  @keyframes cell-smoke {
+    0%   { transform: translateY(0) scale(.6); opacity: 0; }
+    20%  { opacity: .5; }
+    100% { transform: translateY(-11px) scale(1.4); opacity: 0; }
+  }
+  /* Torpedo travel projectile (transform — reliable on phones) */
+  .torpedo-flight {
+    position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px;
+    border-radius: 50% 50% 40% 40%;
+    background: linear-gradient(180deg, #f0f9ff 0%, #7dd3fc 42%, #0369a1 100%);
+    box-shadow: 0 0 5px 1px rgba(56,189,248,.7), -8px 0 7px -2px rgba(125,211,252,.4);
+    z-index: 20; pointer-events: none; left: 0; top: 0;
+    will-change: transform;
+    animation: torpedo-fly var(--tms, 560ms) cubic-bezier(.35,.05,.55,1) forwards;
+  }
+  .torpedo-flight::after {
+    content: ""; position: absolute; right: 65%; top: 50%; width: 14px; height: 2px;
+    transform: translateY(-50%);
+    background: linear-gradient(90deg, transparent, rgba(186,230,253,.65));
+    border-radius: 2px; filter: blur(.4px);
+  }
+  @keyframes torpedo-fly {
+    from { transform: translate(0, 0) rotate(var(--rot, 0deg)) scale(.85); opacity: .9; }
+    to   { transform: translate(var(--dx), var(--dy)) rotate(var(--rot, 0deg)) scale(1); opacity: 1; }
+  }
+  .ship-sprite.sunk { overflow: visible; }
+  @media (prefers-reduced-motion: reduce) {
+    .ship-sprite.sunk .wreck-smoke i,
+    .bcell.sunk::before,
+    .bcell.shipsunk::before { animation: none; opacity: .35; }
+    .torpedo-flight { animation-duration: 1ms !important; }
+  }
   .ship-sprite.ghost { z-index: 2; }
   .ship-sprite.ghost.valid { opacity: .55; }
   .ship-sprite.ghost.valid img {
@@ -534,6 +625,68 @@
           o.connect(g); g.connect(audio.destination); o.start(); o.stop(now + (win ? .34 : .14));
         } catch (_) {}
       }
+      function soundWhoosh(ms = 560) {
+        try {
+          audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+          if (audio.state === 'suspended') audio.resume();
+          const now = audio.currentTime;
+          const dur = Math.max(0.2, Math.min(0.8, ms / 1000));
+          const o = audio.createOscillator(), g = audio.createGain();
+          o.type = 'triangle';
+          o.frequency.setValueAtTime(220, now);
+          o.frequency.exponentialRampToValueAtTime(780, now + dur * 0.85);
+          g.gain.setValueAtTime(.001, now);
+          g.gain.exponentialRampToValueAtTime(.028, now + 0.04);
+          g.gain.exponentialRampToValueAtTime(.001, now + dur);
+          o.connect(g); g.connect(audio.destination);
+          o.start(now); o.stop(now + dur + 0.02);
+        } catch (_) {}
+      }
+      const TORPEDO_MS = 560;
+      /** Short projectile streak toward cell (r,c). from: 'bottom'|'top'|'left'. */
+      function animateTorpedo(gridEl, r, c, from = 'bottom') {
+        return new Promise(resolve => {
+          const finish = () => resolve();
+          if (!gridEl) return finish();
+          const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          const cell = gridEl.querySelector(':scope > .bcell[data-row="' + r + '"][data-col="' + c + '"]');
+          if (!cell || reduce) {
+            if (!reduce) soundWhoosh(120);
+            return setTimeout(finish, reduce ? 0 : 80);
+          }
+          const gridRect = gridEl.getBoundingClientRect();
+          const cellRect = cell.getBoundingClientRect();
+          if (gridRect.width < 1 || cellRect.width < 1) return finish();
+          const destX = cellRect.left - gridRect.left + cellRect.width / 2;
+          const destY = cellRect.top - gridRect.top + cellRect.height / 2;
+          let startX, startY;
+          if (from === 'top') {
+            startX = gridRect.width * 0.5;
+            startY = -6;
+          } else if (from === 'left') {
+            startX = -6;
+            startY = gridRect.height * 0.5;
+          } else {
+            // from fleet / bottom of enemy board
+            startX = gridRect.width * 0.5;
+            startY = gridRect.height + 6;
+          }
+          const dx = destX - startX, dy = destY - startY;
+          const rot = Math.atan2(dy, dx) * 180 / Math.PI + 90; // art points "up"
+          const el = document.createElement('div');
+          el.className = 'torpedo-flight';
+          el.setAttribute('aria-hidden', 'true');
+          el.style.left = startX + 'px';
+          el.style.top = startY + 'px';
+          el.style.setProperty('--dx', dx + 'px');
+          el.style.setProperty('--dy', dy + 'px');
+          el.style.setProperty('--rot', rot + 'deg');
+          el.style.setProperty('--tms', TORPEDO_MS + 'ms');
+          gridEl.appendChild(el);
+          soundWhoosh(TORPEDO_MS);
+          setTimeout(() => { try { el.remove(); } catch (_) {} finish(); }, TORPEDO_MS + 20);
+        });
+      }
       function cleanCode(value) {
         return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
       }
@@ -731,6 +884,21 @@
           img.alt = '';
           img.draggable = false;
           el.appendChild(img);
+          if (ship.sunk) {
+            const smoke = document.createElement('span');
+            smoke.className = 'wreck-smoke';
+            smoke.setAttribute('aria-hidden', 'true');
+            for (let i = 0; i < 3; i++) {
+              const puff = document.createElement('i');
+              puff.style.setProperty('--sx', (28 + i * 22) + '%');
+              puff.style.setProperty('--sy', (30 + (i % 2) * 18) + '%');
+              puff.style.setProperty('--dur', (2.1 + i * 0.35) + 's');
+              puff.style.setProperty('--delay', (i * 0.45) + 's');
+              puff.style.setProperty('--drift', ((i - 1) * 8) + 'px');
+              smoke.appendChild(puff);
+            }
+            el.appendChild(smoke);
+          }
           gridEl.appendChild(el);
           layoutShipSprite(gridEl, el, r0, c0, size, horizontal);
         }
@@ -1152,15 +1320,18 @@
         if (cpu.phase !== 'battle' || cpu.turn !== 'you' || cpu.busy) return;
         if (r < 0 || r > 9 || c < 0 || c > 9 || cpu.myShots[r][c] !== 0) return;
         cpu.busy = true;
-        const res = applyShotToFleet(cpu.cpuFleet, cpu.mySunk, r, c);
-        cpu.myShots[r][c] = res.hit ? 2 : 1;
-        cpu.last = { by: 'you', r, c };
-        sound(res.hit ? 740 : 240);
-        renderCpuBattle();
-        if (fleetSunk(cpu.cpuFleet)) { cpuEnd(true); return; }
-        cpu.turn = 'cpu';
-        cpuStatus.textContent = res.sunk ? `You sunk their ${sunkName(cpu.cpuFleet, r, c)}! CPU is thinking…` : res.hit ? 'Hit! CPU is thinking…' : 'Miss. CPU is thinking…';
-        setTimeout(cpuMove, 620);
+        animateTorpedo(cpuEnemyGrid, r, c, 'bottom').then(() => {
+          if (cpu.phase !== 'battle') { cpu.busy = false; return; }
+          const res = applyShotToFleet(cpu.cpuFleet, cpu.mySunk, r, c);
+          cpu.myShots[r][c] = res.hit ? 2 : 1;
+          cpu.last = { by: 'you', r, c };
+          sound(res.hit ? 740 : 240);
+          renderCpuBattle();
+          if (fleetSunk(cpu.cpuFleet)) { cpuEnd(true); return; }
+          cpu.turn = 'cpu';
+          cpuStatus.textContent = res.sunk ? `You sunk their ${sunkName(cpu.cpuFleet, r, c)}! CPU is thinking…` : res.hit ? 'Hit! CPU is thinking…' : 'Miss. CPU is thinking…';
+          setTimeout(cpuMove, 620);
+        });
       }
       function sunkName(fleet, r, c) {
         const ship = fleet.find(s => s.sunk && s.cells.some(([sr, sc]) => sr === r && sc === c));
@@ -1213,21 +1384,25 @@
         const pick = difficulty === 'hard' ? cpuHardPick() : cpuEasyPick();
         if (!pick) { cpu.busy = false; return; }
         const [r, c] = pick;
-        const res = applyShotToFleet(cpu.myFleet, cpu.cpuSunk, r, c);
-        cpu.cpuShots[r][c] = res.hit ? 2 : 1;
-        cpu.last = { by: 'cpu', r, c };
-        if (difficulty === 'hard') {
-          if (res.sunk) cpu.aiHits = [];
-          else if (res.hit) cpu.aiHits.push([r, c]);
-        }
-        sound(res.hit ? 520 : 220);
-        renderCpuBattle();
-        cpu.busy = false;
-        if (fleetSunk(cpu.myFleet)) { cpuEnd(false); return; }
-        cpu.turn = 'you';
-        cpuStatus.innerHTML = res.sunk
-          ? `CPU sunk your <b>${sunkName(cpu.myFleet, r, c)}</b>! Your move`
-          : res.hit ? 'CPU hit one of your ships! Your move' : 'CPU missed. Your move';
+        // Stay busy through travel so the player cannot fire mid-flight.
+        animateTorpedo(cpuOwnGrid, r, c, 'top').then(() => {
+          if (cpu.phase !== 'battle') { cpu.busy = false; return; }
+          const res = applyShotToFleet(cpu.myFleet, cpu.cpuSunk, r, c);
+          cpu.cpuShots[r][c] = res.hit ? 2 : 1;
+          cpu.last = { by: 'cpu', r, c };
+          if (difficulty === 'hard') {
+            if (res.sunk) cpu.aiHits = [];
+            else if (res.hit) cpu.aiHits.push([r, c]);
+          }
+          sound(res.hit ? 520 : 220);
+          renderCpuBattle();
+          cpu.busy = false;
+          if (fleetSunk(cpu.myFleet)) { cpuEnd(false); return; }
+          cpu.turn = 'you';
+          cpuStatus.innerHTML = res.sunk
+            ? `CPU sunk your <b>${sunkName(cpu.myFleet, r, c)}</b>! Your move`
+            : res.hit ? 'CPU hit one of your ships! Your move' : 'CPU missed. Your move';
+        });
       }
       function cpuEnd(won) {
         cpu.phase = 'over';
@@ -1295,6 +1470,7 @@
           phase: 'idle', phaseError: '',
           attention: false,
           shotInFlight: false, placeInFlight: false, resignInFlight: false,
+          revealBusy: false, flightPromise: null,
           shotCell: null, shotSentAt: 0, placeSentAt: 0,
           pendingShot: null, pendingPlace: null, pendingResign: false, pendingRematch: false,
           placeShips: null, placeUiLocked: false,
@@ -1590,8 +1766,10 @@
         if (s.pendingShot) {
           const { r, c } = s.pendingShot;
           s.pendingShot = null;
-          if (st.status === 'playing' && st.turn === s.color &&
+          if (st.status === 'playing' && st.turn === s.color && !s.shotInFlight && !s.revealBusy &&
               Array.isArray(st.myShots) && st.myShots[r] && st.myShots[r][c] === 0) {
+            s.revealBusy = true;
+            s.flightPromise = animateTorpedo(enemyGrid, r, c, 'bottom');
             sendShot(s, r, c);
           }
         }
@@ -1693,9 +1871,43 @@
           s.sunkEnemy = new Set();
           if (s === activeSession) onlinePlaceUI.reset();
         }
-        if (s === activeSession && mode === 'online') renderGameView();
-        renderLobby();
-        flushPendingOnlineAction(s);
+        // Delay board paint for torpedo travel: never delay server authority (state already applied).
+        const finishOnlinePaint = () => {
+          s.revealBusy = false;
+          s.flightPromise = null;
+          if (s === activeSession && mode === 'online') renderGameView();
+          renderLobby();
+          flushPendingOnlineAction(s);
+        };
+        if (s === activeSession && mode === 'online') {
+          // If a reveal flight is already running, keep holding paint until it ends.
+          if (s.revealBusy && s.flightPromise) {
+            s.flightPromise.then(finishOnlinePaint);
+            return;
+          }
+          if (state.status === 'playing') {
+            const ls = state.lastShot;
+            const prevLs = prev && prev.lastShot;
+            const shotChanged = ls && Number.isInteger(ls.r) && Number.isInteger(ls.c) && (
+              !prevLs || prevLs.r !== ls.r || prevLs.c !== ls.c || prevLs.by !== ls.by ||
+              (prev && prev.status !== 'playing')
+            );
+            if (shotChanged && ls.by === s.color && s.flightPromise) {
+              // Our shot: wait out the travel started at tap, then paint hit/miss.
+              s.revealBusy = true;
+              s.flightPromise.then(finishOnlinePaint);
+              return;
+            }
+            if (shotChanged && ls.by && ls.by !== s.color) {
+              // Opponent shot on our fleet — animate then reveal.
+              s.revealBusy = true;
+              s.flightPromise = animateTorpedo(ownGrid, ls.r, ls.c, 'top');
+              s.flightPromise.then(finishOnlinePaint);
+              return;
+            }
+          }
+        }
+        finishOnlinePaint();
       }
       function countSeriesResult(s, state) {
         const winner = state.winner | 0;
@@ -1742,11 +1954,14 @@
         const s = activeSession;
         if (!s || !s.state) return;
         const st = s.state;
-        // Single tap fires — guarded by turn, status, in-flight flag and ack
+        // Single tap fires — guarded by turn, status, in-flight flag, reveal anim, and ack
         // timeout exactly like Connect Four's moveInFlight.
-        if (st.status !== 'playing' || st.turn !== s.color || s.shotInFlight) return;
+        if (st.status !== 'playing' || st.turn !== s.color || s.shotInFlight || s.revealBusy) return;
         if (!Array.isArray(st.myShots) || !st.myShots[r] || (st.myShots[r][c] | 0) !== 0) return;
         if (socketHealthy(s)) {
+          // Visual suspense only — server shot goes out immediately (authority unchanged).
+          s.revealBusy = true;
+          s.flightPromise = animateTorpedo(enemyGrid, r, c, 'bottom');
           sendShot(s, r, c);
         } else {
           // Queue the shot; it fires from flushPendingOnlineAction on reconnect.
