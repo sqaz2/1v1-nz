@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#071120">
+<title>Battleship · 1v1.nz</title>
+<style>
+  :root {
+    --bg0: #050d1a; --bg1: #0a1c36; --card: #0c1f3d; --card2: #0f2749;
+    --ink: #e9f2ff; --muted: #8fa6cc; --faint: #5c7299;
+    --water: #0e2a52; --water2: #133c74; --line: #1d4c8c;
+    --accent: #38bdf8; --accent-ink: #04263a;
+    --ship: #4d7cb8; --hit: #ff7a45; --sunk: #a11d26; --miss: #9db4d8;
+    --gold: #ffbf2f; --red: #f04455; --green: #34d399;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink); min-height: 100vh; min-height: 100dvh;
+    background:
+      radial-gradient(1200px 500px at 50% -120px, #12335f 0%, transparent 60%),
+      radial-gradient(900px 600px at 90% 110%, #0d2b55 0%, transparent 55%),
+      linear-gradient(180deg, var(--bg0), var(--bg1));
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 18px 14px 60px; }
+  header.top { text-align: center; margin-bottom: 14px; }
+  header.top h1 { margin: 0; font-size: 30px; letter-spacing: .5px; }
+  header.top .sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; }
+
+  .tabs { display: flex; gap: 8px; margin: 0 0 16px; }
+  .tab {
+    flex: 1; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--card); color: var(--muted); font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+  .status {
+    text-align: center; font-weight: 700; font-size: 16px; min-height: 24px; margin: 10px 0;
+  }
+  .status .turn-you { color: var(--green); }
+  .status .turn-them { color: var(--gold); }
+  .muted { color: var(--muted); font-size: 13px; }
+  .error { color: var(--red); font-size: 13px; min-height: 18px; margin: 8px 0; }
+
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+  .row.between { justify-content: space-between; }
+  .row.end { justify-content: flex-end; }
+  .row.center { justify-content: center; }
+
+  .btn {
+    border: 1px solid var(--line); background: var(--card2); color: var(--ink);
+    padding: 11px 16px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.danger { background: transparent; border-color: var(--red); color: var(--red); }
+  .btn.ghost { background: transparent; }
+  .btn.sm { padding: 7px 12px; font-size: 13px; border-radius: 10px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  .linklike {
+    border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700;
+    cursor: pointer; padding: 6px 8px; border-radius: 8px;
+  }
+  .linklike:hover { background: rgba(255,255,255,.07); color: var(--ink); }
+
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .segbtn {
+    border: 0; background: transparent; color: var(--muted); padding: 10px 18px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .segbtn.active { background: var(--accent); color: var(--accent-ink); }
+
+  .field { display: block; margin: 8px 0; font-size: 13px; color: var(--muted); font-weight: 700; }
+  .field input, #onlineForm input {
+    display: block; width: 100%; margin-top: 6px; padding: 12px;
+    border: 1px solid var(--line); border-radius: 12px; background: #081830; color: var(--ink); font-size: 16px;
+  }
+  #onlineForm { display: flex; gap: 10px; align-items: stretch; }
+  #onlineForm input { margin-top: 0; text-transform: uppercase; letter-spacing: 2px; max-width: 170px; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; margin: 12px 0;
+  }
+  .big-code {
+    font-size: 34px; font-weight: 800; letter-spacing: 8px; text-align: center; margin: 10px 0;
+    color: var(--accent);
+  }
+
+  .battle { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+  @media (min-width: 920px) { .battle { flex-direction: row; align-items: flex-start; justify-content: center; } }
+  .board-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 12px; width: 100%; max-width: 460px;
+  }
+  .board-card h2 { margin: 0 0 8px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+  .hint { color: var(--faint); font-size: 12px; margin: 8px 0 0; text-align: center; }
+
+  .bgrid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; width: 100%; }
+  .bcell {
+    aspect-ratio: 1; border-radius: 4px; border: 1px solid var(--line); background: var(--water);
+    padding: 0; cursor: pointer; position: relative; min-width: 0;
+  }
+  .bcell:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .bgrid.aim .bcell:hover { background: var(--water2); }
+  .bcell.ship { background: var(--ship); border-color: #6ea3e0; }
+  .bcell.shiphit { background: var(--hit); border-color: #ffb08a; }
+  .bcell.shipsunk { background: var(--sunk); border-color: #e06a72; }
+  .bcell.miss::after {
+    content: ""; position: absolute; inset: 34%; border-radius: 50%; background: var(--miss); opacity: .8;
+  }
+  .bcell.hit { background: var(--hit); border-color: #ffb08a; }
+  .bcell.sunk { background: var(--sunk); border-color: #e06a72; }
+  .bcell.sunk::after {
+    content: ""; position: absolute; left: 12%; right: 12%; top: 48%; height: 2px; background: rgba(255,255,255,.75);
+    transform: rotate(-18deg);
+  }
+  .bcell.last { box-shadow: 0 0 0 2px var(--gold), 0 0 12px var(--gold); animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 2px var(--gold), 0 0 4px var(--gold); } }
+
+  /* placement */
+  .place-ui .palette { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .shipbtn {
+    border: 1px solid var(--line); background: var(--card2); color: var(--ink);
+    border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .shipbtn .pips { color: var(--accent); letter-spacing: 1px; margin-left: 6px; }
+  .shipbtn.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .shipbtn.placed { opacity: .4; cursor: default; }
+  .place-grid .bcell { cursor: crosshair; }
+  .place-hint { color: var(--muted); font-size: 13px; margin: 8px 0; min-height: 18px; }
+  .ready { width: 100%; margin-top: 10px; }
+  .place-wait { text-align: center; color: var(--gold); font-weight: 700; margin: 12px 0; }
+
+  /* lobby */
+  #sessionList { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+  #sessionListWrap h2 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin: 18px 0 4px; }
+  .session-entry {
+    display: flex; gap: 8px; align-items: stretch; background: var(--card);
+    border: 1px solid var(--line); border-radius: 12px; padding: 6px;
+  }
+  .session-entry.has-attention { border-color: var(--green); }
+  .session-open {
+    flex: 1; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    background: transparent; border: 0; color: var(--ink); text-align: left; cursor: pointer; padding: 8px;
+  }
+  .session-title { display: flex; flex-direction: column; gap: 2px; }
+  .session-name { font-size: 15px; }
+  .session-code { font-size: 12px; color: var(--faint); letter-spacing: 2px; }
+  .session-meta { display: flex; gap: 8px; align-items: center; }
+  .session-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #16345f; color: var(--muted); }
+  .session-badge.yours { background: rgba(52,211,153,.16); color: var(--green); }
+  .session-badge.theirs { background: rgba(255,191,47,.14); color: var(--gold); }
+  .session-badge.warn { background: rgba(240,68,85,.16); color: var(--red); }
+  .session-series { font-size: 12px; color: var(--muted); font-weight: 700; white-space: nowrap; }
+  .session-leave { border: 0; background: transparent; color: var(--faint); font-size: 17px; padding: 8px 12px; cursor: pointer; }
+  .session-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); flex: none; }
+  .lobby-empty { color: var(--faint); font-size: 13px; }
+
+  .ghead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .ghead strong { font-size: 16px; }
+  .recovery {
+    display: flex; gap: 10px; align-items: center; background: rgba(255,191,47,.1);
+    border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; margin: 8px 0; font-size: 13px;
+  }
+  .result { font-size: 24px; font-weight: 800; text-align: center; margin: 8px 0; }
+
+  .errbanner {
+    position: fixed; left: 50%; transform: translateX(-50%); top: calc(10px + env(safe-area-inset-top));
+    max-width: min(92vw, 480px); background: #3a1420; border: 1px solid var(--red); color: #ffd9de;
+    padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 60;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5); opacity: 0; transition: opacity .25s; pointer-events: none;
+  }
+  .errbanner.show { opacity: 1; }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(3,8,18,.72); display: flex;
+    align-items: center; justify-content: center; padding: 20px; z-index: 50;
+  }
+  .overlay[hidden] { display: none; }
+  .dialog {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 22px; width: 100%; max-width: 380px; box-shadow: 0 18px 60px rgba(0,0,0,.55);
+  }
+  .dialog p { margin: 0 0 16px; font-size: 16px; font-weight: 600; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <h1>⚓ Battleship</h1>
+    <p class="sub">1v1.nz</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Game mode">
+    <button type="button" id="tabCpu" class="tab active" role="tab" aria-selected="true">Vs computer</button>
+    <button type="button" id="tabOnline" class="tab" role="tab" aria-selected="false">Online</button>
+  </nav>
+
+  <!-- ============ VS COMPUTER ============ -->
+  <section id="cpuPanel" aria-label="Vs computer">
+    <div class="row between">
+      <div class="seg" id="diffRow" role="group" aria-label="Difficulty">
+        <button type="button" class="segbtn" data-diff="easy">Easy</button>
+        <button type="button" class="segbtn active" data-diff="hard">Hard</button>
+      </div>
+      <button type="button" id="cpuSeriesReset" class="linklike" title="Tap to reset series">Series <span id="cpuSeries">0–0</span></button>
+    </div>
+    <p id="cpuStatus" class="status">Place your fleet</p>
+    <div id="cpuPlace"></div>
+    <div id="cpuBattle" hidden>
+      <div class="battle">
+        <div class="board-card">
+          <h2>Enemy waters</h2>
+          <div id="cpuEnemyGrid" class="bgrid aim" role="grid" aria-label="Enemy waters — tap to fire"></div>
+          <p class="hint">Tap a square to fire</p>
+        </div>
+        <div class="board-card">
+          <h2>Your fleet</h2>
+          <div id="cpuOwnGrid" class="bgrid" role="grid" aria-label="Your fleet"></div>
+        </div>
+      </div>
+      <div class="row center">
+        <button type="button" id="cpuNew" class="btn ghost">New game</button>
+        <button type="button" id="cpuResign" class="btn danger">Resign</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ONLINE ============ -->
+  <section id="onlinePanel" aria-label="Online" hidden>
+    <div id="onlineSetup">
+      <label class="field">Display name
+        <input id="displayName" maxlength="24" autocomplete="nickname" placeholder="Your name">
+      </label>
+      <div class="row">
+        <button type="button" id="createGame" class="btn primary">Create game</button>
+        <button type="button" id="findMatch" class="btn">Find public match</button>
+      </div>
+      <p id="matchStats" class="muted"></p>
+      <form id="onlineForm">
+        <input id="joinCode" maxlength="6" placeholder="CODE" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label="Invite code">
+        <button id="joinGame" class="btn" type="submit">Join</button>
+      </form>
+      <p id="onlineError" class="error" role="alert"></p>
+    </div>
+
+    <div id="matchSearch" class="card" hidden>
+      <p id="matchSearchText" class="status">Searching for opponent…</p>
+      <div class="row center"><button type="button" id="cancelMatch" class="btn ghost">Cancel</button></div>
+    </div>
+
+    <div id="sessionListWrap">
+      <h2>Your games</h2>
+      <div id="sessionList" role="list"></div>
+      <p id="lobbyNote" class="muted"></p>
+    </div>
+
+    <div id="gameView" hidden>
+      <div class="ghead">
+        <button type="button" id="backToLobby" class="btn ghost sm">← Games</button>
+        <strong id="ghOpponent">Opponent</strong>
+        <button type="button" id="ghSeries" class="linklike" title="Series score — tap to reset">Series 0–0</button>
+      </div>
+      <div id="connectionRecovery" class="recovery" hidden>
+        <span id="connectionIndicator"></span>
+        <button type="button" id="retryGameConnection" class="btn sm" hidden>Retry</button>
+        <button type="button" id="takeoverButton" class="btn sm" hidden>Take over</button>
+      </div>
+      <p id="onlineStatus" class="status"></p>
+
+      <div id="waitingCard" class="card" hidden>
+        <p id="lobbyStatus" class="status">Waiting for opponent…</p>
+        <p class="big-code" id="inviteCode"></p>
+        <div class="row center">
+          <button type="button" id="shareInvite" class="btn primary">Share invite</button>
+          <button type="button" id="copyGameLink" class="btn ghost">Copy link</button>
+        </div>
+        <p id="lobbyError" class="error"></p>
+        <div class="row center">
+          <button type="button" id="retryLobbyConnection" class="btn sm" hidden>Retry</button>
+          <button type="button" id="leaveOnline" class="btn sm danger">Leave</button>
+        </div>
+      </div>
+
+      <div id="onlinePlace" hidden></div>
+
+      <div id="onlineBattle" hidden>
+        <div class="battle">
+          <div class="board-card">
+            <h2>Enemy waters</h2>
+            <div id="enemyGrid" class="bgrid aim" role="grid" aria-label="Enemy waters — tap to fire"></div>
+          </div>
+          <div class="board-card">
+            <h2>Your fleet</h2>
+            <div id="ownGrid" class="bgrid" role="grid" aria-label="Your fleet"></div>
+          </div>
+        </div>
+        <div class="row center">
+          <button type="button" id="resignButton" class="btn danger" hidden>Resign</button>
+          <button type="button" id="shareBtn" class="btn ghost">Share invite</button>
+          <button type="button" id="leaveGameButton" class="btn ghost">Leave</button>
+        </div>
+      </div>
+
+      <div id="onlineGameActions" class="card" hidden>
+        <p id="resultText" class="result"></p>
+        <p class="muted" style="text-align:center">Series <span id="seriesText">0–0</span></p>
+        <div class="row center">
+          <button type="button" id="rematch" class="btn primary">Rematch</button>
+          <button type="button" id="newOnlineGame" class="btn ghost">Back to games</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="errBanner" class="errbanner" role="alert" hidden></div>
+
+<div id="confirmOverlay" class="overlay" hidden>
+  <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <p id="confirmTitle"></p>
+    <div class="row end">
+      <button type="button" id="confirmCancel" class="btn ghost">Cancel</button>
+      <button type="button" id="confirmOk" class="btn danger">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="gameOverlay" class="overlay" hidden>
+  <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="cpuResultText">
+    <p id="cpuResultText" class="result"></p>
+    <p class="muted" style="text-align:center">Series <span id="cpuSeriesText">0–0</span></p>
+    <div class="row end">
+      <button type="button" id="cpuPlayAgain" class="btn primary">Play again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+      'use strict';
+
+      // ---------- DOM ----------
+      const $ = id => document.getElementById(id);
+      const tabCpu = $('tabCpu'), tabOnline = $('tabOnline');
+      const cpuPanel = $('cpuPanel'), onlinePanel = $('onlinePanel');
+      const diffRow = $('diffRow'), diffButtons = [...diffRow.querySelectorAll('.segbtn')];
+      const cpuStatus = $('cpuStatus'), cpuPlace = $('cpuPlace'), cpuBattle = $('cpuBattle');
+      const cpuEnemyGrid = $('cpuEnemyGrid'), cpuOwnGrid = $('cpuOwnGrid');
+      const cpuNew = $('cpuNew'), cpuResign = $('cpuResign');
+      const cpuSeriesLabel = $('cpuSeries'), cpuSeriesReset = $('cpuSeriesReset');
+      const gameOverlay = $('gameOverlay'), cpuResultText = $('cpuResultText');
+      const cpuSeriesText = $('cpuSeriesText'), cpuPlayAgain = $('cpuPlayAgain');
+      const displayName = $('displayName'), createGame = $('createGame'), findMatch = $('findMatch');
+      const onlineForm = $('onlineForm'), joinCode = $('joinCode'), joinGame = $('joinGame');
+      const onlineError = $('onlineError'), onlineSetup = $('onlineSetup');
+      const matchSearch = $('matchSearch'), matchSearchText = $('matchSearchText'), cancelMatch = $('cancelMatch');
+      const matchStats = $('matchStats'), sessionList = $('sessionList'), lobbyNote = $('lobbyNote');
+      const sessionListWrap = $('sessionListWrap'), gameView = $('gameView');
+      const backToLobby = $('backToLobby'), ghOpponent = $('ghOpponent'), ghSeries = $('ghSeries');
+      const connectionRecovery = $('connectionRecovery'), connectionIndicator = $('connectionIndicator');
+      const retryGameConnection = $('retryGameConnection'), takeoverButton = $('takeoverButton');
+      const onlineStatus = $('onlineStatus'), waitingCard = $('waitingCard');
+      const lobbyStatus = $('lobbyStatus'), inviteCode = $('inviteCode'), lobbyError = $('lobbyError');
+      const shareInvite = $('shareInvite'), copyGameLink = $('copyGameLink');
+      const retryLobbyConnection = $('retryLobbyConnection'), leaveOnline = $('leaveOnline');
+      const onlinePlace = $('onlinePlace'), onlineBattle = $('onlineBattle');
+      const enemyGrid = $('enemyGrid'), ownGrid = $('ownGrid');
+      const resignButton = $('resignButton'), shareBtn = $('shareBtn'), leaveGameButton = $('leaveGameButton');
+      const onlineGameActions = $('onlineGameActions'), resultText = $('resultText');
+      const seriesText = $('seriesText'), rematch = $('rematch'), newOnlineGame = $('newOnlineGame');
+      const errBanner = $('errBanner');
+      const confirmOverlay = $('confirmOverlay'), confirmTitle = $('confirmTitle');
+      const confirmOk = $('confirmOk'), confirmCancel = $('confirmCancel');
+
+      // ---------- constants ----------
+      const SESSIONS_KEY = 'bs_sessions';
+      const MATCH_PLAYER_KEY = 'bs_match_player_id';
+      const NAME_KEY = 'bs_name';
+      const CPU_SERIES_KEY = 'bs_cpu_series';
+      const ROOM_UNAVAILABLE_MESSAGE = 'Could not join that room. It may be full or no longer available.';
+      const ROOM_GONE_PATTERN = /not found|room is full|is full|expired|closed|invalid|gone|does not exist/i;
+      const FALLBACK_API_BASE = 'https://1v1.nz';
+      const CONNECT_TIMEOUT_MS = 8000;
+      const MESSAGE_WATCHDOG_MS = 45000;
+      const MAX_CONNECT_FAILURES = 4;
+      const ACTION_ACK_MS = 6000; // action ack timeout: requeue + reconnect + resend, never freeze
+      const SHIP_DEFS = [
+        { name: 'Carrier', size: 5 },
+        { name: 'Battleship', size: 4 },
+        { name: 'Cruiser', size: 3 },
+        { name: 'Submarine', size: 3 },
+        { name: 'Destroyer', size: 2 },
+      ];
+
+      // ---------- storage ----------
+      const memFallbackStore = {};
+      function storeGet(key) {
+        try { return window.localStorage.getItem(key); }
+        catch (_) { return Object.prototype.hasOwnProperty.call(memFallbackStore, key) ? memFallbackStore[key] : null; }
+      }
+      function storeSet(key, value) {
+        try { window.localStorage.setItem(key, value); }
+        catch (_) { memFallbackStore[key] = value; }
+      }
+
+      // ---------- small helpers ----------
+      let audio;
+      function sound(freq, win = false) {
+        try {
+          audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+          if (audio.state === 'suspended') audio.resume();
+          const now = audio.currentTime;
+          const o = audio.createOscillator(), g = audio.createGain();
+          o.type = 'sine'; o.frequency.setValueAtTime(freq, now);
+          if (win) o.frequency.exponentialRampToValueAtTime(freq * 1.7, now + .22);
+          g.gain.setValueAtTime(.065, now); g.gain.exponentialRampToValueAtTime(.001, now + (win ? .32 : .12));
+          o.connect(g); g.connect(audio.destination); o.start(); o.stop(now + (win ? .34 : .14));
+        } catch (_) {}
+      }
+      function cleanCode(value) {
+        return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      }
+      function validName() {
+        const value = displayName.value.trim().replace(/\s+/g, ' ').slice(0, 24);
+        if (!value) {
+          onlineError.textContent = 'Enter a display name first.';
+          displayName.focus();
+          return '';
+        }
+        try { storeSet(NAME_KEY, value); } catch (_) {}
+        return value;
+      }
+      let errBannerTimer = 0;
+      function showErrorBanner(text) {
+        if (!text) return;
+        errBanner.textContent = text;
+        errBanner.hidden = false;
+        requestAnimationFrame(() => errBanner.classList.add('show'));
+        clearTimeout(errBannerTimer);
+        errBannerTimer = setTimeout(() => {
+          errBanner.classList.remove('show');
+          setTimeout(() => { errBanner.hidden = true; }, 300);
+        }, 4200);
+      }
+      // In-page confirmation dialog (replaces native confirm(), which is
+      // unreliable inside mobile browsers and automated views).
+      let confirmResolve = null;
+      function showConfirm(message, okLabel) {
+        return new Promise(resolve => {
+          confirmTitle.textContent = message;
+          confirmOk.textContent = okLabel || 'Confirm';
+          confirmOverlay.hidden = false;
+          confirmResolve = resolve;
+          confirmCancel.focus();
+        });
+      }
+      function closeConfirm(result) {
+        confirmOverlay.hidden = true;
+        if (confirmResolve) { confirmResolve(result); confirmResolve = null; }
+      }
+      function inviteLinkFor(s) {
+        return `https://1v1.nz/battleship/?code=${encodeURIComponent(s.code)}`;
+      }
+      async function shareInviteLink(s, button) {
+        if (!s) return;
+        const url = inviteLinkFor(s);
+        if (navigator.share) {
+          try { await navigator.share({ title: 'Play Battleship with me', url }); } catch (_) {}
+          return;
+        }
+        try { await navigator.clipboard.writeText(url); }
+        catch (_) {
+          const area = document.createElement('textarea');
+          area.value = url; area.style.position = 'fixed'; area.style.opacity = '0';
+          document.body.appendChild(area); area.select();
+          try { document.execCommand('copy'); } catch (_) {}
+          area.remove();
+        }
+        if (button) {
+          const original = button.textContent;
+          button.textContent = 'Link copied';
+          setTimeout(() => { button.textContent = original; }, 1600);
+        }
+      }
+
+      // ---------- grid helper ----------
+      function buildGrid(el) {
+        el.innerHTML = '';
+        const cells = [];
+        for (let r = 0; r < 10; r++) {
+          cells.push([]);
+          for (let c = 0; c < 10; c++) {
+            const cell = document.createElement('button');
+            cell.type = 'button';
+            cell.className = 'bcell';
+            cell.dataset.row = r; cell.dataset.col = c;
+            cell.setAttribute('role', 'gridcell');
+            cell.setAttribute('aria-label', `Row ${r + 1}, column ${c + 1}`);
+            el.appendChild(cell);
+            cells[r].push(cell);
+          }
+        }
+        return cells;
+      }
+
+      // ---------- fleet validation ----------
+      function validateFleet(ships) {
+        if (!Array.isArray(ships) || ships.length !== 5) return { ok: false, error: 'Place all 5 ships.' };
+        const sizes = ships.map(s => (s.cells || []).length).sort((a, b) => a - b);
+        const want = [2, 3, 3, 4, 5];
+        for (let i = 0; i < 5; i++) {
+          if (sizes[i] !== want[i]) return { ok: false, error: 'Ships must be sizes 5, 4, 3, 3 and 2.' };
+        }
+        const seen = new Set();
+        for (const ship of ships) {
+          const cells = ship.cells || [];
+          const rows = cells.map(([r]) => r), cols = cells.map(([, c]) => c);
+          for (const [r, c] of cells) {
+            if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || r > 9 || c < 0 || c > 9)
+              return { ok: false, error: 'Ships must stay inside the 10×10 grid.' };
+            const key = r + ',' + c;
+            if (seen.has(key)) return { ok: false, error: 'Ships may not overlap.' };
+            seen.add(key);
+          }
+          const sameRow = rows.every(v => v === rows[0]);
+          const sameCol = cols.every(v => v === cols[0]);
+          if (!sameRow && !sameCol) return { ok: false, error: 'Ships must be straight lines.' };
+          const line = (sameRow ? cols : rows).slice().sort((a, b) => a - b);
+          for (let i = 1; i < line.length; i++) {
+            if (line[i] !== line[i - 1] + 1) return { ok: false, error: 'Ships must be contiguous.' };
+          }
+        }
+        return { ok: true, error: '' };
+      }
+      function randomFleet() {
+        // Random valid placement, sizes in SHIP_DEFS order (carrier first).
+        for (let attempt = 0; attempt < 60; attempt++) {
+          const ships = [];
+          const occupied = new Set();
+          let failed = false;
+          for (let d = 0; d < SHIP_DEFS.length; d++) {
+            const size = SHIP_DEFS[d].size;
+            let placed = false;
+            for (let t = 0; t < 120 && !placed; t++) {
+              const horiz = Math.random() < 0.5;
+              const r = (Math.random() * 10) | 0, c = (Math.random() * 10) | 0;
+              const cells = [];
+              for (let i = 0; i < size; i++) cells.push(horiz ? [r, c + i] : [r + i, c]);
+              if (cells.some(([rr, cc]) => rr > 9 || cc > 9 || occupied.has(rr + ',' + cc))) continue;
+              cells.forEach(([rr, cc]) => occupied.add(rr + ',' + cc));
+              ships.push({ defIdx: d, cells });
+              placed = true;
+            }
+            if (!placed) { failed = true; break; }
+          }
+          if (!failed && validateFleet(ships).ok) return ships;
+        }
+        // Practically unreachable; fall back to a fixed legal layout.
+        return [
+          { defIdx: 0, cells: [[0,0],[0,1],[0,2],[0,3],[0,4]] },
+          { defIdx: 1, cells: [[2,0],[2,1],[2,2],[2,3]] },
+          { defIdx: 2, cells: [[4,0],[4,1],[4,2]] },
+          { defIdx: 3, cells: [[6,0],[6,1],[6,2]] },
+          { defIdx: 4, cells: [[8,0],[8,1]] },
+        ];
+      }
+
+      // ---------- placement UI (shared by CPU + online) ----------
+      // onReady(ships) is called when the player confirms a full valid fleet.
+      function createPlacementUI(root, onReady) {
+        root.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'place-ui';
+        const hint = document.createElement('p');
+        hint.className = 'place-hint';
+        const palette = document.createElement('div');
+        palette.className = 'palette';
+        const tools = document.createElement('div');
+        tools.className = 'row';
+        const orientBtn = document.createElement('button');
+        orientBtn.type = 'button'; orientBtn.className = 'btn sm ghost'; orientBtn.textContent = '⟳ Horizontal';
+        const randomBtn = document.createElement('button');
+        randomBtn.type = 'button'; randomBtn.className = 'btn sm ghost'; randomBtn.textContent = 'Random';
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button'; clearBtn.className = 'btn sm ghost'; clearBtn.textContent = 'Clear';
+        tools.append(orientBtn, randomBtn, clearBtn);
+        const gridEl = document.createElement('div');
+        gridEl.className = 'bgrid place-grid';
+        gridEl.setAttribute('role', 'grid');
+        gridEl.setAttribute('aria-label', 'Place your ships');
+        const cells = buildGrid(gridEl);
+        const readyBtn = document.createElement('button');
+        readyBtn.type = 'button'; readyBtn.className = 'btn primary ready'; readyBtn.disabled = true;
+        const waitMsg = document.createElement('p');
+        waitMsg.className = 'place-wait'; waitMsg.hidden = true;
+        waitMsg.textContent = 'Waiting for opponent to place…';
+        wrap.append(hint, palette, tools, gridEl, readyBtn, waitMsg);
+        root.appendChild(wrap);
+
+        const shipBtns = SHIP_DEFS.map((def, d) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'shipbtn';
+          b.innerHTML = '';
+          const label = document.createElement('span'); label.textContent = def.name;
+          const pips = document.createElement('span'); pips.className = 'pips'; pips.textContent = '●'.repeat(def.size);
+          b.append(label, pips);
+          b.addEventListener('click', () => { if (!locked && !isPlaced(d)) { selected = d; render(); } });
+          palette.appendChild(b);
+          return b;
+        });
+
+        let ships = [];            // [{defIdx, cells:[[r,c],...]}]
+        let selected = 0;
+        let horizontal = true;
+        let locked = false;
+        let shipAt = new Map();    // "r,c" -> ship index
+
+        function isPlaced(d) { return ships.some(s => s.defIdx === d); }
+        function rebuildIndex() {
+          shipAt = new Map();
+          ships.forEach((s, i) => s.cells.forEach(([r, c]) => shipAt.set(r + ',' + c, i)));
+        }
+        function nextUnplaced() {
+          for (let d = 0; d < SHIP_DEFS.length; d++) if (!isPlaced(d)) return d;
+          return -1;
+        }
+        function render() {
+          rebuildIndex();
+          for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) {
+            const cell = cells[r][c];
+            cell.className = 'bcell' + (shipAt.has(r + ',' + c) ? ' ship' : '');
+          }
+          shipBtns.forEach((b, d) => {
+            b.classList.toggle('placed', isPlaced(d));
+            b.classList.toggle('selected', !locked && selected === d && !isPlaced(d));
+          });
+          readyBtn.disabled = locked || ships.length !== 5;
+          readyBtn.textContent = `Ready — fleet ${ships.length}/5`;
+          if (!locked) {
+            if (ships.length === 5) hint.textContent = 'Fleet complete — tap Ready to battle!';
+            else if (selected >= 0) hint.textContent = `Placing ${SHIP_DEFS[selected].name} (${SHIP_DEFS[selected].size}) — tap a start square. Tap a placed ship to remove it.`;
+            else hint.textContent = 'Pick a ship, then tap a start square. Tap a placed ship to remove it.';
+          }
+        }
+        function tryPlace(r, c) {
+          if (locked || selected < 0 || isPlaced(selected)) return;
+          const size = SHIP_DEFS[selected].size;
+          const cells = [];
+          for (let i = 0; i < size; i++) cells.push(horizontal ? [r, c + i] : [r + i, c]);
+          if (cells.some(([rr, cc]) => rr < 0 || rr > 9 || cc < 0 || cc > 9 || shipAt.has(rr + ',' + cc))) {
+            hint.textContent = 'No room there — pick another square or flip orientation.';
+            sound(180);
+            return;
+          }
+          ships.push({ defIdx: selected, cells });
+          selected = nextUnplaced();
+          sound(520);
+          render();
+        }
+        cells.flat().forEach(cell => {
+          cell.addEventListener('click', () => {
+            if (locked) return;
+            const r = +cell.dataset.row, c = +cell.dataset.col;
+            const idx = shipAt.get(r + ',' + c);
+            if (idx !== undefined) {
+              const removed = ships.splice(idx, 1)[0];
+              selected = removed.defIdx;
+              sound(300);
+              render();
+              return;
+            }
+            tryPlace(r, c);
+          });
+        });
+        orientBtn.addEventListener('click', () => {
+          horizontal = !horizontal;
+          orientBtn.textContent = horizontal ? '⟳ Horizontal' : '⟳ Vertical';
+          render();
+        });
+        randomBtn.addEventListener('click', () => {
+          if (locked) return;
+          ships = randomFleet();
+          selected = -1;
+          sound(660);
+          render();
+        });
+        clearBtn.addEventListener('click', () => {
+          if (locked) return;
+          ships = []; selected = 0;
+          render();
+        });
+        readyBtn.addEventListener('click', () => {
+          if (locked || ships.length !== 5) return;
+          const check = validateFleet(ships);
+          if (!check.ok) { hint.textContent = check.error; return; }
+          onReady(ships.map(s => ({ defIdx: s.defIdx, cells: s.cells.map(([r, c]) => [r, c]) })));
+        });
+
+        render();
+        return {
+          reset() {
+            ships = []; selected = 0; horizontal = true; locked = false;
+            orientBtn.textContent = '⟳ Horizontal';
+            waitMsg.hidden = true;
+            readyBtn.style.display = '';
+            render();
+          },
+          getShips() { return ships.map(s => ({ defIdx: s.defIdx, cells: s.cells.map(([r, c]) => [r, c]) })); },
+          setSending() {
+            locked = true;
+            readyBtn.disabled = true;
+            readyBtn.textContent = 'Sending…';
+            hint.textContent = '';
+          },
+          unlock() {
+            // Back to editable without wiping the player's layout (e.g. the
+            // server rejected the fleet, or we came back to a stale view).
+            locked = false;
+            readyBtn.style.display = '';
+            waitMsg.hidden = true;
+            render();
+          },
+          setWaiting() {
+            locked = true;
+            readyBtn.disabled = true;
+            readyBtn.style.display = 'none';
+            waitMsg.hidden = false;
+            hint.textContent = '';
+          },
+        };
+      }
+
+      // ---------- VS COMPUTER ----------
+      let difficulty = 'hard';
+      try { difficulty = storeGet('bs_cpu_diff') || 'hard'; } catch (_) {}
+      const cpu = {
+        phase: 'place', // place | battle | over
+        myFleet: [], cpuFleet: [],
+        myShots: null, cpuShots: null,
+        turn: 'you', busy: false,
+        aiHits: [], mySunk: new Set(), cpuSunk: new Set(),
+        last: null, // {by:'you'|'cpu', r, c}
+      };
+      let cpuSeries = { w: 0, l: 0 };
+      try {
+        const saved = JSON.parse(storeGet(CPU_SERIES_KEY) || 'null');
+        if (saved) cpuSeries = { w: Math.max(0, saved.w | 0), l: Math.max(0, saved.l | 0) };
+      } catch (_) {}
+      function persistCpuSeries() {
+        renderCpuSeries();
+        try { storeSet(CPU_SERIES_KEY, JSON.stringify(cpuSeries)); } catch (_) {}
+      }
+      function renderCpuSeries() {
+        cpuSeriesLabel.textContent = `${cpuSeries.w}–${cpuSeries.l}`;
+        cpuSeriesText.textContent = `${cpuSeries.w}–${cpuSeries.l}`;
+      }
+      const cpuEnemyCells = buildGrid(cpuEnemyGrid);
+      const cpuOwnCells = buildGrid(cpuOwnGrid);
+
+      const cpuPlaceUI = createPlacementUI(cpuPlace, ships => {
+        cpu.myFleet = ships.map(s => ({ ...s, hits: [], sunk: false }));
+        cpu.cpuFleet = randomFleet().map(s => ({ ...s, hits: [], sunk: false }));
+        cpu.myShots = Array.from({ length: 10 }, () => Array(10).fill(0));
+        cpu.cpuShots = Array.from({ length: 10 }, () => Array(10).fill(0));
+        cpu.mySunk = new Set(); cpu.cpuSunk = new Set();
+        cpu.aiHits = []; cpu.last = null; cpu.turn = 'you'; cpu.busy = false;
+        cpu.phase = 'battle';
+        cpuPlace.hidden = true;
+        cpuBattle.hidden = false;
+        renderCpuBattle();
+        cpuStatus.innerHTML = 'Your move — tap enemy waters to fire';
+      });
+
+      function fleetSunk(fleet) { return fleet.every(s => s.sunk); }
+      function applyShotToFleet(fleet, sunkSet, r, c) {
+        // Returns {hit, sunk} and records the hit on the fleet.
+        for (const ship of fleet) {
+          if (ship.cells.some(([sr, sc]) => sr === r && sc === c)) {
+            if (!ship.hits.some(([hr, hc]) => hr === r && hc === c)) ship.hits.push([r, c]);
+            const sunk = ship.cells.every(([sr, sc]) => ship.hits.some(([hr, hc]) => hr === r && hc === c));
+            if (sunk && !ship.sunk) {
+              ship.sunk = true;
+              ship.cells.forEach(([sr, sc]) => sunkSet.add(sr + ',' + sc));
+            }
+            return { hit: true, sunk: ship.sunk };
+          }
+        }
+        return { hit: false, sunk: false };
+      }
+
+      function renderCpuBattle() {
+        for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) {
+          const v = cpu.myShots[r][c];
+          const cell = cpuEnemyCells[r][c];
+          cell.className = 'bcell' +
+            (cpu.mySunk.has(r + ',' + c) ? ' sunk' : v === 2 ? ' hit' : v === 1 ? ' miss' : '');
+          cell.setAttribute('aria-label', `Enemy row ${r + 1}, column ${c + 1}, ` +
+            (cpu.mySunk.has(r + ',' + c) ? 'sunk' : v === 2 ? 'hit' : v === 1 ? 'miss' : 'unknown'));
+        }
+        const hitSet = new Set();
+        for (const ship of cpu.myFleet) {
+          ship.cells.forEach(([r, c]) => {
+            const key = r + ',' + c;
+            const wasHit = ship.hits.some(([hr, hc]) => hr === r && hc === c);
+            if (wasHit) hitSet.add(key);
+            cpuOwnCells[r][c].className = 'bcell ' + (ship.sunk ? 'shipsunk' : wasHit ? 'shiphit' : 'ship');
+          });
+        }
+        for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) {
+          if (hitSet.has(r + ',' + c)) continue;
+          const v = cpu.cpuShots[r][c];
+          if (v) {
+            cpuOwnCells[r][c].className = 'bcell ' + (v === 2 ? 'hit' : 'miss');
+            cpuOwnCells[r][c].setAttribute('aria-label', `Your row ${r + 1}, column ${c + 1}, ${v === 2 ? 'hit by enemy' : 'enemy miss'}`);
+          }
+        }
+        // last-shot highlight
+        cpuEnemyCells.flat().forEach(el => el.classList.remove('last'));
+        cpuOwnCells.flat().forEach(el => el.classList.remove('last'));
+        if (cpu.last) {
+          const grid = cpu.last.by === 'you' ? cpuEnemyCells : cpuOwnCells;
+          grid[cpu.last.r][cpu.last.c].classList.add('last');
+        }
+      }
+
+      function cpuPlayerFire(r, c) {
+        if (cpu.phase !== 'battle' || cpu.turn !== 'you' || cpu.busy) return;
+        if (r < 0 || r > 9 || c < 0 || c > 9 || cpu.myShots[r][c] !== 0) return;
+        cpu.busy = true;
+        const res = applyShotToFleet(cpu.cpuFleet, cpu.mySunk, r, c);
+        cpu.myShots[r][c] = res.hit ? 2 : 1;
+        cpu.last = { by: 'you', r, c };
+        sound(res.hit ? 740 : 240);
+        renderCpuBattle();
+        if (fleetSunk(cpu.cpuFleet)) { cpuEnd(true); return; }
+        cpu.turn = 'cpu';
+        cpuStatus.textContent = res.sunk ? `You sunk their ${sunkName(cpu.cpuFleet, r, c)}! CPU is thinking…` : res.hit ? 'Hit! CPU is thinking…' : 'Miss. CPU is thinking…';
+        setTimeout(cpuMove, 620);
+      }
+      function sunkName(fleet, r, c) {
+        const ship = fleet.find(s => s.sunk && s.cells.some(([sr, sc]) => sr === r && sc === c));
+        return ship ? SHIP_DEFS[ship.defIdx].name : 'ship';
+      }
+      const cpuNeighbors = (r, c) => [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]
+        .filter(([rr, cc]) => rr >= 0 && rr < 10 && cc >= 0 && cc < 10 && cpu.cpuShots[rr][cc] === 0);
+      function cpuEasyPick() {
+        const open = [];
+        for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) if (cpu.cpuShots[r][c] === 0) open.push([r, c]);
+        return open.length ? open[(Math.random() * open.length) | 0] : null;
+      }
+      function cpuHardPick() {
+        // Hunt/target: checkerboard-parity hunt; on a hit, try orthogonal
+        // neighbours; extend along the line when two hits align; resume the
+        // hunt after a sink.
+        if (cpu.aiHits.length > 0) {
+          let cands = [];
+          if (cpu.aiHits.length === 1) {
+            const [r, c] = cpu.aiHits[0];
+            cands = cpuNeighbors(r, c);
+          } else {
+            const rs = cpu.aiHits.map(h => h[0]), cs = cpu.aiHits.map(h => h[1]);
+            const vertical = new Set(cs).size === 1 && new Set(rs).size > 1;
+            const sorted = cpu.aiHits.slice().sort((a, b) => vertical ? a[0] - b[0] : a[1] - b[1]);
+            const first = sorted[0], last = sorted[sorted.length - 1];
+            const ends = vertical
+              ? [[first[0] - 1, first[1]], [last[0] + 1, last[1]]]
+              : [[first[0], first[1] - 1], [last[0], last[1] + 1]];
+            cands = ends.filter(([r, c]) => r >= 0 && r < 10 && c >= 0 && c < 10 && cpu.cpuShots[r][c] === 0);
+            if (!cands.length) {
+              const seen = new Set();
+              for (const [r, c] of cpu.aiHits) for (const [nr, nc] of cpuNeighbors(r, c)) {
+                const k = nr + ',' + nc;
+                if (!seen.has(k)) { seen.add(k); cands.push([nr, nc]); }
+              }
+            }
+          }
+          if (cands.length) return cands[(Math.random() * cands.length) | 0];
+          cpu.aiHits = []; // stale hits (shouldn't happen) — resume hunt
+        }
+        const parity = [];
+        for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++)
+          if ((r + c) % 2 === 0 && cpu.cpuShots[r][c] === 0) parity.push([r, c]);
+        if (parity.length) return parity[(Math.random() * parity.length) | 0];
+        return cpuEasyPick(); // endgame mop-up
+      }
+      function cpuMove() {
+        if (cpu.phase !== 'battle' || cpu.turn !== 'cpu') { cpu.busy = false; return; }
+        const pick = difficulty === 'hard' ? cpuHardPick() : cpuEasyPick();
+        if (!pick) { cpu.busy = false; return; }
+        const [r, c] = pick;
+        const res = applyShotToFleet(cpu.myFleet, cpu.cpuSunk, r, c);
+        cpu.cpuShots[r][c] = res.hit ? 2 : 1;
+        cpu.last = { by: 'cpu', r, c };
+        if (difficulty === 'hard') {
+          if (res.sunk) cpu.aiHits = [];
+          else if (res.hit) cpu.aiHits.push([r, c]);
+        }
+        sound(res.hit ? 520 : 220);
+        renderCpuBattle();
+        cpu.busy = false;
+        if (fleetSunk(cpu.myFleet)) { cpuEnd(false); return; }
+        cpu.turn = 'you';
+        cpuStatus.innerHTML = res.sunk
+          ? `CPU sunk your <b>${sunkName(cpu.myFleet, r, c)}</b>! Your move`
+          : res.hit ? 'CPU hit one of your ships! Your move' : 'CPU missed. Your move';
+      }
+      function cpuEnd(won) {
+        cpu.phase = 'over';
+        cpu.busy = false;
+        if (won) { cpuSeries.w++; sound(520, true); } else { cpuSeries.l++; sound(200); }
+        persistCpuSeries();
+        cpuResultText.textContent = won ? '🎉 You win!' : '💥 CPU wins';
+        cpuStatus.innerHTML = won ? '<span class="turn-you">You win!</span>' : '<span class="turn-them">CPU wins</span>';
+        gameOverlay.hidden = false;
+      }
+      function cpuNewGame() {
+        cpu.phase = 'place';
+        cpu.busy = false;
+        gameOverlay.hidden = true;
+        cpuBattle.hidden = true;
+        cpuPlace.hidden = false;
+        cpuPlaceUI.reset();
+        cpuStatus.textContent = 'Place your fleet';
+      }
+      cpuEnemyCells.flat().forEach(cell => {
+        cell.addEventListener('click', () => cpuPlayerFire(+cell.dataset.row, +cell.dataset.col));
+      });
+      cpuPlayAgain.addEventListener('click', cpuNewGame);
+      cpuNew.addEventListener('click', cpuNewGame);
+      cpuResign.addEventListener('click', async () => {
+        if (cpu.phase !== 'battle') return;
+        if (await showConfirm('Resign this game?', 'Resign')) cpuEnd(false);
+      });
+      cpuSeriesReset.addEventListener('click', async () => {
+        if (await showConfirm('Reset your series score vs the computer?', 'Reset')) {
+          cpuSeries = { w: 0, l: 0 };
+          persistCpuSeries();
+        }
+      });
+      diffButtons.forEach(b => b.addEventListener('click', () => {
+        difficulty = b.dataset.diff;
+        try { storeSet('bs_cpu_diff', difficulty); } catch (_) {}
+        diffButtons.forEach(x => x.classList.toggle('active', x === b));
+        cpuNewGame();
+      }));
+      diffButtons.forEach(x => x.classList.toggle('active', x.dataset.diff === difficulty));
+      renderCpuSeries();
+
+      // ---------- ONLINE: session store ----------
+      let mode = 'cpu';
+      let sessions = [];
+      let activeSession = null;
+      let lobbyNoteTimer = 0;
+
+      // Matchmaker state (declared early so dropSession can reference it).
+      let mmSocket = null, mmSearching = false, mmPendingCode = '', mmName = '', mmKeepalive = 0;
+
+      function makeSession(record) {
+        const series = (record && record.series) || {};
+        return {
+          code: cleanCode(record && record.code),
+          token: (record && record.token) || '',
+          name: (record && record.name) || 'You',
+          color: (record && record.color) || 0,
+          apiBase: record && 'apiBase' in record ? record.apiBase : null,
+          series: { w: Math.max(0, series.w | 0), l: Math.max(0, series.l | 0) },
+          socket: null, state: null, seatConfirmed: false,
+          intentionalClose: false, superseded: false, dropped: false,
+          reconnectAttempt: 0, connectFailures: 0, lastMessageAt: 0,
+          phase: 'idle', phaseError: '',
+          attention: false,
+          shotInFlight: false, placeInFlight: false, resignInFlight: false,
+          shotCell: null, shotSentAt: 0, placeSentAt: 0,
+          pendingShot: null, pendingPlace: null, pendingResign: false, pendingRematch: false,
+          placeShips: null, placeUiLocked: false,
+          sunkEnemy: new Set(),
+          timers: { reconnect: 0, connectTimeout: 0, keepalive: 0, watchdog: 0, shotAck: 0, placeAck: 0, resignAck: 0 },
+        };
+      }
+      function sessionByCode(code) {
+        const clean = cleanCode(code);
+        return sessions.find(s => s.code === clean) || null;
+      }
+      function persistSessions() {
+        try {
+          const records = sessions.filter(s => !s.dropped).map(s => ({
+            code: s.code, token: s.token, name: s.name, color: s.color, apiBase: s.apiBase,
+            series: { w: s.series.w, l: s.series.l },
+          }));
+          storeSet(SESSIONS_KEY, JSON.stringify(records));
+        } catch (_) {}
+      }
+      function loadStoredSessions() {
+        let records = [];
+        try { records = JSON.parse(storeGet(SESSIONS_KEY) || '[]'); } catch (_) { records = []; }
+        sessions = (Array.isArray(records) ? records : [])
+          .filter(r => r && cleanCode(r.code).length === 6)
+          .map(makeSession);
+      }
+      function showLobbyNote(text) {
+        lobbyNote.textContent = text || '';
+        clearTimeout(lobbyNoteTimer);
+        if (text) lobbyNoteTimer = setTimeout(() => { lobbyNote.textContent = ''; }, 9000);
+      }
+      function setOnlineBusy(busy) {
+        createGame.disabled = busy;
+        joinGame.disabled = busy;
+        findMatch.disabled = busy;
+      }
+      function dropSession(s, note) {
+        if (!s || s.dropped) return;
+        if (mmPendingCode && mmPendingCode === s.code) {
+          mmPendingCode = '';
+          closeMmSocket();
+        }
+        s.dropped = true;
+        clearActionTimers(s);
+        closeSessionSocket(s, true);
+        sessions = sessions.filter(x => x !== s);
+        persistSessions();
+        if (activeSession === s) { activeSession = null; showLobby(); }
+        setOnlineBusy(false);
+        renderLobby();
+        if (note) showLobbyNote(note);
+      }
+      async function leaveSession(s) {
+        if (!s || s.dropped) return;
+        const playing = s.state && (s.state.status === 'playing' || s.state.status === 'placement');
+        if (playing && !(await showConfirm('Leave this game? Leaving mid-game counts as a loss.', 'Leave'))) return;
+        try {
+          if (s.socket && s.socket.readyState === WebSocket.OPEN) s.socket.send(JSON.stringify({ t: 'leave' }));
+        } catch (_) {}
+        setTimeout(() => dropSession(s, playing ? 'You left the game.' : ''), 450);
+      }
+
+      // ---------- ONLINE: connection ----------
+      function clearSessionTimers(s) {
+        clearTimeout(s.timers.reconnect);
+        clearTimeout(s.timers.connectTimeout);
+        clearInterval(s.timers.keepalive);
+        clearInterval(s.timers.watchdog);
+        s.timers.reconnect = 0; s.timers.connectTimeout = 0;
+        s.timers.keepalive = 0; s.timers.watchdog = 0;
+      }
+      function clearActionTimers(s) {
+        s.shotInFlight = false;
+        s.placeInFlight = false;
+        s.resignInFlight = false;
+        clearTimeout(s.timers.shotAck); s.timers.shotAck = 0;
+        clearTimeout(s.timers.placeAck); s.timers.placeAck = 0;
+        clearTimeout(s.timers.resignAck); s.timers.resignAck = 0;
+      }
+      function closeSessionSocket(s, intentional) {
+        if (intentional) s.intentionalClose = true;
+        clearSessionTimers(s);
+        const current = s.socket;
+        s.socket = null;
+        if (current && current.readyState < WebSocket.CLOSING) { try { current.close(); } catch (_) {} }
+      }
+      function setPhase(s, phase, error = '') {
+        s.phase = phase;
+        s.phaseError = error;
+        if (s === activeSession && mode === 'online') renderGameView();
+        renderLobby();
+      }
+      function socketBaseFor(s) {
+        if (s.apiBase === FALLBACK_API_BASE) return 'wss://1v1.nz';
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${location.host}`;
+      }
+      function connectSession(s) {
+        if (!s || s.dropped || s.superseded) return;
+        if (s.socket && (s.socket.readyState === WebSocket.OPEN || s.socket.readyState === WebSocket.CONNECTING)) return;
+        s.intentionalClose = false;
+        clearSessionTimers(s);
+        setPhase(s, (s.seatConfirmed || s.connectFailures) ? 'reconnecting' : 'connecting');
+        let ws;
+        try {
+          ws = new WebSocket(`${socketBaseFor(s)}/api/battleship/rooms/${encodeURIComponent(s.code)}/ws`);
+        } catch (_) {
+          s.connectFailures++;
+          scheduleSessionReconnect(s);
+          return;
+        }
+        s.socket = ws;
+        s.timers.connectTimeout = setTimeout(() => {
+          if (s.socket === ws && ws.readyState !== WebSocket.OPEN) ws.close();
+        }, CONNECT_TIMEOUT_MS);
+        ws.addEventListener('open', () => {
+          if (s.socket !== ws) return;
+          clearTimeout(s.timers.connectTimeout);
+          s.timers.connectTimeout = 0;
+          s.lastMessageAt = Date.now();
+          const hello = { t: 'hello', name: s.name };
+          if (s.token) hello.token = s.token;
+          try { ws.send(JSON.stringify(hello)); } catch (_) {}
+          s.timers.keepalive = setInterval(() => {
+            if (s.socket === ws && ws.readyState === WebSocket.OPEN) { try { ws.send(JSON.stringify({ t: 'ping' })); } catch (_) {} }
+          }, 20000);
+          s.timers.watchdog = setInterval(() => {
+            if (s.socket === ws && ws.readyState === WebSocket.OPEN && Date.now() - s.lastMessageAt >= MESSAGE_WATCHDOG_MS) ws.close();
+          }, 5000);
+        });
+        ws.addEventListener('message', event => {
+          if (s.socket !== ws) return;
+          s.lastMessageAt = Date.now();
+          let message;
+          try { message = JSON.parse(event.data); } catch (_) { return; }
+          handleSessionMessage(s, message);
+        });
+        ws.addEventListener('close', event => {
+          if (s.socket !== ws) return;
+          s.socket = null;
+          clearSessionTimers(s);
+          if (s.intentionalClose || s.dropped) return;
+          if (event && event.code === 4400) {
+            s.superseded = true;
+            setPhase(s, 'superseded');
+            return;
+          }
+          if (!s.seatConfirmed && s.apiBase === null && location.host !== '1v1.nz') {
+            s.apiBase = FALLBACK_API_BASE;
+            persistSessions();
+            scheduleSessionReconnect(s, true);
+            return;
+          }
+          s.connectFailures++;
+          scheduleSessionReconnect(s);
+        });
+        ws.addEventListener('error', () => {
+          if (s.socket === ws && ws.readyState < WebSocket.CLOSING) ws.close();
+        });
+      }
+      function scheduleSessionReconnect(s, immediate = false) {
+        if (s.intentionalClose || s.dropped || s.superseded) return;
+        if (s.connectFailures >= MAX_CONNECT_FAILURES) {
+          setPhase(s, 'failed', 'Could not reconnect to the game server. Check your connection, then retry.');
+          return;
+        }
+        setPhase(s, 'reconnecting');
+        clearTimeout(s.timers.reconnect);
+        const delay = immediate ? 0 : Math.min(8000, 700 * Math.pow(1.7, s.reconnectAttempt++));
+        s.timers.reconnect = setTimeout(() => connectSession(s), delay);
+      }
+      function socketHealthy(s) {
+        return !!(s.socket && s.socket.readyState === WebSocket.OPEN && Date.now() - (s.lastMessageAt || 0) < 30000);
+      }
+      function reconnectNow(resetBackoff = true) {
+        if (mode !== 'online') return false;
+        let acted = false;
+        for (const s of sessions) {
+          if (s.dropped || s.superseded || s.intentionalClose) continue;
+          if (socketHealthy(s)) continue;
+          acted = true;
+          if (resetBackoff) { s.connectFailures = 0; s.reconnectAttempt = 0; }
+          closeSessionSocket(s, true);
+          connectSession(s);
+        }
+        return acted;
+      }
+      setInterval(() => {
+        if (mode !== 'online') return;
+        for (const s of sessions) {
+          if (s.dropped || s.superseded || s.intentionalClose || !s.seatConfirmed) continue;
+          if (s.phase === 'failed') continue;
+          if (!socketHealthy(s)) reconnectNow(false);
+        }
+      }, 10000);
+      function retryActiveSession() {
+        const s = activeSession;
+        if (!s || s.dropped || s.superseded) return;
+        s.connectFailures = 0;
+        s.reconnectAttempt = 0;
+        lobbyError.textContent = '';
+        closeSessionSocket(s, true);
+        s.intentionalClose = false;
+        connectSession(s);
+      }
+      function takeoverSession() {
+        const s = activeSession;
+        if (!s) return;
+        s.superseded = false;
+        s.intentionalClose = false;
+        s.connectFailures = 0;
+        s.reconnectAttempt = 0;
+        connectSession(s);
+      }
+
+      // ---------- ONLINE: actions with 6s ack ----------
+      function sendShot(s, r, c) {
+        try {
+          s.socket.send(JSON.stringify({ t: 'shot', r, c }));
+          s.shotInFlight = true;
+          s.shotSentAt = Date.now();
+          s.shotCell = { r, c };
+          clearTimeout(s.timers.shotAck);
+          s.timers.shotAck = setTimeout(() => onShotAckTimeout(s), ACTION_ACK_MS);
+        } catch (_) {
+          s.shotInFlight = false;
+          s.pendingShot = { r, c };
+          reconnectNow();
+        }
+      }
+      function onShotAckTimeout(s) {
+        s.timers.shotAck = 0;
+        if (!s || !s.shotInFlight) return;
+        s.shotInFlight = false;
+        // Never duplicate: flush revalidates against the latest server state,
+        // so a shot that actually landed is never resent.
+        s.pendingShot = s.shotCell;
+        reconnectNow();
+        if (s === activeSession && mode === 'online') onlineStatus.textContent = 'Reconnecting…';
+      }
+      function sendPlace(s, ships) {
+        try {
+          s.socket.send(JSON.stringify({ t: 'place', ships: ships.map(x => ({ cells: x.cells })) }));
+          s.placeInFlight = true;
+          s.placeSentAt = Date.now();
+          s.placeShips = ships;
+          clearTimeout(s.timers.placeAck);
+          s.timers.placeAck = setTimeout(() => onPlaceAckTimeout(s), ACTION_ACK_MS);
+        } catch (_) {
+          s.placeInFlight = false;
+          s.pendingPlace = ships;
+          reconnectNow();
+        }
+      }
+      function onPlaceAckTimeout(s) {
+        s.timers.placeAck = 0;
+        if (!s || !s.placeInFlight) return;
+        s.placeInFlight = false;
+        s.pendingPlace = s.placeShips;
+        reconnectNow();
+        if (s === activeSession && mode === 'online') onlineStatus.textContent = 'Reconnecting…';
+      }
+      function sendResignMsg(s) {
+        try {
+          s.socket.send(JSON.stringify({ t: 'resign' }));
+          s.resignInFlight = true;
+          clearTimeout(s.timers.resignAck);
+          s.timers.resignAck = setTimeout(() => onResignAckTimeout(s), ACTION_ACK_MS);
+        } catch (_) {
+          s.resignInFlight = false;
+          s.pendingResign = true;
+          reconnectNow();
+        }
+      }
+      function onResignAckTimeout(s) {
+        s.timers.resignAck = 0;
+        if (!s || !s.state || s.state.status !== 'playing') return;
+        s.resignInFlight = false;
+        s.pendingResign = true;
+        reconnectNow();
+        if (s === activeSession && mode === 'online') onlineStatus.textContent = 'Reconnecting…';
+      }
+      function sendRematchMsg(s) {
+        try { s.socket.send(JSON.stringify({ t: 'rematch' })); } catch (_) { s.pendingRematch = true; }
+      }
+      // Sends anything queued while the socket was down, revalidated against
+      // the latest server state so nothing is duplicated or sent stale.
+      function flushPendingOnlineAction(s) {
+        if (!s || s !== activeSession || mode !== 'online') return;
+        if (!socketHealthy(s) || !s.state) return;
+        const st = s.state;
+        if (s.pendingShot) {
+          const { r, c } = s.pendingShot;
+          s.pendingShot = null;
+          if (st.status === 'playing' && st.turn === s.color &&
+              Array.isArray(st.myShots) && st.myShots[r] && st.myShots[r][c] === 0) {
+            sendShot(s, r, c);
+          }
+        }
+        if (s.pendingPlace) {
+          const ships = s.pendingPlace;
+          s.pendingPlace = null;
+          if (st.status === 'placement' && !st.placed && validateFleet(ships).ok) sendPlace(s, ships);
+        }
+        if (s.pendingRematch) {
+          s.pendingRematch = false;
+          if (st.status === 'over') sendRematchMsg(s);
+        }
+        if (s.pendingResign) {
+          s.pendingResign = false;
+          if (st.status === 'playing') sendResignMsg(s);
+        }
+      }
+
+      // ---------- ONLINE: incoming messages ----------
+      function handleSessionMessage(s, message) {
+        if (!message || typeof message.t !== 'string') return;
+        if (message.t === 'joined') {
+          setOnlineBusy(false);
+          s.token = message.token || s.token;
+          s.color = message.color || s.color;
+          s.seatConfirmed = true;
+          s.connectFailures = 0;
+          s.reconnectAttempt = 0;
+          s.superseded = false;
+          if (s.apiBase === null) s.apiBase = location.host === '1v1.nz' ? FALLBACK_API_BASE : '';
+          persistSessions();
+          setPhase(s, 'confirmed');
+          if (message.state) applyState(s, message.state);
+        } else if (message.t === 'state' && message.state) {
+          applyState(s, message.state);
+        } else if (message.t === 'pong') {
+          // keepalive acknowledgement — nothing to do
+        } else if (message.t === 'error') {
+          handleSessionError(s, message.msg || 'The room could not be joined.');
+        }
+      }
+      function handleSessionError(s, text) {
+        clearActionTimers(s);
+        // A rejection arriving right after our own action is our duplicate
+        // retry racing the original send — don't flash it.
+        if (/not your turn|already fired|not your shot|invalid/i.test(text || '') && Date.now() - (s.shotSentAt || 0) < 5000) return;
+        if (!s.seatConfirmed || ROOM_GONE_PATTERN.test(text)) {
+          dropSession(s, s.seatConfirmed ? 'That game has ended.' : (text || ROOM_UNAVAILABLE_MESSAGE));
+          return;
+        }
+        // Transient banner, never a freeze. If the fleet send was rejected,
+        // unlock the placement UI so the player can fix and resend it.
+        showErrorBanner(text || 'Something went wrong.');
+        if (s === activeSession && mode === 'online' && s.state &&
+            s.state.status === 'placement' && !s.state.placed) {
+          s.placeUiLocked = false;
+          onlinePlaceUI.unlock();
+        }
+      }
+      function applyState(s, state) {
+        const prev = s.state;
+        s.state = state;
+        // A public match no longer needs its matchmaker socket once seated.
+        if (mmPendingCode && s.code === mmPendingCode && state.status !== 'waiting') {
+          mmPendingCode = '';
+          closeMmSocket();
+        }
+        // Any state broadcast is an ack for in-flight actions.
+        clearActionTimers(s);
+        s.placeUiLocked = false;
+        s.code = cleanCode(state.code || s.code);
+        if (prev && prev.status !== 'over' && state.status === 'over') countSeriesResult(s, state);
+        if (prev && prev.status === 'playing' && state.status === 'playing' &&
+            prev.turn !== s.color && state.turn === s.color) {
+          yourTurnAlert(s);
+        }
+        // Track sunk enemy ships from the server's sunk announcements, since
+        // myShots only carries hit/miss (never positions — those stay secret).
+        const ls = state.lastShot;
+        if (ls && ls.by === s.color && ls.sunk && Number.isInteger(ls.r) && Number.isInteger(ls.c) &&
+            Array.isArray(state.myShots)) {
+          const stack = [[ls.r, ls.c]];
+          const seen = new Set([ls.r + ',' + ls.c]);
+          while (stack.length) {
+            const [r, c] = stack.pop();
+            s.sunkEnemy.add(r + ',' + c);
+            for (const [nr, nc] of [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]) {
+              const k = nr + ',' + nc;
+              if (nr >= 0 && nr < 10 && nc >= 0 && nc < 10 && !seen.has(k) &&
+                  state.myShots[nr] && state.myShots[nr][nc] === 2) {
+                seen.add(k);
+                stack.push([nr, nc]);
+              }
+            }
+          }
+        }
+        // Fresh placement round (e.g. after a rematch): reset local views.
+        if (state.status === 'placement' && !state.placed && (!prev || prev.status === 'over')) {
+          s.sunkEnemy = new Set();
+          if (s === activeSession) onlinePlaceUI.reset();
+        }
+        if (s === activeSession && mode === 'online') renderGameView();
+        renderLobby();
+        flushPendingOnlineAction(s);
+      }
+      function countSeriesResult(s, state) {
+        const winner = state.winner | 0;
+        if (!winner || !s.color) return;
+        if (winner === s.color) s.series.w++;
+        else s.series.l++;
+        persistSessions();
+      }
+      function yourTurnAlert(s) {
+        if (s !== activeSession) s.attention = true;
+        try {
+          sound(660);
+          setTimeout(() => { try { sound(880); } catch (_) {} }, 150);
+          if (document.hidden && 'vibrate' in navigator) navigator.vibrate(200);
+        } catch (_) {}
+        renderLobby();
+      }
+
+      // ---------- ONLINE: placement + battle UI ----------
+      const onlinePlaceUI = createPlacementUI(onlinePlace, ships => {
+        const s = activeSession;
+        if (!s || !s.state || s.state.status !== 'placement' || s.state.placed) return;
+        onlinePlaceUI.setSending();
+        s.placeUiLocked = true;
+        if (socketHealthy(s)) sendPlace(s, ships);
+        else {
+          s.pendingPlace = ships;
+          reconnectNow();
+          onlineStatus.textContent = 'Reconnecting…';
+          showErrorBanner('Connection lost — your fleet will be placed once reconnected.');
+        }
+      });
+      const enemyCells = buildGrid(enemyGrid);
+      const ownCells = buildGrid(ownGrid);
+
+      function normCell(x) {
+        if (Array.isArray(x)) return [x[0] | 0, x[1] | 0];
+        if (x && typeof x === 'object') return [(x.r | 0), (x.c | 0)];
+        return [0, 0];
+      }
+      function empty10() { return Array.from({ length: 10 }, () => Array(10).fill(0)); }
+
+      function onlineFire(r, c) {
+        const s = activeSession;
+        if (!s || !s.state) return;
+        const st = s.state;
+        // Single tap fires — guarded by turn, status, in-flight flag and ack
+        // timeout exactly like Connect Four's moveInFlight.
+        if (st.status !== 'playing' || st.turn !== s.color || s.shotInFlight) return;
+        if (!Array.isArray(st.myShots) || !st.myShots[r] || (st.myShots[r][c] | 0) !== 0) return;
+        if (socketHealthy(s)) {
+          sendShot(s, r, c);
+        } else {
+          // Queue the shot; it fires from flushPendingOnlineAction on reconnect.
+          s.pendingShot = { r, c };
+          reconnectNow();
+          onlineStatus.textContent = 'Reconnecting…';
+          showErrorBanner('Connection lost — your shot will fire once reconnected.');
+        }
+      }
+      enemyCells.flat().forEach(cell => {
+        cell.addEventListener('click', () => onlineFire(+cell.dataset.row, +cell.dataset.col));
+      });
+
+      function renderOnlineBattle(s) {
+        const st = s.state;
+        const myShots = Array.isArray(st.myShots) ? st.myShots : empty10();
+        const enemyShots = Array.isArray(st.enemyShots) ? st.enemyShots : empty10();
+        for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) {
+          const v = (myShots[r] && myShots[r][c]) | 0;
+          const sunk = s.sunkEnemy.has(r + ',' + c);
+          const cell = enemyCells[r][c];
+          cell.className = 'bcell' + (sunk ? ' sunk' : v === 2 ? ' hit' : v === 1 ? ' miss' : '');
+          cell.setAttribute('aria-label', `Enemy row ${r + 1}, column ${c + 1}, ` +
+            (sunk ? 'sunk ship' : v === 2 ? 'hit' : v === 1 ? 'miss' : 'unknown'));
+        }
+        const shipMap = new Map();
+        const ships = st.myBoard && Array.isArray(st.myBoard.ships) ? st.myBoard.ships : [];
+        for (const ship of ships) {
+          const cells = (Array.isArray(ship.cells) ? ship.cells : []).map(normCell);
+          const hitSet = new Set((Array.isArray(ship.hits) ? ship.hits : []).map(h => { const [hr, hc] = normCell(h); return hr + ',' + hc; }));
+          for (const [sr, sc] of cells) shipMap.set(sr + ',' + sc, { hit: hitSet.has(sr + ',' + sc), sunk: !!ship.sunk });
+        }
+        for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) {
+          const cell = ownCells[r][c];
+          const info = shipMap.get(r + ',' + c);
+          const v = (enemyShots[r] && enemyShots[r][c]) | 0;
+          let cls = 'bcell';
+          let label = `Your row ${r + 1}, column ${c + 1}, `;
+          if (info) {
+            cls += info.sunk ? ' shipsunk' : info.hit ? 'shiphit' : 'ship';
+            label += info.sunk ? 'sunk ship' : info.hit ? 'ship, hit' : 'ship';
+          } else if (v === 2) { cls += ' hit'; label += 'hit by enemy'; }
+          else if (v === 1) { cls += ' miss'; label += 'enemy miss'; }
+          else label += 'water';
+          cell.className = cls;
+          cell.setAttribute('aria-label', label);
+        }
+        enemyCells.flat().forEach(el => el.classList.remove('last'));
+        ownCells.flat().forEach(el => el.classList.remove('last'));
+        const ls = st.lastShot;
+        if (ls && Number.isInteger(ls.r) && Number.isInteger(ls.c) && ls.r >= 0 && ls.r < 10 && ls.c >= 0 && ls.c < 10) {
+          (ls.by === s.color ? enemyCells : ownCells)[ls.r][ls.c].classList.add('last');
+        }
+      }
+
+      // ---------- ONLINE: lobby ----------
+      function opponentOf(s) {
+        const players = (s.state && Array.isArray(s.state.players)) ? s.state.players : [];
+        return players.find(p => p.color && p.color !== s.color) || null;
+      }
+      function opponentName(s) {
+        const opp = opponentOf(s);
+        return (opp && opp.name) ? opp.name : 'Waiting for opponent…';
+      }
+      function sessionBadge(s) {
+        if (s.superseded) return ['Open in another tab', 'warn'];
+        if (s.phase === 'failed') return ['Connection failed', 'warn'];
+        if (!s.state) return [s.phase === 'reconnecting' ? 'Reconnecting…' : 'Connecting…', 'muted'];
+        const st = s.state;
+        if (st.status === 'waiting') return ['Waiting', 'muted'];
+        if (st.status === 'placement') return ['Placing ships', 'muted'];
+        if (st.status === 'over') return ['Finished', 'muted'];
+        return st.turn === s.color ? ['Your turn', 'yours'] : ['Their turn', 'theirs'];
+      }
+      function renderLobby() {
+        sessionList.innerHTML = '';
+        if (!sessions.length) {
+          const empty = document.createElement('p');
+          empty.className = 'lobby-empty';
+          empty.textContent = 'No online games yet — create one below, find a public match, or join with an invite code.';
+          sessionList.appendChild(empty);
+          return;
+        }
+        for (const s of sessions) {
+          const entry = document.createElement('div');
+          entry.className = 'session-entry' + (s.attention ? ' has-attention' : '');
+          entry.setAttribute('role', 'listitem');
+          const open = document.createElement('button');
+          open.type = 'button';
+          open.className = 'session-open';
+          open.setAttribute('aria-label', `Open game with ${opponentName(s)}, room ${s.code}`);
+          const titleWrap = document.createElement('span');
+          titleWrap.className = 'session-title';
+          const nameEl = document.createElement('strong');
+          nameEl.className = 'session-name';
+          nameEl.textContent = opponentName(s);
+          const codeEl = document.createElement('span');
+          codeEl.className = 'session-code';
+          codeEl.textContent = s.code;
+          titleWrap.append(nameEl, codeEl);
+          const metaEl = document.createElement('span');
+          metaEl.className = 'session-meta';
+          const [badgeText, badgeKind] = sessionBadge(s);
+          const badge = document.createElement('span');
+          badge.className = 'session-badge ' + badgeKind;
+          badge.textContent = badgeText;
+          const series = document.createElement('span');
+          series.className = 'session-series';
+          series.textContent = `${s.series.w}–${s.series.l}`;
+          series.title = 'Series score';
+          metaEl.append(badge, series);
+          if (s.attention) {
+            const dot = document.createElement('span');
+            dot.className = 'session-dot';
+            dot.setAttribute('aria-label', 'Your turn');
+            metaEl.appendChild(dot);
+          }
+          open.append(titleWrap, metaEl);
+          open.addEventListener('click', () => openSession(s.code));
+          const leave = document.createElement('button');
+          leave.type = 'button';
+          leave.className = 'session-leave';
+          leave.setAttribute('aria-label', `Leave game ${s.code}`);
+          leave.textContent = '✕';
+          leave.addEventListener('click', event => { event.stopPropagation(); leaveSession(s); });
+          entry.append(open, leave);
+          sessionList.appendChild(entry);
+        }
+      }
+
+      // ---------- ONLINE: game view ----------
+      function renderRecoveryBanner(s) {
+        takeoverButton.hidden = !s.superseded;
+        if (s.superseded) {
+          connectionRecovery.hidden = false;
+          connectionIndicator.textContent = 'This game is open in another tab.';
+          retryGameConnection.hidden = true;
+          return;
+        }
+        if (s.phase === 'connecting' || s.phase === 'reconnecting' || s.phase === 'failed') {
+          connectionRecovery.hidden = false;
+          connectionIndicator.textContent = s.phase === 'failed'
+            ? (s.phaseError || 'Connection lost')
+            : s.phase === 'connecting' ? 'Connecting…' : 'Reconnecting…';
+          retryGameConnection.hidden = s.phase !== 'failed';
+          return;
+        }
+        connectionRecovery.hidden = true;
+        retryGameConnection.hidden = true;
+      }
+      function renderGameView() {
+        const s = activeSession;
+        if (!s || mode !== 'online') return;
+        onlineSetup.hidden = true;
+        matchSearch.hidden = true;
+        sessionListWrap.hidden = true;
+        gameView.hidden = false;
+        ghOpponent.textContent = opponentName(s);
+        ghSeries.textContent = `Series ${s.series.w}–${s.series.l}`;
+        renderRecoveryBanner(s);
+        const st = s.state;
+        if (s.superseded) {
+          waitingCard.hidden = false;
+          onlinePlace.hidden = true;
+          onlineBattle.hidden = true;
+          onlineGameActions.hidden = true;
+          inviteCode.textContent = s.code;
+          lobbyStatus.textContent = 'Open in another tab';
+          lobbyError.textContent = '';
+          return;
+        }
+        if (!st || st.status === 'waiting') {
+          waitingCard.hidden = false;
+          onlinePlace.hidden = true;
+          onlineBattle.hidden = true;
+          onlineGameActions.hidden = true;
+          inviteCode.textContent = s.code;
+          lobbyError.textContent = '';
+          if (s.phase === 'failed') {
+            lobbyStatus.textContent = 'Unable to connect';
+            lobbyError.textContent = s.phaseError;
+            retryLobbyConnection.hidden = false;
+          } else {
+            lobbyStatus.textContent = s.phase === 'connecting' ? 'Connecting…'
+              : s.phase === 'reconnecting' ? 'Reconnecting…' : 'Waiting for opponent…';
+            retryLobbyConnection.hidden = true;
+          }
+          return;
+        }
+        waitingCard.hidden = true;
+        if (st.status === 'placement') {
+          onlineBattle.hidden = true;
+          onlineGameActions.hidden = true;
+          onlinePlace.hidden = false;
+          resignButton.hidden = true;
+          if (st.placed) {
+            onlinePlaceUI.setWaiting();
+            onlineStatus.textContent = 'Fleet placed — waiting for opponent…';
+          } else {
+            // Never leave the UI stuck on "Sending…" (e.g. reopening a saved
+            // session whose send never completed).
+            if (!s.placeUiLocked) onlinePlaceUI.unlock();
+            onlineStatus.textContent = 'Place your fleet';
+          }
+          return;
+        }
+        // playing or over
+        onlinePlace.hidden = true;
+        onlineBattle.hidden = false;
+        renderOnlineBattle(s);
+        resignButton.hidden = st.status !== 'playing';
+        if (st.status === 'over') {
+          onlineGameActions.hidden = false;
+          const winner = st.winner | 0;
+          resultText.textContent = winner === s.color ? '🎉 You win!'
+            : winner ? `${opponentName(s)} wins` : "It's a draw";
+          seriesText.textContent = `${s.series.w}–${s.series.l}`;
+          const rematchColors = Array.isArray(st.rematch) ? st.rematch : [];
+          const iWant = rematchColors.includes(s.color);
+          const oppWants = rematchColors.some(c => c && c !== s.color);
+          rematch.disabled = iWant;
+          rematch.textContent = iWant ? 'Waiting for opponent…' : oppWants ? 'Accept rematch' : 'Rematch';
+          onlineStatus.textContent = '';
+          if (winner === s.color) sound(520, true);
+        } else {
+          onlineGameActions.hidden = true;
+          rematch.disabled = false;
+          rematch.textContent = 'Rematch';
+          const socketOpen = socketHealthy(s);
+          const opp = opponentOf(s);
+          const oppGone = !opp || opp.connected === false;
+          if (!socketOpen) onlineStatus.textContent = 'Reconnecting…';
+          else if (st.turn === s.color) onlineStatus.innerHTML = '<span class="turn-you">Your move — tap enemy waters to fire</span>';
+          else onlineStatus.innerHTML = '<span class="turn-them">' +
+            (oppGone ? 'Opponent disconnected — waiting for them to return'
+              : `${(opp && opp.name) || 'Opponent'} is aiming…`) + '</span>';
+        }
+      }
+      function showLobby() {
+        activeSession = null;
+        onlinePanel.hidden = false;
+        gameView.hidden = true;
+        sessionListWrap.hidden = false;
+        if (!mmSearching && !mmPendingCode) {
+          onlineSetup.hidden = false;
+          matchSearch.hidden = true;
+        }
+        renderLobby();
+        refreshMatchStats();
+      }
+      function openSession(code) {
+        const s = sessionByCode(code);
+        if (!s || s.dropped) return;
+        activeSession = s;
+        s.attention = false;
+        onlineSetup.hidden = true;
+        matchSearch.hidden = true;
+        sessionListWrap.hidden = true;
+        gameView.hidden = false;
+        renderGameView();
+        renderLobby();
+        if (!s.superseded && (!s.socket || (s.socket.readyState !== WebSocket.OPEN && s.socket.readyState !== WebSocket.CONNECTING))) {
+          connectSession(s);
+        }
+      }
+      function switchMode(next) {
+        mode = next;
+        const online = next === 'online';
+        tabCpu.classList.toggle('active', !online);
+        tabOnline.classList.toggle('active', online);
+        tabCpu.setAttribute('aria-selected', String(!online));
+        tabOnline.setAttribute('aria-selected', String(online));
+        cpuPanel.hidden = online;
+        if (online) {
+          setOnlineBusy(false);
+          showLobby();
+        } else {
+          onlinePanel.hidden = true;
+        }
+      }
+
+      // ---------- ONLINE: create / join ----------
+      async function createOnlineGame() {
+        const name = validName();
+        if (!name) return;
+        onlineError.textContent = '';
+        setOnlineBusy(true);
+        let room = null;
+        let selectedBase = null;
+        let lastFailure = 'network';
+        for (const apiBase of ['', FALLBACK_API_BASE]) {
+          const endpoint = apiBase ? `${apiBase}/api/battleship/rooms` : '/api/battleship/rooms';
+          let response;
+          try {
+            response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name }),
+            });
+          } catch (_) {
+            lastFailure = 'network';
+            continue;
+          }
+          lastFailure = 'server';
+          if (!response.ok) continue;
+          let candidate;
+          try { candidate = await response.json(); } catch (_) { continue; }
+          if (cleanCode(candidate.code || '').length !== 6 || !candidate.token) continue;
+          room = candidate;
+          selectedBase = apiBase;
+          break;
+        }
+        try {
+          if (!room) {
+            onlineError.textContent = lastFailure === 'server'
+              ? 'Could not create a game. Please try again.'
+              : 'Could not reach the game server. Check your connection and try again.';
+            return;
+          }
+          const s = makeSession({ code: room.code, token: room.token, name, color: room.color || 1, apiBase: selectedBase });
+          sessions.unshift(s);
+          persistSessions();
+          openSession(s.code);
+        } finally {
+          setOnlineBusy(false);
+        }
+      }
+      function joinOnlineGame() {
+        const name = validName();
+        if (!name) return;
+        const code = cleanCode(joinCode.value);
+        joinCode.value = code;
+        if (code.length !== 6) {
+          onlineError.textContent = 'Enter the six-character invite code.';
+          joinCode.focus();
+          return;
+        }
+        const existing = sessionByCode(code);
+        if (existing) {
+          openSession(code);
+          return;
+        }
+        const s = makeSession({ code, token: '', name, color: 0, apiBase: null });
+        sessions.unshift(s);
+        persistSessions();
+        onlineError.textContent = '';
+        setOnlineBusy(true);
+        openSession(code);
+      }
+      async function roomAlive(s) {
+        const base = s.apiBase || '';
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 6000);
+          const response = await fetch(`${base}/api/battleship/rooms/${encodeURIComponent(s.code)}`, { signal: controller.signal });
+          clearTimeout(timer);
+          return response.status !== 404;
+        } catch (_) {
+          return true;
+        }
+      }
+      async function restoreAllSessions() {
+        const results = await Promise.all(sessions.slice().map(async s => ({ s, alive: await roomAlive(s) })));
+        let ended = 0;
+        for (const { s, alive } of results) {
+          if (!alive) { dropSession(s); ended++; continue; }
+          connectSession(s);
+        }
+        if (ended > 0) showLobbyNote(ended === 1 ? 'One of your saved games has ended.' : `${ended} of your saved games have ended.`);
+      }
+
+      // ---------- ONLINE: public matchmaking ----------
+      function matchPlayerId() {
+        let id = null;
+        try { id = storeGet(MATCH_PLAYER_KEY); } catch (_) {}
+        if (!id) {
+          id = (window.crypto && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+          try { storeSet(MATCH_PLAYER_KEY, id); } catch (_) {}
+        }
+        return id;
+      }
+      function mmSocketBase() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${location.host}`;
+      }
+      function closeMmSocket() {
+        const ws = mmSocket;
+        mmSocket = null;
+        clearInterval(mmKeepalive);
+        mmKeepalive = 0;
+        if (ws) { try { ws.close(); } catch (_) {} }
+      }
+      function setSearchingUI(searching, text) {
+        onlineSetup.hidden = searching;
+        matchSearch.hidden = !searching;
+        if (typeof text === 'string') matchSearchText.textContent = text;
+      }
+      function stopSearching(note) {
+        mmSearching = false;
+        mmPendingCode = '';
+        closeMmSocket();
+        setSearchingUI(false);
+        setOnlineBusy(false);
+        if (note) showLobbyNote(note);
+        refreshMatchStats();
+      }
+      function findPublicMatch() {
+        const name = validName();
+        if (!name) return;
+        if (mmSearching) return;
+        mmName = name;
+        mmSearching = true;
+        mmPendingCode = '';
+        onlineError.textContent = '';
+        setOnlineBusy(true);
+        setSearchingUI(true, 'Searching for opponent…');
+        openMmSocket();
+      }
+      function openMmSocket() {
+        closeMmSocket();
+        let ws;
+        try {
+          ws = new WebSocket(`${mmSocketBase()}/api/match/battleship/ws`);
+        } catch (_) {
+          stopSearching('Could not reach the matchmaker. Check your connection and try again.');
+          return;
+        }
+        mmSocket = ws;
+        ws.addEventListener('open', () => {
+          if (mmSocket !== ws) return;
+          try {
+            ws.send(JSON.stringify({ t: 'hello', playerId: matchPlayerId(), name: mmName }));
+            ws.send(JSON.stringify({ t: 'find', name: mmName }));
+          } catch (_) {}
+          clearInterval(mmKeepalive);
+          mmKeepalive = setInterval(() => {
+            if (mmSocket === ws && ws.readyState === WebSocket.OPEN) {
+              try { ws.send(JSON.stringify({ t: 'ping' })); } catch (_) {}
+            }
+          }, 20000);
+        });
+        ws.addEventListener('message', event => {
+          if (mmSocket !== ws) return;
+          let m;
+          try { m = JSON.parse(event.data); } catch (_) { return; }
+          if (m.t === 'pong') {
+            if (mmSearching && m.queued === false) {
+              try { ws.send(JSON.stringify({ t: 'find', name: mmName })); } catch (_) {}
+            } else if (mmPendingCode && !m.pendingMatch) {
+              mmPendingCode = '';
+              mmSearching = true;
+              setSearchingUI(true, 'Searching for opponent…');
+              try { ws.send(JSON.stringify({ t: 'find', name: mmName })); } catch (_) {}
+            }
+          } else if (m.t === 'queued') {
+            const pos = Math.max(1, (m.position | 0) || 1);
+            matchSearchText.textContent = pos > 1
+              ? `Searching for opponent… (${pos} in line — pairing as soon as someone arrives)`
+              : 'Searching for opponent…';
+          } else if (m.t === 'matched' && m.code) {
+            // Verify the match is really a Battleship room before joining.
+            if (m.game !== 'battleship') {
+              stopSearching('Matchmaking returned an incompatible game. Please try again.');
+              return;
+            }
+            onMatched(cleanCode(m.code));
+          } else if (m.t === 'matchFailed') {
+            const reason = m.reason || 'Opponent never joined — searching again…';
+            const failedCode = mmPendingCode;
+            mmPendingCode = '';
+            mmSearching = true;
+            const dead = failedCode ? sessionByCode(failedCode) : null;
+            if (dead) dropSession(dead);
+            else showLobby();
+            setSearchingUI(true, reason);
+            showLobbyNote(reason);
+          } else if (m.t === 'cancelled') {
+            stopSearching();
+          } else if (m.t === 'error') {
+            stopSearching(m.msg || 'Matchmaking failed. Please try again.');
+          }
+        });
+        ws.addEventListener('close', () => {
+          if (mmSocket !== ws) return;
+          mmSocket = null;
+          clearInterval(mmKeepalive);
+          mmKeepalive = 0;
+          if (mmSearching && !mmPendingCode) {
+            stopSearching('Connection lost. Tap "Find public match" to search again.');
+          }
+        });
+      }
+      function onMatched(code) {
+        if (!code) { stopSearching('Matchmaking failed. Please try again.'); return; }
+        mmSearching = false;
+        mmPendingCode = code;
+        showLobbyNote('Opponent found! Joining…');
+        setOnlineBusy(false);
+        const existing = sessionByCode(code);
+        if (existing) { openSession(code); return; }
+        const s = makeSession({ code, token: '', name: mmName, color: 0, apiBase: null });
+        sessions.unshift(s);
+        persistSessions();
+        openSession(code);
+      }
+      function cancelPublicMatch() {
+        const ws = mmSocket;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try { ws.send(JSON.stringify({ t: 'cancel' })); } catch (_) {}
+        }
+        stopSearching();
+      }
+      async function refreshMatchStats() {
+        if (mode !== 'online' || onlineSetup.hidden) return;
+        try {
+          const base = location.host === '1v1.nz' ? 'https://1v1.nz' : '';
+          const res = await fetch(`${base}/api/match/battleship/stats`);
+          if (!res.ok) return;
+          const n = (await res.json()).searching | 0;
+          matchStats.textContent = n > 0 ? `${n} player${n === 1 ? '' : 's'} searching right now` : '';
+        } catch (_) {}
+      }
+
+      // ---------- ONLINE: wiring ----------
+      tabCpu.addEventListener('click', () => switchMode('cpu'));
+      tabOnline.addEventListener('click', () => switchMode('online'));
+      createGame.addEventListener('click', createOnlineGame);
+      findMatch.addEventListener('click', findPublicMatch);
+      cancelMatch.addEventListener('click', cancelPublicMatch);
+      onlineForm.addEventListener('submit', event => { event.preventDefault(); joinOnlineGame(); });
+      joinCode.addEventListener('input', () => { joinCode.value = cleanCode(joinCode.value); });
+      backToLobby.addEventListener('click', showLobby);
+      newOnlineGame.addEventListener('click', showLobby);
+      shareInvite.addEventListener('click', () => shareInviteLink(activeSession, shareInvite));
+      copyGameLink.addEventListener('click', () => shareInviteLink(activeSession, copyGameLink));
+      shareBtn.addEventListener('click', () => shareInviteLink(activeSession, shareBtn));
+      retryLobbyConnection.addEventListener('click', retryActiveSession);
+      retryGameConnection.addEventListener('click', retryActiveSession);
+      takeoverButton.addEventListener('click', takeoverSession);
+      leaveOnline.addEventListener('click', () => { if (activeSession) leaveSession(activeSession); });
+      leaveGameButton.addEventListener('click', () => { if (activeSession) leaveSession(activeSession); });
+      resignButton.addEventListener('click', async () => {
+        const s = activeSession;
+        if (!s || !s.state || s.state.status !== 'playing' || s.resignInFlight) return;
+        if (await showConfirm('Resign this game?', 'Resign')) {
+          if (socketHealthy(s)) {
+            sendResignMsg(s);
+          } else {
+            s.pendingResign = true;
+            reconnectNow();
+            onlineStatus.textContent = 'Reconnecting…';
+          }
+        }
+      });
+      rematch.addEventListener('click', () => {
+        const s = activeSession;
+        if (!s) return;
+        if (socketHealthy(s)) {
+          sendRematchMsg(s);
+        } else {
+          s.pendingRematch = true;
+          reconnectNow();
+        }
+        rematch.disabled = true;
+        rematch.textContent = 'Waiting for opponent…';
+      });
+      ghSeries.addEventListener('click', async () => {
+        const s = activeSession;
+        if (!s) return;
+        if (await showConfirm(`Reset your series score against ${opponentName(s)}?`, 'Reset')) {
+          s.series = { w: 0, l: 0 };
+          persistSessions();
+          renderGameView();
+          renderLobby();
+        }
+      });
+      confirmCancel.addEventListener('click', () => closeConfirm(false));
+      confirmOk.addEventListener('click', () => closeConfirm(true));
+      confirmOverlay.addEventListener('click', event => { if (event.target === confirmOverlay) closeConfirm(false); });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reconnectNow();
+      });
+      addEventListener('pageshow', () => reconnectNow());
+      addEventListener('online', () => reconnectNow());
+
+      // ---------- boot ----------
+      loadStoredSessions();
+      try {
+        const savedName = storeGet(NAME_KEY);
+        if (savedName) displayName.value = savedName;
+      } catch (_) {}
+      const sharedCode = cleanCode(new URLSearchParams(location.search).get('code') || '');
+      if (sharedCode.length === 6) {
+        switchMode('online');
+        const existing = sessionByCode(sharedCode);
+        if (existing) {
+          showLobbyNote('Welcome back — reconnecting to your game…');
+          openSession(sharedCode);
+          restoreAllSessions();
+        } else {
+          joinCode.value = sharedCode;
+          joinGame.textContent = `Join ${sharedCode}`;
+          displayName.focus();
+        }
+      } else {
+        restoreAllSessions();
+      }
+    })();
+  </script>
+</body>
+</html>
