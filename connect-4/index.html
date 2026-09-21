@@ -484,6 +484,8 @@
     .session-leave { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 12px; min-width: 44px; cursor: pointer; font-size: 15px; }
     .session-leave:hover { color: var(--red); border-color: var(--red); }
     .online-note { min-height: 20px; color: var(--muted) !important; font-size: 13px; font-weight: 600; }
+    #matchSearch { display: grid; gap: 12px; }
+    #matchSearchText { font-size: 15px; }
 
     .game-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; margin-bottom: 12px; }
     .gh-info { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
@@ -551,7 +553,7 @@
         <div class="session-list" id="sessionList" role="list" aria-label="Your games"></div>
         <p class="online-note" id="lobbyNote" aria-live="polite"></p>
         <div id="onlineSetup">
-          <p>Choose a guest name, then create a room or join with a six-character code.</p>
+          <p>Choose a guest name, then create a private room, find a public opponent, or join with a six-character code.</p>
           <form class="online-form" id="onlineForm">
             <label>Display name
               <input id="displayName" name="displayName" maxlength="24" autocomplete="nickname" placeholder="Your name" required>
@@ -561,10 +563,18 @@
             </label>
             <div class="online-actions">
               <button class="online-button" type="button" id="createGame">Create game</button>
+              <button class="online-button" type="button" id="findMatch">Find public match</button>
               <button class="online-button secondary" type="submit" id="joinGame">Join with code</button>
             </div>
+            <p class="online-note" id="matchStats" aria-live="polite"></p>
             <p class="online-error" id="onlineError" aria-live="polite"></p>
           </form>
+        </div>
+        <div id="matchSearch" hidden>
+          <p class="online-note" id="matchSearchText" aria-live="polite">Searching for opponent…</p>
+          <div class="online-actions">
+            <button class="online-button secondary" type="button" id="cancelMatch">Cancel search</button>
+          </div>
         </div>
       </section>
 
@@ -695,6 +705,11 @@
       const joinCode = document.getElementById('joinCode');
       const createGame = document.getElementById('createGame');
       const joinGame = document.getElementById('joinGame');
+      const findMatch = document.getElementById('findMatch');
+      const cancelMatch = document.getElementById('cancelMatch');
+      const matchSearch = document.getElementById('matchSearch');
+      const matchSearchText = document.getElementById('matchSearchText');
+      const matchStats = document.getElementById('matchStats');
       const onlineError = document.getElementById('onlineError');
       const lobbyNewGame = document.getElementById('lobbyNewGame');
       const sessionList = document.getElementById('sessionList');
@@ -1100,6 +1115,7 @@
       function setOnlineBusy(busy) {
         createGame.disabled = busy;
         joinGame.disabled = busy;
+        findMatch.disabled = busy;
       }
       function inviteLinkFor(s) {
         return `https://1v1.nz/connect-4/?code=${encodeURIComponent(s.code)}`;
@@ -1188,6 +1204,10 @@
       }
       function dropSession(s, note) {
         if (!s || s.dropped) return;
+        if (typeof mmPendingCode !== 'undefined' && mmPendingCode && mmPendingCode === s.code) {
+          mmPendingCode = '';
+          closeMmSocket();
+        }
         s.dropped = true;
         clearActionTimers(s);
         closeSessionSocket(s, true);
@@ -1522,6 +1542,11 @@
       function applyState(s, state) {
         const prev = s.state;
         s.state = state;
+        // A public match no longer needs its matchmaker socket once the game is live.
+        if (typeof mmPendingCode !== 'undefined' && mmPendingCode && s.code === mmPendingCode && state.status === 'playing') {
+          mmPendingCode = '';
+          closeMmSocket();
+        }
         clearActionTimers(s);
         s.code = cleanCode(state.code || s.code);
         if (prev && prev.status !== 'over' && state.status === 'over') countSeriesResult(s, state);
@@ -1577,7 +1602,7 @@
         if (!sessions.length) {
           const empty = document.createElement('p');
           empty.className = 'lobby-empty';
-          empty.textContent = 'No online games yet — create one below or join with an invite code.';
+          empty.textContent = 'No online games yet — create one below, find a public match, or join with an invite code.';
           sessionList.appendChild(empty);
           return;
         }
@@ -1662,6 +1687,7 @@
         newRound.hidden = true;
         onlineGameActions.hidden = true;
         renderLobby();
+        refreshMatchStats();
       }
       function switchMode(next) {
         // Sessions keep their sockets alive in the background while in other modes.
@@ -1929,6 +1955,141 @@
         if (ended > 0) showLobbyNote(ended === 1 ? 'One of your saved games has ended.' : `${ended} of your saved games have ended.`);
       }
 
+      // ----- public matchmaking -----
+      // Pairs the player with a stranger through the Matchmaker Durable Object.
+      // On "matched" the room is joined through the exact same session flow as
+      // clicking an invite link, so every reconnect/ack safeguard applies.
+      const MATCH_PLAYER_KEY = 'c4_match_player_id';
+      let mmSocket = null;
+      let mmSearching = false;
+      let mmPendingCode = '';
+      let mmName = '';
+
+      function matchPlayerId() {
+        let id = null;
+        try { id = storeGet(MATCH_PLAYER_KEY); } catch (_) {}
+        if (!id) {
+          id = (window.crypto && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+          try { storeSet(MATCH_PLAYER_KEY, id); } catch (_) {}
+        }
+        return id;
+      }
+      function mmSocketBase() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${location.host}`;
+      }
+      function closeMmSocket() {
+        const ws = mmSocket;
+        mmSocket = null;
+        if (ws) { try { ws.close(); } catch (_) {} }
+      }
+      function setSearchingUI(searching, text) {
+        onlineSetup.hidden = searching;
+        matchSearch.hidden = !searching;
+        if (typeof text === 'string') matchSearchText.textContent = text;
+      }
+      function stopSearching(note) {
+        mmSearching = false;
+        mmPendingCode = '';
+        closeMmSocket();
+        setSearchingUI(false);
+        setOnlineBusy(false);
+        if (note) showLobbyNote(note);
+        refreshMatchStats();
+      }
+      function findPublicMatch() {
+        const name = validName();
+        if (!name) return;
+        if (mmSearching) return;
+        mmName = name;
+        mmSearching = true;
+        mmPendingCode = '';
+        onlineError.textContent = '';
+        setOnlineBusy(true);
+        setSearchingUI(true, 'Searching for opponent…');
+        openMmSocket();
+      }
+      function openMmSocket() {
+        closeMmSocket();
+        let ws;
+        try {
+          ws = new WebSocket(`${mmSocketBase()}/api/match/connect4/ws`);
+        } catch (_) {
+          stopSearching('Could not reach the matchmaker. Check your connection and try again.');
+          return;
+        }
+        mmSocket = ws;
+        ws.addEventListener('open', () => {
+          if (mmSocket !== ws) return;
+          try {
+            ws.send(JSON.stringify({ t: 'hello', playerId: matchPlayerId(), name: mmName }));
+            ws.send(JSON.stringify({ t: 'find', name: mmName }));
+          } catch (_) {}
+        });
+        ws.addEventListener('message', event => {
+          if (mmSocket !== ws) return;
+          let m;
+          try { m = JSON.parse(event.data); } catch (_) { return; }
+          if (m.t === 'queued') {
+            const pos = Math.max(1, (m.position | 0) || 1);
+            matchSearchText.textContent = pos > 1
+              ? `Searching for opponent… (${pos} in line — pairing as soon as someone arrives)`
+              : 'Searching for opponent…';
+          } else if (m.t === 'matched' && m.code) {
+            onMatched(cleanCode(m.code));
+          } else if (m.t === 'matchFailed') {
+            // The server already put us back in line; stay on this screen.
+            mmPendingCode = '';
+            mmSearching = true;
+            setSearchingUI(true, m.reason || 'Opponent never joined — searching again…');
+          } else if (m.t === 'cancelled') {
+            stopSearching();
+          } else if (m.t === 'error') {
+            stopSearching(m.msg || 'Matchmaking failed. Please try again.');
+          }
+        });
+        ws.addEventListener('close', () => {
+          if (mmSocket !== ws) return;
+          mmSocket = null;
+          if (mmSearching && !mmPendingCode) {
+            stopSearching('Connection lost. Tap "Find public match" to search again.');
+          }
+          // If we were already matched, the room session takes over from here.
+        });
+      }
+      function onMatched(code) {
+        if (!code) { stopSearching('Matchmaking failed. Please try again.'); return; }
+        mmSearching = false;
+        mmPendingCode = code;
+        showLobbyNote('Opponent found! Joining…');
+        setOnlineBusy(false);
+        const existing = sessionByCode(code);
+        if (existing) { openSession(code); return; }
+        const s = makeSession({ code, token: '', name: mmName, color: 0, apiBase: null });
+        sessions.unshift(s);
+        persistSessions();
+        openSession(code);
+      }
+      function cancelPublicMatch() {
+        const ws = mmSocket;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try { ws.send(JSON.stringify({ t: 'cancel' })); } catch (_) {}
+        }
+        stopSearching();
+      }
+      async function refreshMatchStats() {
+        if (mode !== 'online' || onlineSetup.hidden) return;
+        try {
+          const base = location.host === '1v1.nz' ? 'https://1v1.nz' : '';
+          const res = await fetch(`${base}/api/match/connect4/stats`);
+          if (!res.ok) return;
+          const n = (await res.json()).searching | 0;
+          matchStats.textContent = n > 0 ? `${n} player${n === 1 ? '' : 's'} searching right now` : '';
+        } catch (_) {}
+      }
+
       // ----- chat -----
       function openChat() {
         const s = activeSession;
@@ -2106,6 +2267,8 @@
       difficultyButtons.forEach(button => button.addEventListener('click', () => setDifficulty(button.dataset.difficulty)));
       newRound.addEventListener('click', reset);
       createGame.addEventListener('click', createOnlineGame);
+      findMatch.addEventListener('click', findPublicMatch);
+      cancelMatch.addEventListener('click', cancelPublicMatch);
       onlineForm.addEventListener('submit', event => { event.preventDefault(); joinOnlineGame(); });
       joinCode.addEventListener('input', () => { joinCode.value = cleanCode(joinCode.value); });
       lobbyNewGame.addEventListener('click', () => { onlineSetup.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); displayName.focus(); });
