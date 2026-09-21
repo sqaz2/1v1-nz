@@ -584,7 +584,10 @@
       const trackStatus = document.getElementById('trackStatus');
       let grid, turn, locked, ended, mode = 'cpu', difficulty = 'hard';
       let scores = [0,0], moveHistory = [], audio;
+      const FALLBACK_API_BASE = 'https://1v1.nz';
+      const ROOM_UNAVAILABLE_MESSAGE = 'Could not join that room. It may be full or no longer available.';
       let socket = null, roomCode = '', onlineName = '', onlineToken = '', onlineColor = 0;
+      let onlineApiBase = null;
       let onlineState = null, reconnectTimer = 0, reconnectAttempt = 0, keepaliveTimer = 0, intentionalClose = false;
 
       for (let c = 0; c < COLS; c++) {
@@ -1044,8 +1047,11 @@
         if (mode !== 'online' || !roomCode || !onlineName) return;
         intentionalClose = false;
         clearTimeout(reconnectTimer);
-        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        socket = new WebSocket(`${protocol}//${location.host}/api/rooms/${encodeURIComponent(roomCode)}/ws`);
+        const sameOriginProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socketBase = onlineApiBase === FALLBACK_API_BASE
+          ? 'wss://1v1.nz'
+          : `${sameOriginProtocol}//${location.host}`;
+        socket = new WebSocket(`${socketBase}/api/rooms/${encodeURIComponent(roomCode)}/ws`);
         socket.addEventListener('open', () => {
           const hello = {t: 'hello', name: onlineName};
           if (onlineToken) hello.token = onlineToken;
@@ -1083,7 +1089,7 @@
             onlineSetup.hidden = false;
             onlineLobby.hidden = true;
             setGameSurface(false);
-            onlineError.textContent = 'Could not join that room. It may be full or no longer available.';
+            onlineError.textContent = ROOM_UNAVAILABLE_MESSAGE;
           }
         });
         socket.addEventListener('error', () => socket.close());
@@ -1094,25 +1100,49 @@
         onlineName = name;
         onlineError.textContent = '';
         setOnlineBusy(true);
+        let room = null;
+        let selectedBase = null;
+        let lastFailure = 'network';
+        const bases = onlineApiBase === null ? ['', FALLBACK_API_BASE] : [onlineApiBase];
+        for (const apiBase of bases) {
+          const endpoint = apiBase ? `${apiBase}/api/rooms` : '/api/rooms';
+          let response;
+          try {
+            response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({name})
+            });
+          } catch (_) {
+            lastFailure = 'network';
+            continue;
+          }
+          lastFailure = 'server';
+          if (!response.ok) continue;
+          let candidate;
+          try { candidate = await response.json(); } catch (_) { continue; }
+          const candidateCode = cleanCode(candidate.code || '');
+          if (candidateCode.length !== 6 || !candidate.token) continue;
+          room = candidate;
+          selectedBase = apiBase;
+          break;
+        }
         try {
-          const response = await fetch('/api/rooms', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({name})
-          });
-          if (!response.ok) throw new Error('create failed');
-          const room = await response.json();
+          if (!room) {
+            onlineError.textContent = lastFailure === 'server'
+              ? ROOM_UNAVAILABLE_MESSAGE
+              : 'Could not reach the game server. Check your connection and try again.';
+            return;
+          }
+          onlineApiBase = selectedBase;
           roomCode = cleanCode(room.code || '');
-          onlineToken = room.token || '';
+          onlineToken = room.token;
           onlineColor = room.color || 1;
-          if (roomCode.length !== 6 || !onlineToken) throw new Error('invalid room');
           onlineSetup.hidden = true;
           onlineLobby.hidden = false;
           inviteCode.textContent = roomCode;
           lobbyStatus.textContent = 'Waiting for opponent…';
           connectOnline();
-        } catch (_) {
-          onlineError.textContent = 'Couldn’t create a room. Check your connection and try again.';
         } finally {
           setOnlineBusy(false);
         }
