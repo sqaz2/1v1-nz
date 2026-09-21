@@ -116,8 +116,8 @@
     padding: 2px;
   }
   .bcell {
-    aspect-ratio: 1; border-radius: 4px; border: 1px solid rgba(29,76,140,.55);
-    background: rgba(14,42,82,.35);
+    aspect-ratio: 1; border-radius: 4px; border: 1px solid rgba(29,76,140,.32);
+    background: rgba(14,42,82,.2);
     padding: 0; cursor: pointer; position: relative; min-width: 0; z-index: 1;
   }
   .bcell:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -174,8 +174,8 @@
   .ship-sprite img {
     display: block;
     pointer-events: none;
-    object-fit: fill;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
+    object-fit: contain;
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,.7)) drop-shadow(0 1px 2px rgba(0,0,0,.45));
   }
   .ship-sprite.horiz img {
     width: 100%;
@@ -190,21 +190,52 @@
     height: 88cqw;
     transform: translate(-50%, -50%) rotate(90deg);
   }
-  .ship-sprite.sunk img { filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)) grayscale(.35) brightness(.85); }
-  .ship-sprite.hit:not(.sunk) img { filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)) saturate(1.1); }
+  .ship-sprite.sunk img { filter: drop-shadow(0 2px 5px rgba(0,0,0,.7)) grayscale(.35) brightness(.85); }
+  .ship-sprite.hit:not(.sunk) img { filter: drop-shadow(0 2px 5px rgba(0,0,0,.7)) saturate(1.1); }
+  .ship-sprite.ghost { z-index: 2; }
+  .ship-sprite.ghost.valid { opacity: .55; }
+  .ship-sprite.ghost.valid img {
+    filter: drop-shadow(0 0 2px rgba(70,220,200,.95)) drop-shadow(0 0 6px rgba(50,200,160,.55)) drop-shadow(0 2px 4px rgba(0,0,0,.35));
+  }
+  .ship-sprite.ghost.invalid { opacity: .4; }
+  .ship-sprite.ghost.invalid img {
+    filter: drop-shadow(0 0 2px rgba(255,90,90,.95)) drop-shadow(0 0 6px rgba(220,50,50,.45)) sepia(.35) hue-rotate(-15deg) saturate(1.6);
+  }
+  @keyframes ship-place {
+    from { transform: scale(.92); opacity: .45; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .ship-sprite.just-placed { animation: ship-place 180ms ease-out; }
 
   /* placement */
   .place-ui .palette { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
   .shipbtn {
     border: 1px solid var(--line); background: var(--card2); color: var(--ink);
-    border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 700; cursor: pointer;
+    border-radius: 10px; padding: 8px 10px; font-size: 13px; font-weight: 700; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 72px;
   }
+  .shipbtn .ship-thumb {
+    height: 22px; width: auto; max-width: 78px; object-fit: contain;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); pointer-events: none;
+  }
+  .shipbtn .shipbtn-meta { display: flex; align-items: baseline; gap: 0; flex-wrap: wrap; justify-content: center; }
   .shipbtn .pips { color: var(--accent); letter-spacing: 1px; margin-left: 6px; }
   .shipbtn.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
   .shipbtn.placed { opacity: .4; cursor: default; }
-  .place-grid .bcell { cursor: crosshair; }
+  .place-grid .bcell { cursor: crosshair; border-color: rgba(29,76,140,.26); }
+  .place-grid .bcell.invalid {
+    border-color: #e06a72 !important;
+    background: rgba(161,29,38,.48) !important;
+  }
   .place-hint { color: var(--muted); font-size: 13px; margin: 8px 0; min-height: 18px; }
   .ready { width: 100%; margin-top: 10px; }
+  .ready.ready-pulse {
+    animation: ready-glow 1.6s ease-in-out infinite;
+    box-shadow: 0 0 0 2px rgba(80,200,180,.4), 0 0 14px rgba(80,200,180,.32);
+  }
+  @keyframes ready-glow {
+    50% { box-shadow: 0 0 0 3px rgba(80,200,180,.6), 0 0 22px rgba(80,200,180,.48); }
+  }
   .place-wait { text-align: center; color: var(--gold); font-weight: 700; margin: 12px 0; }
 
   /* lobby */
@@ -606,7 +637,7 @@
       }
       function syncShipSprites(gridEl, ships) {
         if (!gridEl) return;
-        gridEl.querySelectorAll(':scope > .ship-sprite').forEach(el => el.remove());
+        gridEl.querySelectorAll(':scope > .ship-sprite:not(.ghost)').forEach(el => el.remove());
         if (!Array.isArray(ships) || !ships.length) return;
         const used = new Set();
         for (const ship of ships) {
@@ -737,10 +768,14 @@
           const b = document.createElement('button');
           b.type = 'button'; b.className = 'shipbtn';
           b.innerHTML = '';
+          const thumb = document.createElement('img');
+          thumb.className = 'ship-thumb'; thumb.src = def.art; thumb.alt = ''; thumb.draggable = false;
+          const meta = document.createElement('span'); meta.className = 'shipbtn-meta';
           const label = document.createElement('span'); label.textContent = def.name;
           const pips = document.createElement('span'); pips.className = 'pips'; pips.textContent = '●'.repeat(def.size);
-          b.append(label, pips);
-          b.addEventListener('click', () => { if (!locked && !isPlaced(d)) { selected = d; render(); } });
+          meta.append(label, pips);
+          b.append(thumb, meta);
+          b.addEventListener('click', () => { if (!locked && !isPlaced(d)) { selected = d; clearGhost(); render(); } });
           palette.appendChild(b);
           return b;
         });
@@ -750,6 +785,9 @@
         let horizontal = true;
         let locked = false;
         let shipAt = new Map();    // "r,c" -> ship index
+        let ghostEl = null;
+        let lastHover = null;
+        let invalidFlashTimer = 0;
 
         function isPlaced(d) { return ships.some(s => s.defIdx === d); }
         function rebuildIndex() {
@@ -760,11 +798,69 @@
           for (let d = 0; d < SHIP_DEFS.length; d++) if (!isPlaced(d)) return d;
           return -1;
         }
+        function removeGhostEl() {
+          if (ghostEl) { ghostEl.remove(); ghostEl = null; }
+        }
+        function clearGhost() {
+          removeGhostEl();
+          lastHover = null;
+        }
+        function showGhost(r, c) {
+          lastHover = { r, c };
+          removeGhostEl();
+          if (locked || selected < 0 || isPlaced(selected)) return;
+          if (shipAt.has(r + ',' + c)) return;
+          const size = SHIP_DEFS[selected].size;
+          const preview = [];
+          for (let i = 0; i < size; i++) preview.push(horizontal ? [r, c + i] : [r + i, c]);
+          const valid = !preview.some(([rr, cc]) => rr < 0 || rr > 9 || cc < 0 || cc > 9 || shipAt.has(rr + ',' + cc));
+          ghostEl = document.createElement('div');
+          ghostEl.className = 'ship-sprite ghost ' + (horizontal ? 'horiz' : 'vert') + (valid ? ' valid' : ' invalid');
+          ghostEl.style.setProperty('--size', String(size));
+          ghostEl.setAttribute('aria-hidden', 'true');
+          if (horizontal) {
+            ghostEl.style.gridRow = String(r + 1);
+            ghostEl.style.gridColumn = (c + 1) + ' / span ' + size;
+          } else {
+            ghostEl.style.gridColumn = String(c + 1);
+            ghostEl.style.gridRow = (r + 1) + ' / span ' + size;
+          }
+          const img = document.createElement('img');
+          img.src = SHIP_DEFS[selected].art;
+          img.alt = '';
+          img.draggable = false;
+          ghostEl.appendChild(img);
+          gridEl.appendChild(ghostEl);
+        }
+        function cellFromPoint(clientX, clientY) {
+          const el = document.elementFromPoint(clientX, clientY);
+          const cell = el && el.closest ? el.closest('.bcell') : null;
+          if (!cell || !gridEl.contains(cell)) return null;
+          return { r: +cell.dataset.row, c: +cell.dataset.col };
+        }
+        function flashInvalid(preview) {
+          clearTimeout(invalidFlashTimer);
+          for (const [rr, cc] of preview) {
+            if (rr < 0 || rr > 9 || cc < 0 || cc > 9) continue;
+            cells[rr][cc].classList.add('invalid');
+          }
+          invalidFlashTimer = setTimeout(() => {
+            for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) cells[r][c].classList.remove('invalid');
+          }, 300);
+        }
+        function markJustPlaced() {
+          const sprites = gridEl.querySelectorAll(':scope > .ship-sprite:not(.ghost)');
+          const el = sprites[sprites.length - 1];
+          if (!el) return;
+          el.classList.add('just-placed');
+          setTimeout(() => el.classList.remove('just-placed'), 200);
+        }
         function render() {
           rebuildIndex();
           for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) {
             const cell = cells[r][c];
-            cell.className = 'bcell' + (shipAt.has(r + ',' + c) ? ' ship' : '');
+            const keepInvalid = cell.classList.contains('invalid');
+            cell.className = 'bcell' + (shipAt.has(r + ',' + c) ? ' ship' : '') + (keepInvalid ? ' invalid' : '');
           }
           syncShipSprites(gridEl, ships);
           shipBtns.forEach((b, d) => {
@@ -773,26 +869,32 @@
           });
           readyBtn.disabled = locked || ships.length !== 5;
           readyBtn.textContent = `Ready — fleet ${ships.length}/5`;
+          readyBtn.classList.toggle('ready-pulse', !locked && ships.length === 5);
           if (!locked) {
             if (ships.length === 5) hint.textContent = 'Fleet complete — tap Ready to battle!';
             else if (selected >= 0) hint.textContent = `Placing ${SHIP_DEFS[selected].name} (${SHIP_DEFS[selected].size}) — tap a start square. Tap a placed ship to remove it.`;
             else hint.textContent = 'Pick a ship, then tap a start square. Tap a placed ship to remove it.';
           }
+          if (lastHover && !locked) showGhost(lastHover.r, lastHover.c);
+          else removeGhostEl();
         }
         function tryPlace(r, c) {
           if (locked || selected < 0 || isPlaced(selected)) return;
           const size = SHIP_DEFS[selected].size;
-          const cells = [];
-          for (let i = 0; i < size; i++) cells.push(horizontal ? [r, c + i] : [r + i, c]);
-          if (cells.some(([rr, cc]) => rr < 0 || rr > 9 || cc < 0 || cc > 9 || shipAt.has(rr + ',' + cc))) {
+          const preview = [];
+          for (let i = 0; i < size; i++) preview.push(horizontal ? [r, c + i] : [r + i, c]);
+          if (preview.some(([rr, cc]) => rr < 0 || rr > 9 || cc < 0 || cc > 9 || shipAt.has(rr + ',' + cc))) {
             hint.textContent = 'No room there — pick another square or flip orientation.';
             sound(180);
+            flashInvalid(preview);
             return;
           }
-          ships.push({ defIdx: selected, cells });
+          ships.push({ defIdx: selected, cells: preview });
           selected = nextUnplaced();
           sound(520);
+          clearGhost();
           render();
+          markJustPlaced();
         }
         cells.flat().forEach(cell => {
           cell.addEventListener('click', () => {
@@ -803,12 +905,27 @@
               const removed = ships.splice(idx, 1)[0];
               selected = removed.defIdx;
               sound(300);
+              clearGhost();
               render();
               return;
             }
             tryPlace(r, c);
           });
         });
+        gridEl.addEventListener('mousemove', (e) => {
+          if (locked) return;
+          const pos = cellFromPoint(e.clientX, e.clientY);
+          if (!pos) { clearGhost(); return; }
+          showGhost(pos.r, pos.c);
+        });
+        gridEl.addEventListener('mouseleave', () => { clearGhost(); });
+        gridEl.addEventListener('touchmove', (e) => {
+          if (locked || !e.touches || !e.touches[0]) return;
+          const t = e.touches[0];
+          const pos = cellFromPoint(t.clientX, t.clientY);
+          if (!pos) { clearGhost(); return; }
+          showGhost(pos.r, pos.c);
+        }, { passive: true });
         orientBtn.addEventListener('click', () => {
           horizontal = !horizontal;
           orientBtn.textContent = horizontal ? '⟳ Horizontal' : '⟳ Vertical';
@@ -819,11 +936,13 @@
           ships = randomFleet();
           selected = -1;
           sound(660);
+          clearGhost();
           render();
         });
         clearBtn.addEventListener('click', () => {
           if (locked) return;
           ships = []; selected = 0;
+          clearGhost();
           render();
         });
         readyBtn.addEventListener('click', () => {
@@ -840,14 +959,17 @@
             orientBtn.textContent = '⟳ Horizontal';
             waitMsg.hidden = true;
             readyBtn.style.display = '';
+            clearGhost();
             render();
           },
           getShips() { return ships.map(s => ({ defIdx: s.defIdx, cells: s.cells.map(([r, c]) => [r, c]) })); },
           setSending() {
             locked = true;
             readyBtn.disabled = true;
+            readyBtn.classList.remove('ready-pulse');
             readyBtn.textContent = 'Sending…';
             hint.textContent = '';
+            clearGhost();
           },
           unlock() {
             // Back to editable without wiping the player's layout (e.g. the
@@ -860,9 +982,11 @@
           setWaiting() {
             locked = true;
             readyBtn.disabled = true;
+            readyBtn.classList.remove('ready-pulse');
             readyBtn.style.display = 'none';
             waitMsg.hidden = false;
             hint.textContent = '';
+            clearGhost();
           },
         };
       }
