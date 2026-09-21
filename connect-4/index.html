@@ -551,7 +551,7 @@
         <div class="session-list" id="sessionList" role="list" aria-label="Your games"></div>
         <p class="online-note" id="lobbyNote" aria-live="polite"></p>
         <div id="onlineSetup">
-          <p>Choose a guest name, then create a room or join with a six-letter code.</p>
+          <p>Choose a guest name, then create a room or join with a six-character code.</p>
           <form class="online-form" id="onlineForm">
             <label>Display name
               <input id="displayName" name="displayName" maxlength="24" autocomplete="nickname" placeholder="Your name" required>
@@ -1059,7 +1059,7 @@
       let voiceCapTimer = 0, voiceTickTimer = 0, voiceStream = null;
 
       function cleanCode(value) {
-        return String(value || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
+        return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
       }
       function validName() {
         const value = displayName.value.trim().replace(/\s+/g, ' ').slice(0, 24);
@@ -1757,7 +1757,7 @@
         const code = cleanCode(joinCode.value);
         joinCode.value = code;
         if (code.length !== 6) {
-          onlineError.textContent = 'Enter the six-letter invite code.';
+          onlineError.textContent = 'Enter the six-character invite code.';
           joinCode.focus();
           return;
         }
