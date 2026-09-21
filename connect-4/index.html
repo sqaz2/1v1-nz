@@ -806,7 +806,7 @@
         if (locked || ended || grid[0][col]) return clearMarker();
         if (mode === 'online') {
           const s = activeSession;
-          if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || !socketHealthy(s)) return clearMarker();
+          if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || s.moveInFlight || !socketHealthy(s)) return clearMarker();
         }
         arena.dataset.hover = col;
         markers.children[col].classList.add('hover');
@@ -822,6 +822,7 @@
           // and queues the move instead of silently swallowing the tap.
           if (s && s.state && s.state.status === 'playing' && s.state.turn === s.color && !grid[0][col] && !s.moveInFlight && !socketHealthy(s)) {
             s.pendingMove = col;
+            clearMarker();
             reconnectNow();
             statusText.textContent = 'Reconnecting…';
             return;
@@ -832,7 +833,21 @@
           const s = activeSession;
           if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || s.moveInFlight || !socketHealthy(s)) return;
           s.moveInFlight = true;
-          s.socket.send(JSON.stringify({t: 'move', col}));
+          s.moveSentAt = Date.now();
+          s.moveCol = col;
+          try {
+            s.socket.send(JSON.stringify({t: 'move', col}));
+          } catch (_) {
+            // Send failed outright: queue it instead of freezing with moveInFlight set.
+            clearActionTimers(s);
+            s.pendingMove = col;
+            clearMarker();
+            reconnectNow();
+            statusText.textContent = 'Reconnecting…';
+            return;
+          }
+          clearTimeout(s.moveAckTimer);
+          s.moveAckTimer = setTimeout(() => onMoveAckTimeout(s), ACTION_ACK_MS);
           clearMarker();
           return;
         }
@@ -1174,6 +1189,7 @@
       function dropSession(s, note) {
         if (!s || s.dropped) return;
         s.dropped = true;
+        clearActionTimers(s);
         closeSessionSocket(s, true);
         sessions = sessions.filter(x => x !== s);
         persistSessions();
@@ -1232,8 +1248,16 @@
           const col = s.pendingMove;
           s.pendingMove = null;
           if (s.state.status === 'playing' && s.state.turn === s.color && col >= 0 && col < COLS && !grid[0][col]) {
-            try { s.socket.send(JSON.stringify({t: 'move', col})); clearMarker(); }
-            catch (_) { s.pendingMove = col; }
+            try {
+              s.socket.send(JSON.stringify({t: 'move', col}));
+              s.moveInFlight = true;
+              s.moveSentAt = Date.now();
+              s.moveCol = col;
+              clearTimeout(s.moveAckTimer);
+              s.moveAckTimer = setTimeout(() => onMoveAckTimeout(s), ACTION_ACK_MS);
+              clearMarker();
+            }
+            catch (_) { clearActionTimers(s); s.pendingMove = col; }
           }
         }
         if (s.pendingResign) {
@@ -1354,25 +1378,64 @@
       function socketHealthy(s) {
         return !!(s.socket && s.socket.readyState === WebSocket.OPEN && Date.now() - (s.lastMessageAt || 0) < 30000);
       }
+      // If a move/resign is sent but no server state comes back within a few
+      // seconds, the send died in a half-open socket. Re-queue and reconnect
+      // instead of freezing the game.
+      const ACTION_ACK_MS = 6000;
+      function onMoveAckTimeout(s) {
+        s.moveAckTimer = 0;
+        if (!s || !s.moveInFlight) return;
+        s.moveInFlight = false;
+        s.pendingMove = s.moveCol;
+        clearMarker();
+        reconnectNow();
+        if (s === activeSession && mode === 'online') statusText.textContent = 'Reconnecting…';
+      }
+      function onResignAckTimeout(s) {
+        s.resignAckTimer = 0;
+        if (!s || !s.state || s.state.status !== 'playing') return;
+        s.pendingResign = true;
+        reconnectNow();
+        if (s === activeSession && mode === 'online') statusText.textContent = 'Reconnecting…';
+      }
+      function clearActionTimers(s) {
+        s.moveInFlight = false;
+        s.resignInFlight = false;
+        clearTimeout(s.moveAckTimer); s.moveAckTimer = 0;
+        clearTimeout(s.resignAckTimer); s.resignAckTimer = 0;
+      }
       // Reconnect immediately and aggressively: tear down anything that is not a
       // healthy open socket (stuck "connecting" attempts, half-open sockets left
       // behind when the OS suspends the tab) so that coming back to the page
       // never leaves a game deaf. Called on visibility return, pageshow, and
       // before any online action while disconnected.
-      function reconnectNow() {
+      function reconnectNow(resetBackoff = true) {
         if (mode !== 'online') return false;
         let acted = false;
         for (const s of sessions) {
           if (s.dropped || s.superseded || s.intentionalClose) continue;
           if (socketHealthy(s)) continue;
           acted = true;
-          s.connectFailures = 0;
-          s.reconnectAttempt = 0;
+          if (resetBackoff) {
+            s.connectFailures = 0;
+            s.reconnectAttempt = 0;
+          }
           closeSessionSocket(s, true);
           connectSession(s);
         }
         return acted;
       }
+      // Passive safety net: even with the screen on, a silently dead socket in a
+      // live game is reaped within ~10s. Never-connected sessions keep the
+      // normal backoff; failed sessions wait for a manual retry.
+      setInterval(() => {
+        if (mode !== 'online') return;
+        for (const s of sessions) {
+          if (s.dropped || s.superseded || s.intentionalClose || !s.seatConfirmed) continue;
+          if (s.phase === 'failed') continue;
+          if (!socketHealthy(s)) reconnectNow(false);
+        }
+      }, 10000);
 
       // ----- incoming messages -----
       function normalizeChatMessage(raw) {
@@ -1443,7 +1506,10 @@
         }
       }
       function handleSessionError(s, text) {
-        s.moveInFlight = false;
+        clearActionTimers(s);
+        // A "not your turn" arriving right after our own move is our duplicate
+        // retry racing the original send, not a real rejection — don't flash it.
+        if (/not your turn/i.test(text || '') && Date.now() - (s.moveSentAt || 0) < 5000) return;
         if (!s.seatConfirmed || ROOM_GONE_PATTERN.test(text)) {
           dropSession(s, s.seatConfirmed ? 'That game has ended.' : (text || ROOM_UNAVAILABLE_MESSAGE));
           return;
@@ -1456,7 +1522,7 @@
       function applyState(s, state) {
         const prev = s.state;
         s.state = state;
-        s.moveInFlight = false;
+        clearActionTimers(s);
         s.code = cleanCode(state.code || s.code);
         if (prev && prev.status !== 'over' && state.status === 'over') countSeriesResult(s, state);
         if (prev && prev.status === 'playing' && state.status === 'playing' &&
@@ -2057,10 +2123,19 @@
       chatRecStop.addEventListener('click', () => stopVoiceRecording(true));
       resignButton.addEventListener('click', async () => {
         const s = activeSession;
-        if (!s || !s.state || s.state.status !== 'playing') return;
+        if (!s || !s.state || s.state.status !== 'playing' || s.resignInFlight) return;
         if (await showConfirm('Resign this game?', 'Resign')) {
           if (socketHealthy(s)) {
-            try { s.socket.send(JSON.stringify({ t: 'resign' })); } catch (_) {}
+            try {
+              s.socket.send(JSON.stringify({ t: 'resign' }));
+              s.resignInFlight = true;
+              clearTimeout(s.resignAckTimer);
+              s.resignAckTimer = setTimeout(() => onResignAckTimeout(s), ACTION_ACK_MS);
+            } catch (_) {
+              s.pendingResign = true;
+              reconnectNow();
+              statusText.textContent = 'Reconnecting…';
+            }
           } else {
             // Connection is down: reconnect now and send the resign once back.
             s.pendingResign = true;
