@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>StarMuff Simon | 1v1.nz</title>
+  <meta name="description" content="Play StarMuff Simon free in your browser — classic memory sequence game. Watch the pattern, repeat it, beat your high score on 1v1.nz." />
+  <link rel="canonical" href="https://1v1.nz/simon/" />
+  <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="64x64" />
+  <meta name="theme-color" content="#0b1020" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="1v1.nz" />
+  <meta property="og:title" content="StarMuff Simon | 1v1.nz" />
+  <meta property="og:description" content="Classic Simon memory game from the StarMuff arcade — free in your browser." />
+  <meta property="og:url" content="https://1v1.nz/simon/" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="StarMuff Simon | 1v1.nz" />
+  <meta name="twitter:description" content="Watch the sequence. Repeat it. Beat your best." />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: radial-gradient(900px 600px at 50% 10%, #1a1540 0%, #0b1020 55%, #060810 100%);
+      color: #eaf1ff;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 16px 16px 28px;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    header {
+      width: 100%; max-width: 360px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    a.back {
+      color: #7dd3fc; text-decoration: none; font-size: .85rem; font-weight: 600;
+      border: 1px solid rgba(125,211,252,.35); border-radius: 8px; padding: 6px 10px;
+      background: rgba(255,255,255,.04);
+    }
+    h1 {
+      font-size: 1.15rem; letter-spacing: .02em;
+      background: linear-gradient(135deg, #22d3ee, #c084fc);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .panel {
+      width: 100%; max-width: 360px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(168,85,247,.28);
+      border-radius: 18px;
+      padding: 20px 16px 24px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.35);
+    }
+    .scores {
+      display: flex; justify-content: center; align-items: center; gap: 28px;
+      margin-bottom: 18px; text-align: center;
+    }
+    .scores .label { font-size: .7rem; text-transform: uppercase; letter-spacing: .12em; color: #94a3b8; }
+    .scores .val { font-size: 1.75rem; font-weight: 700; }
+    .scores .score .val { color: #22d3ee; }
+    .scores .best .val { color: #fbbf24; }
+    .divider { width: 1px; height: 36px; background: rgba(168,85,247,.35); }
+    .pad {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      max-width: 280px; margin: 0 auto 18px;
+    }
+    .pad button {
+      aspect-ratio: 1; border-radius: 18px; border: 2px solid rgba(255,255,255,.12);
+      cursor: pointer; transition: transform .1s, filter .1s, box-shadow .15s;
+      touch-action: manipulation;
+    }
+    .pad button:disabled { cursor: default; opacity: .75; }
+    .pad button:not(:disabled):active { transform: scale(.95); }
+    .c0 { background: #0891b2; }
+    .c1 { background: #7e22ce; }
+    .c2 { background: #db2777; }
+    .c3 { background: #16a34a; }
+    .c0.active { background: #67e8f9; box-shadow: 0 0 28px rgba(103,232,249,.55); border-color: #fff; }
+    .c1.active { background: #c084fc; box-shadow: 0 0 28px rgba(192,132,252,.55); border-color: #fff; }
+    .c2.active { background: #f472b6; box-shadow: 0 0 28px rgba(244,114,182,.55); border-color: #fff; }
+    .c3.active { background: #4ade80; box-shadow: 0 0 28px rgba(74,222,128,.55); border-color: #fff; }
+    .status {
+      text-align: center; min-height: 4.5rem;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    }
+    .status p { color: #94a3b8; font-size: .95rem; }
+    .status .over { color: #f87171; font-weight: 600; }
+    .btn {
+      appearance: none; border: none; cursor: pointer;
+      padding: 12px 22px; border-radius: 12px; font-weight: 600; font-size: .95rem;
+      color: #fff;
+      background: linear-gradient(135deg, #0891b2, #7e22ce);
+      box-shadow: 0 8px 24px rgba(126,34,206,.35);
+    }
+    .btn.secondary { background: #334155; box-shadow: none; }
+    footer { margin-top: 18px; color: #64748b; font-size: .75rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="back" href="https://1v1.nz/">← 1v1.nz</a>
+    <h1>StarMuff Simon</h1>
+    <span style="width:72px"></span>
+  </header>
+
+  <div class="panel" role="main">
+    <div class="scores">
+      <div class="score">
+        <div class="label">Score</div>
+        <div class="val" id="score">0</div>
+      </div>
+      <div class="divider"></div>
+      <div class="best">
+        <div class="label">Best</div>
+        <div class="val" id="high">0</div>
+      </div>
+    </div>
+
+    <div class="pad" id="pad">
+      <button type="button" class="c0" data-i="0" aria-label="Cyan" disabled></button>
+      <button type="button" class="c1" data-i="1" aria-label="Purple" disabled></button>
+      <button type="button" class="c2" data-i="2" aria-label="Magenta" disabled></button>
+      <button type="button" class="c3" data-i="3" aria-label="Green" disabled></button>
+    </div>
+
+    <div class="status" id="status">
+      <button type="button" class="btn" id="startBtn">Start Game</button>
+    </div>
+  </div>
+
+  <footer>StarMuff arcade · memory sequence · phone-friendly</footer>
+
+  <script>
+(function () {
+  const FREQS = [261.63, 329.63, 392.00, 523.25];
+  const STORAGE_KEY = 'simonHighScore';
+  const buttons = Array.from(document.querySelectorAll('#pad button'));
+  const scoreEl = document.getElementById('score');
+  const highEl = document.getElementById('high');
+  const statusEl = document.getElementById('status');
+
+  let sequence = [];
+  let playerIndex = 0;
+  let showing = false;
+  let state = 'idle'; // idle | playing | gameover
+  let score = 0;
+  let highScore = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
+  highEl.textContent = highScore;
+
+  let audioCtx = null;
+  function ctx() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playTone(i, duration) {
+    const c = ctx();
+    if (!c) return;
+    try {
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(FREQS[i], c.currentTime);
+      g.gain.setValueAtTime(0.28, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, c.currentTime + duration / 1000);
+      o.start(c.currentTime);
+      o.stop(c.currentTime + duration / 1000);
+    } catch (e) {}
+  }
+
+  function playError() {
+    const c = ctx();
+    if (!c) return;
+    try {
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(150, c.currentTime);
+      o.frequency.exponentialRampToValueAtTime(50, c.currentTime + 0.45);
+      g.gain.setValueAtTime(0.28, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 0.45);
+      o.start(c.currentTime);
+      o.stop(c.currentTime + 0.45);
+    } catch (e) {}
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function flash(i, duration) {
+    const btn = buttons[i];
+    btn.classList.add('active');
+    playTone(i, duration);
+    await sleep(duration);
+    btn.classList.remove('active');
+    await sleep(100);
+  }
+
+  function setPadsEnabled(on) {
+    buttons.forEach(b => { b.disabled = !on; });
+  }
+
+  function renderStatus() {
+    if (state === 'idle') {
+      statusEl.innerHTML = '<button type="button" class="btn" id="startBtn">Start Game</button>';
+      document.getElementById('startBtn').onclick = startGame;
+      setPadsEnabled(false);
+    } else if (state === 'playing') {
+      statusEl.innerHTML = '<p id="hint">' + (showing ? 'Watch the sequence…' : 'Your turn — repeat the pattern!') + '</p>';
+      setPadsEnabled(!showing);
+    } else {
+      statusEl.innerHTML =
+        '<p class="over">Game Over!</p>' +
+        '<p>You remembered ' + score + ' pattern' + (score === 1 ? '' : 's') + '</p>' +
+        '<button type="button" class="btn secondary" id="startBtn">Try Again</button>';
+      document.getElementById('startBtn').onclick = startGame;
+      setPadsEnabled(false);
+    }
+  }
+
+  async function showSequence(seq) {
+    showing = true;
+    playerIndex = 0;
+    renderStatus();
+    await sleep(450);
+    for (const i of seq) {
+      await flash(i, 400);
+    }
+    showing = false;
+    renderStatus();
+  }
+
+  function startGame() {
+    sequence = [Math.floor(Math.random() * 4)];
+    playerIndex = 0;
+    score = 0;
+    scoreEl.textContent = '0';
+    state = 'playing';
+    showSequence(sequence);
+  }
+
+  function onPress(i) {
+    if (showing || state !== 'playing') return;
+    flash(i, 200);
+    if (i === sequence[playerIndex]) {
+      const next = playerIndex + 1;
+      if (next === sequence.length) {
+        score = sequence.length;
+        scoreEl.textContent = String(score);
+        if (score > highScore) {
+          highScore = score;
+          highEl.textContent = String(highScore);
+          localStorage.setItem(STORAGE_KEY, String(highScore));
+        }
+        playerIndex = 0;
+        setTimeout(() => {
+          sequence = sequence.concat([Math.floor(Math.random() * 4)]);
+          setTimeout(() => showSequence(sequence), 400);
+        }, 700);
+      } else {
+        playerIndex = next;
+      }
+    } else {
+      playError();
+      state = 'gameover';
+      renderStatus();
+    }
+  }
+
+  buttons.forEach(b => {
+    b.addEventListener('click', () => onPress(Number(b.dataset.i)));
+  });
+
+  renderStatus();
+})();
+  </script>
+</body>
+</html>
