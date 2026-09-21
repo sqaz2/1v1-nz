@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>1v1 Games Online — Free 1 versus 1 Browser Multiplayer | 1v1.nz</title>
-  <meta name="description" content="Play free 1v1 games online at 1v1.nz — 1 versus 1 multiplayer browser games vs a friend or vs computer, plus StarMuff arcade: Tetris, Pinball, Simon, and Skirmish." />
-  <meta name="keywords" content="1v1, 1 versus 1, multiplayer, browser games, free, vs friend, vs computer, Battleship, Connect 4, Tetris, Pinball, Simon, StarMuff Skirmish" />
+  <meta name="description" content="Play free 1v1 games online at 1v1.nz — Battleship, Connect 4, Tetris, Pinball, Simon, and Skirmish. vs friend, hotseat, or vs CPU in your browser." />
+  <meta name="keywords" content="1v1, 1 versus 1, multiplayer, browser games, free, vs friend, vs computer, Battleship, Connect 4, Tetris, Pinball, Simon, Skirmish" />
   <link rel="canonical" href="https://1v1.nz/" />
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="64x64" />
   <link rel="apple-touch-icon" href="/assets/favicon.png" />
@@ -14,7 +14,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="1v1.nz" />
   <meta property="og:title" content="1v1 Games Online — Free 1 versus 1 Browser Multiplayer | 1v1.nz" />
-  <meta property="og:description" content="Free 1v1 multiplayer browser games plus StarMuff arcade — Battleship, Connect 4, Tetris, Pinball, Simon, Skirmish." />
+  <meta property="og:description" content="Free 1v1 browser games — Battleship, Connect 4, Tetris, Pinball, Simon, Skirmish. vs friend, hotseat, or vs CPU." />
   <meta property="og:url" content="https://1v1.nz/" />
   <meta property="og:image" content="https://1v1.nz/assets/og-home.png" />
   <meta property="og:image:width" content="1200" />
@@ -23,7 +23,7 @@
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="1v1 Games Online — Free 1 versus 1 Browser Multiplayer | 1v1.nz" />
-  <meta name="twitter:description" content="Free 1v1 multiplayer + StarMuff arcade — play in your browser." />
+  <meta name="twitter:description" content="Free 1v1 games — vs friend, hotseat, or vs CPU in your browser." />
   <meta name="twitter:image" content="https://1v1.nz/assets/og-home.png" />
 
   <script type="application/ld+json">
@@ -35,50 +35,20 @@
         "@id": "https://1v1.nz/#website",
         "url": "https://1v1.nz/",
         "name": "1v1.nz",
-        "description": "Free 1 versus 1 multiplayer browser games and StarMuff arcade — play vs a friend or vs computer.",
+        "description": "Free 1 versus 1 multiplayer browser games — vs friend, hotseat, or vs computer.",
         "inLanguage": "en"
       },
       {
         "@type": "ItemList",
         "@id": "https://1v1.nz/#games",
-        "name": "Games on 1v1.nz",
+        "name": "1v1 games on 1v1.nz",
         "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Battleship",
-            "url": "https://1v1.nz/battleship/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "Connect 4",
-            "url": "https://1v1.nz/connect-4/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 3,
-            "name": "StarMuff Tetris",
-            "url": "https://1v1.nz/tetris/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 4,
-            "name": "StarMuff Pinball",
-            "url": "https://1v1.nz/pinball/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 5,
-            "name": "StarMuff Simon",
-            "url": "https://1v1.nz/simon/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 6,
-            "name": "StarMuff Skirmish",
-            "url": "https://1v1.nz/skirmish/"
-          }
+          {"@type":"ListItem","position":1,"name":"Battleship","url":"https://1v1.nz/battleship/"},
+          {"@type":"ListItem","position":2,"name":"Connect 4","url":"https://1v1.nz/connect-4/"},
+          {"@type":"ListItem","position":3,"name":"StarMuff Tetris 1v1","url":"https://1v1.nz/tetris/"},
+          {"@type":"ListItem","position":4,"name":"StarMuff Pinball 1v1","url":"https://1v1.nz/pinball/"},
+          {"@type":"ListItem","position":5,"name":"StarMuff Simon 1v1","url":"https://1v1.nz/simon/"},
+          {"@type":"ListItem","position":6,"name":"StarMuff Skirmish 1v1","url":"https://1v1.nz/skirmish/"}
         ]
       }
     ]
@@ -106,9 +76,7 @@
       font-size: 1.05rem; letter-spacing: .04em; text-transform: uppercase;
       color: #7dd3fc; text-align: left;
     }
-    p.section-blurb {
-      text-align: left; color: #9db4d8; font-size: .92rem; margin-bottom: 12px;
-    }
+    p.section-blurb { text-align: left; color: #9db4d8; font-size: .92rem; margin-bottom: 12px; }
     .games { display: grid; gap: 12px; }
     a.game {
       display: flex; align-items: center; justify-content: space-between;
@@ -121,7 +89,7 @@
     a.game:hover { background: rgba(255,255,255,0.11); transform: translateY(-2px); }
     a.game small { font-weight: 400; color: #9db4d8; white-space: nowrap; }
     a.game .meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-    a.game .blurb { font-weight: 400; font-size: .8rem; color: #7a8fb0; white-space: normal; text-align: right; max-width: 200px; }
+    a.game .blurb { font-weight: 400; font-size: .8rem; color: #7a8fb0; white-space: normal; text-align: right; max-width: 220px; }
     .faq {
       margin-top: 40px; text-align: left;
       background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
@@ -129,10 +97,7 @@
     }
     .faq h2 { font-size: 1.15rem; margin-bottom: 14px; color: #eaf1ff; text-transform: none; letter-spacing: 0; }
     .faq details { margin: 10px 0; }
-    .faq summary {
-      cursor: pointer; font-weight: 600; color: #d7e4f8;
-      list-style: none; padding: 6px 0;
-    }
+    .faq summary { cursor: pointer; font-weight: 600; color: #d7e4f8; list-style: none; padding: 6px 0; }
     .faq summary::-webkit-details-marker { display: none; }
     .faq summary::before { content: "+ "; color: #38bdf8; font-weight: 700; }
     .faq details[open] summary::before { content: "− "; }
@@ -150,58 +115,58 @@
     <h1>1<span class="vs">v</span>1.nz</h1>
     <p class="tag">Head-to-head games — free 1 versus 1 multiplayer in your browser</p>
     <p class="intro">
-      1v1.nz is a hub for free 1v1 browser games you can play vs a friend or vs the computer,
-      plus quick StarMuff arcade classics. No downloads, no account required — just open a game and play.
+      1v1.nz is a hub for free 1v1 browser games — play vs a friend online, hotseat on one device, or vs the computer.
+      No downloads, no account required.
     </p>
 
-    <h2 class="section">1v1 multiplayer</h2>
-    <p class="section-blurb">Classic head-to-head matches — challenge a friend online or the computer.</p>
+    <h2 class="section">Classic 1v1</h2>
+    <p class="section-blurb">Naval combat and drop-four — online friend matches and CPU.</p>
     <div class="games" role="list">
       <a class="game" role="listitem" href="/battleship/">
         Battleship
         <span class="meta">
-          <small>vs Friend · vs CPU</small>
+          <small>vs Friend online · vs CPU</small>
           <span class="blurb">Place your fleet and hunt ships across the grid.</span>
         </span>
       </a>
       <a class="game" role="listitem" href="/connect-4/">
         Connect 4
         <span class="meta">
-          <small>vs Computer · 3 difficulties</small>
+          <small>vs CPU · 3 difficulties</small>
           <span class="blurb">Drop discs and get four in a row.</span>
         </span>
       </a>
     </div>
 
-    <h2 class="section">StarMuff arcade</h2>
-    <p class="section-blurb">Solo arcade hits from StarMuff — tetris, pinball, memory, and space artillery.</p>
+    <h2 class="section">StarMuff 1v1</h2>
+    <p class="section-blurb">Cloned StarMuff games rebuilt as real 1v1 — hotseat and vs CPU now; online coming soon.</p>
     <div class="games" role="list">
       <a class="game" role="listitem" href="/tetris/">
         Tetris
         <span class="meta">
-          <small>StarMuff · solo</small>
-          <span class="blurb">Stack cargo blocks before the bay overflows.</span>
+          <small>vs CPU · local 2P</small>
+          <span class="blurb">Dual boards + garbage attacks. Online soon.</span>
         </span>
       </a>
       <a class="game" role="listitem" href="/pinball/">
         Pinball
         <span class="meta">
-          <small>StarMuff · solo</small>
-          <span class="blurb">Neon flippers, bumpers, and arcade chaos.</span>
+          <small>Score duel · hotseat / vs CPU</small>
+          <span class="blurb">3 balls each — highest score wins. Online soon.</span>
         </span>
       </a>
       <a class="game" role="listitem" href="/simon/">
         Simon
         <span class="meta">
-          <small>StarMuff · memory</small>
-          <span class="blurb">Watch the sequence, repeat it, beat your best.</span>
+          <small>Memory duel · hotseat / vs CPU</small>
+          <span class="blurb">Growing sequence — miss once and you lose.</span>
         </span>
       </a>
       <a class="game" role="listitem" href="/skirmish/">
         Skirmish
         <span class="meta">
-          <small>StarMuff · artillery 1v1</small>
-          <span class="blurb">Space tanks — aim plasma through gravity wells.</span>
+          <small>Artillery · hotseat / vs CPU</small>
+          <span class="blurb">Space tanks — plasma through gravity wells.</span>
         </span>
       </a>
     </div>
@@ -210,11 +175,11 @@
       <h2>FAQ</h2>
       <details open>
         <summary>What is 1v1.nz?</summary>
-        <p>1v1.nz is a collection of free 1 versus 1 multiplayer browser games — classic head-to-head titles like Battleship and Connect 4 — plus StarMuff arcade games like Tetris, Pinball, Simon, and Skirmish.</p>
+        <p>1v1.nz is a collection of free 1 versus 1 browser games — Battleship and Connect 4 plus StarMuff 1v1 clones (Tetris, Pinball, Simon, Skirmish).</p>
       </details>
       <details>
         <summary>Can I play vs a friend?</summary>
-        <p>Yes. Battleship supports online 1v1 matches against a friend. Connect 4 currently plays vs the computer, with friend modes planned. Skirmish is a local turn-based artillery duel for two players on one device.</p>
+        <p>Battleship supports online 1v1. Tetris, Pinball, Simon, and Skirmish support hotseat (same device) and vs CPU today; online friend matches are coming soon.</p>
       </details>
       <details>
         <summary>Do I need an account?</summary>
@@ -222,7 +187,7 @@
       </details>
     </section>
 
-    <footer>More 1v1 games on the way.</footer>
+    <footer>More 1v1 modes on the way.</footer>
   </main>
 </body>
 </html>

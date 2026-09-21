@@ -3,282 +3,193 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>StarMuff Simon | 1v1.nz</title>
-  <meta name="description" content="Play StarMuff Simon free in your browser — classic memory sequence game. Watch the pattern, repeat it, beat your high score on 1v1.nz." />
+  <title>StarMuff Simon 1v1 — Memory Duel | 1v1.nz</title>
+  <meta name="description" content="Play StarMuff Simon 1v1 free — competitive memory duel vs CPU or hotseat. Repeat the growing sequence; miss and you lose on 1v1.nz." />
   <link rel="canonical" href="https://1v1.nz/simon/" />
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="64x64" />
   <meta name="theme-color" content="#0b1020" />
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="1v1.nz" />
-  <meta property="og:title" content="StarMuff Simon | 1v1.nz" />
-  <meta property="og:description" content="Classic Simon memory game from the StarMuff arcade — free in your browser." />
+  <meta property="og:title" content="StarMuff Simon 1v1 — Memory Duel | 1v1.nz" />
+  <meta property="og:description" content="Competitive Simon 1v1 — vs CPU or hotseat. Miss the sequence and you lose." />
   <meta property="og:url" content="https://1v1.nz/simon/" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="StarMuff Simon | 1v1.nz" />
-  <meta name="twitter:description" content="Watch the sequence. Repeat it. Beat your best." />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      min-height: 100dvh;
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      background: radial-gradient(900px 600px at 50% 10%, #1a1540 0%, #0b1020 55%, #060810 100%);
-      color: #eaf1ff;
-      display: flex; flex-direction: column; align-items: center;
-      padding: 16px 16px 28px;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-    }
-    header {
-      width: 100%; max-width: 360px;
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 18px;
-    }
-    a.back {
-      color: #7dd3fc; text-decoration: none; font-size: .85rem; font-weight: 600;
-      border: 1px solid rgba(125,211,252,.35); border-radius: 8px; padding: 6px 10px;
-      background: rgba(255,255,255,.04);
-    }
-    h1 {
-      font-size: 1.15rem; letter-spacing: .02em;
-      background: linear-gradient(135deg, #22d3ee, #c084fc);
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-    }
-    .panel {
-      width: 100%; max-width: 360px;
-      background: rgba(255,255,255,.04);
-      border: 1px solid rgba(168,85,247,.28);
-      border-radius: 18px;
-      padding: 20px 16px 24px;
-      box-shadow: 0 20px 50px rgba(0,0,0,.35);
-    }
-    .scores {
-      display: flex; justify-content: center; align-items: center; gap: 28px;
-      margin-bottom: 18px; text-align: center;
-    }
-    .scores .label { font-size: .7rem; text-transform: uppercase; letter-spacing: .12em; color: #94a3b8; }
-    .scores .val { font-size: 1.75rem; font-weight: 700; }
-    .scores .score .val { color: #22d3ee; }
-    .scores .best .val { color: #fbbf24; }
-    .divider { width: 1px; height: 36px; background: rgba(168,85,247,.35); }
-    .pad {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-      max-width: 280px; margin: 0 auto 18px;
-    }
-    .pad button {
-      aspect-ratio: 1; border-radius: 18px; border: 2px solid rgba(255,255,255,.12);
-      cursor: pointer; transition: transform .1s, filter .1s, box-shadow .15s;
-      touch-action: manipulation;
-    }
-    .pad button:disabled { cursor: default; opacity: .75; }
-    .pad button:not(:disabled):active { transform: scale(.95); }
-    .c0 { background: #0891b2; }
-    .c1 { background: #7e22ce; }
-    .c2 { background: #db2777; }
-    .c3 { background: #16a34a; }
-    .c0.active { background: #67e8f9; box-shadow: 0 0 28px rgba(103,232,249,.55); border-color: #fff; }
-    .c1.active { background: #c084fc; box-shadow: 0 0 28px rgba(192,132,252,.55); border-color: #fff; }
-    .c2.active { background: #f472b6; box-shadow: 0 0 28px rgba(244,114,182,.55); border-color: #fff; }
-    .c3.active { background: #4ade80; box-shadow: 0 0 28px rgba(74,222,128,.55); border-color: #fff; }
-    .status {
-      text-align: center; min-height: 4.5rem;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-    }
-    .status p { color: #94a3b8; font-size: .95rem; }
-    .status .over { color: #f87171; font-weight: 600; }
-    .btn {
-      appearance: none; border: none; cursor: pointer;
-      padding: 12px 22px; border-radius: 12px; font-weight: 600; font-size: .95rem;
-      color: #fff;
-      background: linear-gradient(135deg, #0891b2, #7e22ce);
-      box-shadow: 0 8px 24px rgba(126,34,206,.35);
-    }
-    .btn.secondary { background: #334155; box-shadow: none; }
-    footer { margin-top: 18px; color: #64748b; font-size: .75rem; text-align: center; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100dvh;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:radial-gradient(900px 600px at 50% 10%,#1a1540 0%,#0b1020 55%,#060810 100%);color:#eaf1ff;display:flex;flex-direction:column;align-items:center;padding:16px 16px 28px;-webkit-tap-highlight-color:transparent;user-select:none}
+    header{width:100%;max-width:420px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    a.back{color:#7dd3fc;text-decoration:none;font-size:.85rem;font-weight:600;border:1px solid rgba(125,211,252,.35);border-radius:8px;padding:6px 10px;background:rgba(255,255,255,.04)}
+    h1{font-size:1.1rem;background:linear-gradient(135deg,#22d3ee,#c084fc);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .panel{width:100%;max-width:420px;background:rgba(255,255,255,.04);border:1px solid rgba(168,85,247,.28);border-radius:18px;padding:18px 16px 22px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+    .modes{display:grid;gap:10px;margin-bottom:8px}
+    .modes button{text-align:left;padding:14px 16px;border-radius:12px;border:1px solid rgba(125,211,252,.25);background:rgba(255,255,255,.06);color:#fff;cursor:pointer;display:flex;flex-direction:column;gap:4px}
+    .modes button strong{font-size:1rem}
+    .modes button span{font-size:.82rem;color:#94a3b8;font-weight:400}
+    .modes button:disabled{opacity:.45;cursor:not-allowed}
+    .modes button:hover:not(:disabled){background:rgba(34,211,238,.12)}
+    .hud{display:flex;justify-content:space-between;gap:10px;margin-bottom:14px}
+    .hud .card{flex:1;background:rgba(0,0,0,.25);border-radius:12px;padding:10px;text-align:center;border:1px solid rgba(255,255,255,.08)}
+    .hud .card.active{border-color:#22d3ee;box-shadow:0 0 16px rgba(34,211,238,.25)}
+    .hud .name{font-size:.75rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em}
+    .hud .round{font-size:1.4rem;font-weight:700;color:#fbbf24}
+    .pad{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:280px;margin:0 auto 16px}
+    .pad button{aspect-ratio:1;border-radius:18px;border:2px solid rgba(255,255,255,.12);cursor:pointer;transition:transform .1s,box-shadow .15s;touch-action:manipulation}
+    .pad button:disabled{cursor:default;opacity:.75}
+    .pad button:not(:disabled):active{transform:scale(.95)}
+    .c0{background:#0891b2}.c1{background:#7e22ce}.c2{background:#db2777}.c3{background:#16a34a}
+    .c0.active{background:#67e8f9;box-shadow:0 0 28px rgba(103,232,249,.55);border-color:#fff}
+    .c1.active{background:#c084fc;box-shadow:0 0 28px rgba(192,132,252,.55);border-color:#fff}
+    .c2.active{background:#f472b6;box-shadow:0 0 28px rgba(244,114,182,.55);border-color:#fff}
+    .c3.active{background:#4ade80;box-shadow:0 0 28px rgba(74,222,128,.55);border-color:#fff}
+    .status{text-align:center;min-height:5rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+    .status p{color:#94a3b8;font-size:.95rem}
+    .status .over{color:#f87171;font-weight:600}
+    .btn{appearance:none;border:none;cursor:pointer;padding:12px 22px;border-radius:12px;font-weight:600;font-size:.95rem;color:#fff;background:linear-gradient(135deg,#0891b2,#7e22ce)}
+    .btn.secondary{background:#334155}
+    .blurb{font-size:.85rem;color:#94a3b8;margin-bottom:12px;line-height:1.45}
+    footer{margin-top:16px;color:#64748b;font-size:.75rem;text-align:center}
+    [hidden]{display:none!important}
   </style>
 </head>
 <body>
   <header>
     <a class="back" href="https://1v1.nz/">← 1v1.nz</a>
-    <h1>StarMuff Simon</h1>
+    <h1>StarMuff Simon 1v1</h1>
     <span style="width:72px"></span>
   </header>
 
-  <div class="panel" role="main">
-    <div class="scores">
-      <div class="score">
-        <div class="label">Score</div>
-        <div class="val" id="score">0</div>
-      </div>
-      <div class="divider"></div>
-      <div class="best">
-        <div class="label">Best</div>
-        <div class="val" id="high">0</div>
+  <div class="panel">
+    <div id="modeScreen">
+      <p class="blurb"><strong>How it works:</strong> The sequence grows each round. On your turn, watch it, then repeat every color. Miss once and you lose the duel.</p>
+      <div class="modes">
+        <button type="button" data-mode="hotseat"><strong>Hotseat 1v1</strong><span>Pass the phone — P1 vs P2</span></button>
+        <button type="button" data-mode="cpu"><strong>vs CPU</strong><span>You vs A.R.I.A. memory core</span></button>
+        <button type="button" disabled><strong>Online</strong><span>vs friend — coming soon</span></button>
       </div>
     </div>
 
-    <div class="pad" id="pad">
-      <button type="button" class="c0" data-i="0" aria-label="Cyan" disabled></button>
-      <button type="button" class="c1" data-i="1" aria-label="Purple" disabled></button>
-      <button type="button" class="c2" data-i="2" aria-label="Magenta" disabled></button>
-      <button type="button" class="c3" data-i="3" aria-label="Green" disabled></button>
-    </div>
-
-    <div class="status" id="status">
-      <button type="button" class="btn" id="startBtn">Start Game</button>
+    <div id="gameScreen" hidden>
+      <div class="hud">
+        <div class="card" id="p0card"><div class="name" id="p0name">P1</div><div class="round">Rnd <span id="p0round">0</span></div></div>
+        <div class="card" id="p1card"><div class="name" id="p1name">P2</div><div class="round">Rnd <span id="p1round">0</span></div></div>
+      </div>
+      <div class="pad" id="pad">
+        <button type="button" class="c0" data-i="0" aria-label="Cyan" disabled></button>
+        <button type="button" class="c1" data-i="1" aria-label="Purple" disabled></button>
+        <button type="button" class="c2" data-i="2" aria-label="Magenta" disabled></button>
+        <button type="button" class="c3" data-i="3" aria-label="Green" disabled></button>
+      </div>
+      <div class="status" id="status"></div>
     </div>
   </div>
+  <footer>Competitive memory duel · miss = lose</footer>
 
-  <footer>StarMuff arcade · memory sequence · phone-friendly</footer>
+<script>
+(function(){
+  const FREQS=[261.63,329.63,392.00,523.25];
+  const buttons=[...document.querySelectorAll('#pad button')];
+  const statusEl=document.getElementById('status');
+  const modeScreen=document.getElementById('modeScreen');
+  const gameScreen=document.getElementById('gameScreen');
 
-  <script>
-(function () {
-  const FREQS = [261.63, 329.63, 392.00, 523.25];
-  const STORAGE_KEY = 'simonHighScore';
-  const buttons = Array.from(document.querySelectorAll('#pad button'));
-  const scoreEl = document.getElementById('score');
-  const highEl = document.getElementById('high');
-  const statusEl = document.getElementById('status');
+  let mode=null, sequence=[], playerIndex=0, showing=false;
+  let turn=0, rounds=[0,0], phase='idle'; // idle|watch|input|over
+  let names=['Player 1','Player 2'];
+  let audioCtx=null;
 
-  let sequence = [];
-  let playerIndex = 0;
-  let showing = false;
-  let state = 'idle'; // idle | playing | gameover
-  let score = 0;
-  let highScore = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
-  highEl.textContent = highScore;
+  function ctx(){if(!audioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;audioCtx=new AC()}if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}
+  function playTone(i,dur){const c=ctx();if(!c)return;try{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.setValueAtTime(FREQS[i],c.currentTime);g.gain.setValueAtTime(0.28,c.currentTime);g.gain.exponentialRampToValueAtTime(0.01,c.currentTime+dur/1000);o.start(c.currentTime);o.stop(c.currentTime+dur/1000)}catch(e){}}
+  function playError(){const c=ctx();if(!c)return;try{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sawtooth';o.frequency.setValueAtTime(150,c.currentTime);o.frequency.exponentialRampToValueAtTime(50,c.currentTime+0.45);g.gain.setValueAtTime(0.28,c.currentTime);g.gain.exponentialRampToValueAtTime(0.01,c.currentTime+0.45);o.start(c.currentTime);o.stop(c.currentTime+0.45)}catch(e){}}
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-  let audioCtx = null;
-  function ctx() {
-    if (!audioCtx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      audioCtx = new AC();
+  async function flash(i,dur){buttons[i].classList.add('active');playTone(i,dur);await sleep(dur);buttons[i].classList.remove('active');await sleep(90)}
+  function setPads(on){buttons.forEach(b=>b.disabled=!on)}
+  function updateHud(){
+    document.getElementById('p0name').textContent=names[0];
+    document.getElementById('p1name').textContent=names[1];
+    document.getElementById('p0round').textContent=rounds[0];
+    document.getElementById('p1round').textContent=rounds[1];
+    document.getElementById('p0card').classList.toggle('active',turn===0&&phase!=='over');
+    document.getElementById('p1card').classList.toggle('active',turn===1&&phase!=='over');
+  }
+
+  function showStatus(html){statusEl.innerHTML=html}
+
+  async function showSequence(){
+    phase='watch'; showing=true; setPads(false); updateHud();
+    showStatus('<p>'+names[turn]+' — watch the sequence…</p>');
+    await sleep(500);
+    for(const i of sequence) await flash(i,380);
+    showing=false; phase='input'; playerIndex=0; setPads(true); updateHud();
+    showStatus('<p>'+names[turn]+' — your turn! Repeat '+sequence.length+' color'+(sequence.length===1?'':'s')+'</p>');
+    if(mode==='cpu'&&turn===1) runCpuInput();
+  }
+
+  function startRound(){
+    sequence=sequence.concat([Math.floor(Math.random()*4)]);
+    showSequence();
+  }
+
+  function winRound(){
+    rounds[turn]+=1; updateHud(); setPads(false);
+    showStatus('<p style="color:#4ade80">Perfect — sequence length '+sequence.length+'</p>');
+    // Switch turn for next longer sequence
+    turn=turn===0?1:0;
+    setTimeout(()=>startRound(),900);
+  }
+
+  function loseDuel(){
+    phase='over'; playError(); setPads(false); updateHud();
+    const winner=turn===0?1:0;
+    showStatus(
+      '<p class="over">'+names[turn]+' missed!</p>'+
+      '<p>'+names[winner]+' wins the duel</p>'+
+      '<button type="button" class="btn" id="again">Play again</button>'+
+      '<button type="button" class="btn secondary" id="chg">Change mode</button>'
+    );
+    document.getElementById('again').onclick=()=>beginMatch(mode);
+    document.getElementById('chg').onclick=()=>{gameScreen.hidden=true;modeScreen.hidden=false};
+  }
+
+  function onPress(i){
+    if(showing||phase!=='input')return;
+    if(mode==='cpu'&&turn===1)return;
+    flash(i,180);
+    if(i===sequence[playerIndex]){
+      playerIndex++;
+      if(playerIndex===sequence.length){setPads(false);setTimeout(winRound,400)}
+    }else loseDuel();
+  }
+
+  async function runCpuInput(){
+    await sleep(400+Math.random()*300);
+    for(let idx=0;idx<sequence.length;idx++){
+      if(phase!=='input'||turn!==1)return;
+      // CPU skill: small chance to fail on long sequences
+      const failChance=sequence.length>=8?0.12:sequence.length>=5?0.06:0.02;
+      let choice=sequence[idx];
+      if(Math.random()<failChance){choice=(choice+1+Math.floor(Math.random()*3))%4}
+      await flash(choice,200);
+      if(choice!==sequence[idx]){loseDuel();return}
+      playerIndex=idx+1;
+      await sleep(180);
     }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    return audioCtx;
+    setPads(false); setTimeout(winRound,350);
   }
 
-  function playTone(i, duration) {
-    const c = ctx();
-    if (!c) return;
-    try {
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.connect(g); g.connect(c.destination);
-      o.type = 'sine';
-      o.frequency.setValueAtTime(FREQS[i], c.currentTime);
-      g.gain.setValueAtTime(0.28, c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.01, c.currentTime + duration / 1000);
-      o.start(c.currentTime);
-      o.stop(c.currentTime + duration / 1000);
-    } catch (e) {}
+  function beginMatch(m){
+    mode=m;
+    names=m==='cpu'?['You','CPU']:['Player 1','Player 2'];
+    sequence=[]; rounds=[0,0]; turn=0; phase='idle';
+    modeScreen.hidden=true; gameScreen.hidden=false;
+    updateHud();
+    showStatus('<button type="button" class="btn" id="go">Start duel</button>');
+    document.getElementById('go').onclick=()=>{sequence=[];startRound()};
   }
 
-  function playError() {
-    const c = ctx();
-    if (!c) return;
-    try {
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.connect(g); g.connect(c.destination);
-      o.type = 'sawtooth';
-      o.frequency.setValueAtTime(150, c.currentTime);
-      o.frequency.exponentialRampToValueAtTime(50, c.currentTime + 0.45);
-      g.gain.setValueAtTime(0.28, c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 0.45);
-      o.start(c.currentTime);
-      o.stop(c.currentTime + 0.45);
-    } catch (e) {}
-  }
-
-  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-  async function flash(i, duration) {
-    const btn = buttons[i];
-    btn.classList.add('active');
-    playTone(i, duration);
-    await sleep(duration);
-    btn.classList.remove('active');
-    await sleep(100);
-  }
-
-  function setPadsEnabled(on) {
-    buttons.forEach(b => { b.disabled = !on; });
-  }
-
-  function renderStatus() {
-    if (state === 'idle') {
-      statusEl.innerHTML = '<button type="button" class="btn" id="startBtn">Start Game</button>';
-      document.getElementById('startBtn').onclick = startGame;
-      setPadsEnabled(false);
-    } else if (state === 'playing') {
-      statusEl.innerHTML = '<p id="hint">' + (showing ? 'Watch the sequence…' : 'Your turn — repeat the pattern!') + '</p>';
-      setPadsEnabled(!showing);
-    } else {
-      statusEl.innerHTML =
-        '<p class="over">Game Over!</p>' +
-        '<p>You remembered ' + score + ' pattern' + (score === 1 ? '' : 's') + '</p>' +
-        '<button type="button" class="btn secondary" id="startBtn">Try Again</button>';
-      document.getElementById('startBtn').onclick = startGame;
-      setPadsEnabled(false);
-    }
-  }
-
-  async function showSequence(seq) {
-    showing = true;
-    playerIndex = 0;
-    renderStatus();
-    await sleep(450);
-    for (const i of seq) {
-      await flash(i, 400);
-    }
-    showing = false;
-    renderStatus();
-  }
-
-  function startGame() {
-    sequence = [Math.floor(Math.random() * 4)];
-    playerIndex = 0;
-    score = 0;
-    scoreEl.textContent = '0';
-    state = 'playing';
-    showSequence(sequence);
-  }
-
-  function onPress(i) {
-    if (showing || state !== 'playing') return;
-    flash(i, 200);
-    if (i === sequence[playerIndex]) {
-      const next = playerIndex + 1;
-      if (next === sequence.length) {
-        score = sequence.length;
-        scoreEl.textContent = String(score);
-        if (score > highScore) {
-          highScore = score;
-          highEl.textContent = String(highScore);
-          localStorage.setItem(STORAGE_KEY, String(highScore));
-        }
-        playerIndex = 0;
-        setTimeout(() => {
-          sequence = sequence.concat([Math.floor(Math.random() * 4)]);
-          setTimeout(() => showSequence(sequence), 400);
-        }, 700);
-      } else {
-        playerIndex = next;
-      }
-    } else {
-      playError();
-      state = 'gameover';
-      renderStatus();
-    }
-  }
-
-  buttons.forEach(b => {
-    b.addEventListener('click', () => onPress(Number(b.dataset.i)));
+  document.querySelectorAll('#modeScreen [data-mode]').forEach(b=>{
+    b.onclick=()=>beginMatch(b.dataset.mode);
   });
-
-  renderStatus();
+  buttons.forEach(b=>b.addEventListener('click',()=>onPress(+b.dataset.i)));
 })();
-  </script>
+</script>
 </body>
 </html>

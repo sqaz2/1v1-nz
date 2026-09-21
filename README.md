@@ -1,22 +1,22 @@
 # 1v1.nz
 
-Head-to-head browser games. Challenge the computer — real player-vs-player lobbies coming soon.
+Head-to-head browser games — vs friend, hotseat, or vs CPU.
 
 ## Games
 
-### 1v1 multiplayer
-- **Battleship** — [`/battleship`](https://1v1.nz/battleship) — vs computer (Easy/Hard) or online multiplayer.
-- **Connect Four** — [`/connect-4`](https://1v1.nz/connect-4) — vs the computer (3 difficulties) or local 2-player.
+### Classic 1v1
+- **Battleship** — [`/battleship`](https://1v1.nz/battleship) — vs computer or online multiplayer.
+- **Connect Four** — [`/connect-4`](https://1v1.nz/connect-4) — vs the computer (3 difficulties).
 
-### StarMuff arcade
-- **Tetris** — [`/tetris`](https://1v1.nz/tetris) — StarMuff cargo-bay tetris.
-- **Pinball** — [`/pinball`](https://1v1.nz/pinball) — neon StarMuff pinball.
-- **Simon** — [`/simon`](https://1v1.nz/simon) — memory sequence game.
-- **Skirmish** — [`/skirmish`](https://1v1.nz/skirmish) — space artillery 1v1 (from Tanksgame).
+### StarMuff 1v1 (cloned into this repo)
+- **Tetris** — [`/tetris`](https://1v1.nz/tetris) — dual-board vs CPU or local 2P (garbage attacks). Online soon.
+- **Pinball** — [`/pinball`](https://1v1.nz/pinball) — score duel, 3 balls each, hotseat or vs CPU. Online soon.
+- **Simon** — [`/simon`](https://1v1.nz/simon) — memory duel, hotseat or vs CPU. Online soon.
+- **Skirmish** — [`/skirmish`](https://1v1.nz/skirmish) — space artillery, hotseat or vs CPU. Online soon.
 
 ## Deploy
 
-Static site, deployed via Cloudflare Pages from the `main` branch. Every push to `main` redeploys automatically.
+Static site via Cloudflare Pages from `main`.
 
 - Production: https://1v1.nz
 - Preview: https://1v1-nz.pages.dev
