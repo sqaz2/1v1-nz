@@ -282,6 +282,69 @@
       box-shadow: 0 6px 16px rgba(11,38,78,.22);
     }
     .new-round:active { transform: translateY(1px); }
+    .status-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .music-control {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 4px 7px 4px 4px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel);
+      box-shadow: 0 6px 18px rgba(21,55,100,.09);
+    }
+    .music-button {
+      display: grid;
+      place-items: center;
+      width: 31px;
+      height: 31px;
+      padding: 0;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .music-button:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+    .music-button:active { transform: translateY(1px); }
+    .music-button svg { width: 17px; height: 17px; fill: currentColor; }
+    .music-button .pause-icon { display: none; }
+    .music-button.is-playing .play-icon { display: none; }
+    .music-button.is-playing .pause-icon { display: block; }
+    .music-button .muted-icon { display: none; }
+    .music-button.is-muted .sound-icon { display: none; }
+    .music-button.is-muted .muted-icon { display: block; }
+    .music-volume {
+      display: grid;
+      place-items: center;
+      width: 66px;
+      height: 31px;
+    }
+    .music-volume input {
+      width: 62px;
+      margin: 0;
+      accent-color: var(--board);
+      cursor: pointer;
+    }
+    .music-button:focus-visible, .music-volume input:focus-visible {
+      outline: 3px solid var(--board-hi);
+      outline-offset: 2px;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
     .hint { margin: -8px 0 0; text-align: center; color: var(--muted); font-size: 12px; }
 
     @media (max-width: 560px) {
@@ -300,7 +363,8 @@
       .points { min-width: 44px; font-size: 20px; }
       .column-markers { height: 20px; padding-bottom: 3px; }
       .column-marker { height: 17px; }
-      .status-row { padding-inline: 4px; }
+      .status-row { padding-inline: 4px; flex-wrap: wrap; }
+      .status-tools { width: 100%; justify-content: space-between; }
       .hint { display: none; }
     }
     @media (max-width: 360px) {
@@ -358,7 +422,27 @@
 
       <div class="status-row">
         <div class="status" id="status" aria-live="polite"><span class="status-dot"></span><span id="statusText">Your move</span></div>
-        <button type="button" class="new-round" id="newRound">New round</button>
+        <div class="status-tools">
+          <div class="music-control" aria-label="StarMuff lounge music controls">
+            <button type="button" class="music-button" id="musicToggle" aria-label="Play StarMuff music" aria-pressed="false" title="Play music">
+              <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2c0 .8.9 1.3 1.6.8l9.5-6.6a1 1 0 0 0 0-1.6L9.6 4.6A1 1 0 0 0 8 5.4Z"/></svg>
+              <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V5Zm6 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V5Z"/></svg>
+            </button>
+            <button type="button" class="music-button" id="musicNext" aria-label="Next StarMuff track" title="Next track">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.8v12.4c0 .8.9 1.3 1.6.8l8.9-6.2a1 1 0 0 0 0-1.6L6.6 5A1 1 0 0 0 5 5.8ZM17 5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1V5Z"/></svg>
+            </button>
+            <button type="button" class="music-button" id="musicMute" aria-label="Mute StarMuff music" aria-pressed="false" title="Mute music">
+              <svg class="sound-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3.4l4.7-4a1 1 0 0 1 1.7.8v12.4a1 1 0 0 1-1.7.8l-4.7-4H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1Zm12.6-.9a1 1 0 0 1 1.4.1 5.8 5.8 0 0 1 0 7.6 1 1 0 1 1-1.5-1.3 3.8 3.8 0 0 0 0-5 1 1 0 0 1 .1-1.4Zm2.7-2.5a1 1 0 0 1 1.4.1 9.6 9.6 0 0 1 0 12.6 1 1 0 1 1-1.5-1.3 7.6 7.6 0 0 0 0-10 1 1 0 0 1 .1-1.4Z"/></svg>
+              <svg class="muted-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3.4l4.7-4a1 1 0 0 1 1.7.8v12.4a1 1 0 0 1-1.7.8l-4.7-4H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1Zm12.3.3a1 1 0 0 1 1.4 0l1.3 1.3 1.3-1.3a1 1 0 0 1 1.4 1.4L20.4 12l1.3 1.3a1 1 0 0 1-1.4 1.4L19 13.4l-1.3 1.3a1 1 0 0 1-1.4-1.4l1.3-1.3-1.3-1.3a1 1 0 0 1 0-1.4Z"/></svg>
+            </button>
+            <label class="music-volume" title="Music volume">
+              <span class="sr-only">Music volume</span>
+              <input type="range" id="musicVolume" min="0" max="1" step="0.05" value="0.3" aria-label="Music volume">
+            </label>
+            <span class="sr-only" id="trackStatus" aria-live="polite"></span>
+          </div>
+          <button type="button" class="new-round" id="newRound">New round</button>
+        </div>
       </div>
       <p class="hint">Choose any column. First to connect four wins.</p>
     </section>
@@ -381,6 +465,11 @@
       const vsCpu = document.getElementById('vsCpu');
       const difficultyControl = document.getElementById('difficultyControl');
       const difficultyButtons = [...difficultyControl.querySelectorAll('button')];
+      const musicToggle = document.getElementById('musicToggle');
+      const musicNext = document.getElementById('musicNext');
+      const musicMute = document.getElementById('musicMute');
+      const musicVolume = document.getElementById('musicVolume');
+      const trackStatus = document.getElementById('trackStatus');
       let grid, turn, locked, ended, mode = 'cpu', difficulty = 'hard';
       let scores = [0,0], moveHistory = [], audio;
 
@@ -674,6 +763,91 @@
       vsCpu.addEventListener('click', () => switchMode('cpu'));
       difficultyButtons.forEach(button => button.addEventListener('click', () => setDifficulty(button.dataset.difficulty)));
       newRound.addEventListener('click', reset);
+
+      const tracks = [
+        { title: 'StarMuff Lounge 5', src: 'https://starmuff.pages.dev/bridge-assets/media/casino_StarMuff_5_(this_is_lounge_music)_1768645663198.mp3' },
+        { title: 'Galactic Grove', src: 'https://starmuff.pages.dev/bridge-assets/media/Galactic_Grove_(StarMuff_casino)_1768645663245.mp3' },
+        { title: 'StarMuff Lounge 6', src: 'https://starmuff.pages.dev/bridge-assets/media/casino_StarMuff_6_1768645663231.mp3' }
+      ];
+      const musicAudio = new Audio();
+      let trackIndex = 0, musicStarted = false, musicMuted = false, lastVolume = .3;
+      musicAudio.preload = 'metadata';
+      musicAudio.src = tracks[0].src;
+      musicAudio.volume = lastVolume;
+
+      function updateMusicControls() {
+        const playing = !musicAudio.paused && !musicAudio.ended;
+        musicToggle.classList.toggle('is-playing', playing);
+        musicToggle.setAttribute('aria-pressed', String(playing));
+        musicToggle.setAttribute('aria-label', playing ? 'Pause StarMuff music' : 'Play StarMuff music');
+        musicToggle.title = playing ? 'Pause music' : 'Play music';
+        musicMute.classList.toggle('is-muted', musicMuted);
+        musicMute.setAttribute('aria-pressed', String(musicMuted));
+        musicMute.setAttribute('aria-label', musicMuted ? 'Unmute StarMuff music' : 'Mute StarMuff music');
+        musicMute.title = musicMuted ? 'Unmute music' : 'Mute music';
+      }
+      function disarmFirstGesture() {
+        document.removeEventListener('click', firstGesture, true);
+      }
+      async function startMusic() {
+        musicStarted = true;
+        disarmFirstGesture();
+        try {
+          await musicAudio.play();
+          updateMusicControls();
+        } catch (_) {
+          musicStarted = false;
+          document.addEventListener('click', firstGesture, true);
+          updateMusicControls();
+        }
+      }
+      function selectTrack(index, shouldPlay) {
+        trackIndex = (index + tracks.length) % tracks.length;
+        musicAudio.src = tracks[trackIndex].src;
+        trackStatus.textContent = `Now playing ${tracks[trackIndex].title}`;
+        if (shouldPlay) startMusic();
+        else updateMusicControls();
+      }
+      function firstGesture(event) {
+        if (event.target.closest('.music-control')) return;
+        startMusic();
+      }
+      document.addEventListener('click', firstGesture, true);
+      musicToggle.addEventListener('click', () => {
+        if (!musicStarted || musicAudio.paused) startMusic();
+        else {
+          musicAudio.pause();
+          updateMusicControls();
+        }
+      });
+      musicNext.addEventListener('click', () => {
+        const shouldPlay = !musicStarted || !musicAudio.paused;
+        selectTrack(trackIndex + 1, shouldPlay);
+      });
+      musicMute.addEventListener('click', () => {
+        musicMuted = !musicMuted;
+        musicAudio.muted = musicMuted;
+        if (!musicStarted) startMusic();
+        updateMusicControls();
+      });
+      musicVolume.addEventListener('input', () => {
+        const volume = Number(musicVolume.value);
+        musicAudio.volume = volume;
+        if (volume > 0) {
+          lastVolume = volume;
+          musicMuted = false;
+          musicAudio.muted = false;
+        } else {
+          musicMuted = true;
+          musicAudio.muted = true;
+        }
+        if (!musicStarted) startMusic();
+        updateMusicControls();
+      });
+      musicAudio.addEventListener('play', updateMusicControls);
+      musicAudio.addEventListener('pause', updateMusicControls);
+      musicAudio.addEventListener('ended', () => selectTrack(trackIndex + 1, true));
+      updateMusicControls();
 
       function sound(freq, win = false) {
         try {
