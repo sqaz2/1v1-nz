@@ -5,6 +5,7 @@ Head-to-head browser games. Challenge the computer — real player-vs-player lob
 ## Games
 
 - **Connect Four** — [`/connect-4`](https://1v1.nz/connect-4) — vs the computer (3 difficulties) or local 2-player.
+- **Battleship** — [`/battleship`](https://1v1.nz/battleship) — vs computer (Easy/Hard) or online multiplayer.
 
 ## Deploy
 

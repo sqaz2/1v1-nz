@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#071120">
 <title>Battleship · 1v1.nz</title>
+<link rel="icon" href="assets/icon.png" type="image/png">
 <style>
   :root {
     --bg0: #050d1a; --bg1: #0a1c36; --card: #0c1f3d; --card2: #0f2749;
@@ -27,6 +28,11 @@
   }
   .wrap { max-width: 1060px; margin: 0 auto; padding: 18px 14px 60px; }
   header.top { text-align: center; margin-bottom: 14px; }
+  header.top .hero {
+    display: block; width: min(100%, 520px); height: auto; margin: 0 auto 10px;
+    border-radius: 14px; border: 1px solid var(--line);
+    box-shadow: 0 10px 28px rgba(0,0,0,.35); object-fit: cover; max-height: 140px;
+  }
   header.top h1 { margin: 0; font-size: 30px; letter-spacing: .5px; }
   header.top .sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; }
 
@@ -99,27 +105,88 @@
   .board-card h2 { margin: 0 0 8px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
   .hint { color: var(--faint); font-size: 12px; margin: 8px 0 0; text-align: center; }
 
-  .bgrid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; width: 100%; }
+  .bgrid {
+    display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; width: 100%;
+    position: relative;
+    background-color: var(--water);
+    background-image: url("assets/water-tile.png");
+    background-size: 40% auto;
+    background-repeat: repeat;
+    border-radius: 6px;
+    padding: 2px;
+  }
   .bcell {
-    aspect-ratio: 1; border-radius: 4px; border: 1px solid var(--line); background: var(--water);
-    padding: 0; cursor: pointer; position: relative; min-width: 0;
+    aspect-ratio: 1; border-radius: 4px; border: 1px solid rgba(29,76,140,.55);
+    background: rgba(14,42,82,.35);
+    padding: 0; cursor: pointer; position: relative; min-width: 0; z-index: 1;
   }
   .bcell:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .bgrid.aim .bcell:hover { background: var(--water2); }
-  .bcell.ship { background: var(--ship); border-color: #6ea3e0; }
-  .bcell.shiphit { background: var(--hit); border-color: #ffb08a; }
-  .bcell.shipsunk { background: var(--sunk); border-color: #e06a72; }
-  .bcell.miss::after {
-    content: ""; position: absolute; inset: 34%; border-radius: 50%; background: var(--miss); opacity: .8;
+  .bgrid.aim .bcell:hover { background: rgba(19,60,116,.55); }
+  /* Ship cells are transparent so spanning sprites show through; hits tint on top. */
+  .bcell.ship { background: transparent; border-color: transparent; }
+  .bcell.shiphit {
+    background: rgba(255,122,69,.52); border-color: #ffb08a;
+    background-image: url("assets/fx-explosion.png");
+    background-size: 90% 90%; background-repeat: no-repeat; background-position: center;
   }
-  .bcell.hit { background: var(--hit); border-color: #ffb08a; }
-  .bcell.sunk { background: var(--sunk); border-color: #e06a72; }
+  .bcell.shipsunk {
+    background: rgba(161,29,38,.58); border-color: #e06a72;
+    background-image: url("assets/fx-explosion.png");
+    background-size: 85% 85%; background-repeat: no-repeat; background-position: center;
+    filter: saturate(.85);
+  }
+  .bcell.miss::after {
+    content: ""; position: absolute; inset: 18%; border-radius: 50%;
+    background: url("assets/fx-splash.png") center/contain no-repeat;
+    opacity: .95; pointer-events: none;
+  }
+  .bcell.hit {
+    background: rgba(255,122,69,.75); border-color: #ffb08a;
+    background-image: url("assets/fx-explosion.png");
+    background-size: 90% 90%; background-repeat: no-repeat; background-position: center;
+  }
+  .bcell.sunk {
+    background: rgba(161,29,38,.8); border-color: #e06a72;
+    background-image: url("assets/fx-explosion.png");
+    background-size: 85% 85%; background-repeat: no-repeat; background-position: center;
+  }
   .bcell.sunk::after {
     content: ""; position: absolute; left: 12%; right: 12%; top: 48%; height: 2px; background: rgba(255,255,255,.75);
     transform: rotate(-18deg);
   }
   .bcell.last { box-shadow: 0 0 0 2px var(--gold), 0 0 12px var(--gold); animation: pulse 1.4s ease-in-out infinite; }
   @keyframes pulse { 50% { box-shadow: 0 0 0 2px var(--gold), 0 0 4px var(--gold); } }
+
+  /* Spanning ship sprites (art faces right; .vert rotates 90deg CW → bow down). */
+  .ship-sprite {
+    pointer-events: none;
+    z-index: 0;
+    position: relative;
+    container-type: size;
+    display: block;
+    overflow: visible;
+  }
+  .ship-sprite img {
+    display: block;
+    pointer-events: none;
+    object-fit: fill;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
+  }
+  .ship-sprite.horiz img {
+    width: 100%;
+    height: 88%;
+    margin: 6% 0 0;
+  }
+  .ship-sprite.vert img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(var(--size) * 100cqw);
+    height: 88cqw;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+  .ship-sprite.sunk img { filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)) grayscale(.35) brightness(.85); }
+  .ship-sprite.hit:not(.sunk) img { filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)) saturate(1.1); }
 
   /* placement */
   .place-ui .palette { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
@@ -191,6 +258,7 @@
 <body>
 <main class="wrap">
   <header class="top">
+    <img class="hero" src="assets/hero.jpg" alt="" width="640" height="360">
     <h1>⚓ Battleship</h1>
     <p class="sub">1v1.nz</p>
   </header>
@@ -390,11 +458,11 @@
       const MAX_CONNECT_FAILURES = 4;
       const ACTION_ACK_MS = 6000; // action ack timeout: requeue + reconnect + resend, never freeze
       const SHIP_DEFS = [
-        { name: 'Carrier', size: 5 },
-        { name: 'Battleship', size: 4 },
-        { name: 'Cruiser', size: 3 },
-        { name: 'Submarine', size: 3 },
-        { name: 'Destroyer', size: 2 },
+        { name: 'Carrier', size: 5, art: 'assets/ship-carrier.png' },
+        { name: 'Battleship', size: 4, art: 'assets/ship-battleship.png' },
+        { name: 'Cruiser', size: 3, art: 'assets/ship-cruiser.png' },
+        { name: 'Submarine', size: 3, art: 'assets/ship-submarine.png' },
+        { name: 'Destroyer', size: 2, art: 'assets/ship-destroyer.png' },
       ];
 
       // ---------- storage ----------
@@ -506,6 +574,64 @@
           }
         }
         return cells;
+      }
+
+      // ---------- ship sprites (span exact cell counts) ----------
+      function shipCellsNorm(ship) {
+        const raw = Array.isArray(ship.cells) ? ship.cells : [];
+        return raw.map(cell => {
+          if (Array.isArray(cell)) return [cell[0] | 0, cell[1] | 0];
+          if (cell && typeof cell === 'object') return [cell.r | 0, cell.c | 0];
+          return [0, 0];
+        });
+      }
+      function resolveShipDefIdx(ship, used) {
+        if (Number.isInteger(ship.defIdx) && ship.defIdx >= 0 && ship.defIdx < SHIP_DEFS.length && !used.has(ship.defIdx)) {
+          used.add(ship.defIdx);
+          return ship.defIdx;
+        }
+        const size = shipCellsNorm(ship).length;
+        for (let d = 0; d < SHIP_DEFS.length; d++) {
+          if (SHIP_DEFS[d].size === size && !used.has(d)) {
+            used.add(d);
+            return d;
+          }
+        }
+        return 0;
+      }
+      function syncShipSprites(gridEl, ships) {
+        if (!gridEl) return;
+        gridEl.querySelectorAll(':scope > .ship-sprite').forEach(el => el.remove());
+        if (!Array.isArray(ships) || !ships.length) return;
+        const used = new Set();
+        for (const ship of ships) {
+          const cells = shipCellsNorm(ship);
+          if (!cells.length) continue;
+          const defIdx = resolveShipDefIdx(ship, used);
+          const rows = cells.map(([r]) => r), cols = cells.map(([, c]) => c);
+          const r0 = Math.min(...rows), c0 = Math.min(...cols);
+          const size = cells.length;
+          const horizontal = rows.every(v => v === rows[0]);
+          const el = document.createElement('div');
+          el.className = 'ship-sprite ' + (horizontal ? 'horiz' : 'vert');
+          if (ship.sunk) el.classList.add('sunk');
+          else if (Array.isArray(ship.hits) && ship.hits.length) el.classList.add('hit');
+          el.style.setProperty('--size', String(size));
+          el.setAttribute('aria-hidden', 'true');
+          if (horizontal) {
+            el.style.gridRow = String(r0 + 1);
+            el.style.gridColumn = (c0 + 1) + ' / span ' + size;
+          } else {
+            el.style.gridColumn = String(c0 + 1);
+            el.style.gridRow = (r0 + 1) + ' / span ' + size;
+          }
+          const img = document.createElement('img');
+          img.src = SHIP_DEFS[defIdx].art;
+          img.alt = '';
+          img.draggable = false;
+          el.appendChild(img);
+          gridEl.appendChild(el);
+        }
       }
 
       // ---------- fleet validation ----------
@@ -635,6 +761,7 @@
             const cell = cells[r][c];
             cell.className = 'bcell' + (shipAt.has(r + ',' + c) ? ' ship' : '');
           }
+          syncShipSprites(gridEl, ships);
           shipBtns.forEach((b, d) => {
             b.classList.toggle('placed', isPlaced(d));
             b.classList.toggle('selected', !locked && selected === d && !isPlaced(d));
@@ -819,6 +946,7 @@
             cpuOwnCells[r][c].setAttribute('aria-label', `Your row ${r + 1}, column ${c + 1}, ${v === 2 ? 'hit by enemy' : 'enemy miss'}`);
           }
         }
+        syncShipSprites(cpuOwnGrid, cpu.myFleet);
         // last-shot highlight
         cpuEnemyCells.flat().forEach(el => el.classList.remove('last'));
         cpuOwnCells.flat().forEach(el => el.classList.remove('last'));
@@ -1466,7 +1594,7 @@
           let cls = 'bcell';
           let label = `Your row ${r + 1}, column ${c + 1}, `;
           if (info) {
-            cls += info.sunk ? ' shipsunk' : info.hit ? 'shiphit' : 'ship';
+            cls += info.sunk ? ' shipsunk' : info.hit ? ' shiphit' : ' ship';
             label += info.sunk ? 'sunk ship' : info.hit ? 'ship, hit' : 'ship';
           } else if (v === 2) { cls += ' hit'; label += 'hit by enemy'; }
           else if (v === 1) { cls += ' miss'; label += 'enemy miss'; }
@@ -1474,6 +1602,15 @@
           cell.className = cls;
           cell.setAttribute('aria-label', label);
         }
+        // Prefer locally remembered defIdx (server place payload omits it).
+        const spriteShips = ships.map(ship => {
+          const key = shipCellsNorm(ship).map(([r, c]) => r + ',' + c).sort().join('|');
+          const local = Array.isArray(s.placeShips)
+            ? s.placeShips.find(ls => shipCellsNorm(ls).map(([r, c]) => r + ',' + c).sort().join('|') === key)
+            : null;
+          return local ? Object.assign({}, ship, { defIdx: local.defIdx }) : ship;
+        });
+        syncShipSprites(ownGrid, spriteShips);
         enemyCells.flat().forEach(el => el.classList.remove('last'));
         ownCells.flat().forEach(el => el.classList.remove('last'));
         const ls = st.lastShot;
