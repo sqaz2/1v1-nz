@@ -1964,6 +1964,7 @@
       let mmSearching = false;
       let mmPendingCode = '';
       let mmName = '';
+      let mmKeepalive = 0;
 
       function matchPlayerId() {
         let id = null;
@@ -1983,6 +1984,8 @@
       function closeMmSocket() {
         const ws = mmSocket;
         mmSocket = null;
+        clearInterval(mmKeepalive);
+        mmKeepalive = 0;
         if (ws) { try { ws.close(); } catch (_) {} }
       }
       function setSearchingUI(searching, text) {
@@ -2027,12 +2030,31 @@
             ws.send(JSON.stringify({ t: 'hello', playerId: matchPlayerId(), name: mmName }));
             ws.send(JSON.stringify({ t: 'find', name: mmName }));
           } catch (_) {}
+          // Keepalive: keeps the socket fresh through middleboxes and lets the
+          // server reap half-open queue entries via its heartbeat sweep.
+          clearInterval(mmKeepalive);
+          mmKeepalive = setInterval(() => {
+            if (mmSocket === ws && ws.readyState === WebSocket.OPEN) {
+              try { ws.send(JSON.stringify({ t: 'ping' })); } catch (_) {}
+            }
+          }, 20000);
         });
         ws.addEventListener('message', event => {
           if (mmSocket !== ws) return;
           let m;
           try { m = JSON.parse(event.data); } catch (_) { return; }
-          if (m.t === 'queued') {
+          if (m.t === 'pong') {
+            // Desync guard: if the server no longer has us queued/pending,
+            // re-find instead of sitting on "searching" forever.
+            if (mmSearching && m.queued === false) {
+              try { ws.send(JSON.stringify({ t: 'find', name: mmName })); } catch (_) {}
+            } else if (mmPendingCode && !m.pendingMatch) {
+              mmPendingCode = '';
+              mmSearching = true;
+              setSearchingUI(true, 'Searching for opponent…');
+              try { ws.send(JSON.stringify({ t: 'find', name: mmName })); } catch (_) {}
+            }
+          } else if (m.t === 'queued') {
             const pos = Math.max(1, (m.position | 0) || 1);
             matchSearchText.textContent = pos > 1
               ? `Searching for opponent… (${pos} in line — pairing as soon as someone arrives)`
@@ -2053,6 +2075,8 @@
         ws.addEventListener('close', () => {
           if (mmSocket !== ws) return;
           mmSocket = null;
+          clearInterval(mmKeepalive);
+          mmKeepalive = 0;
           if (mmSearching && !mmPendingCode) {
             stopSearching('Connection lost. Tap "Find public match" to search again.');
           }
