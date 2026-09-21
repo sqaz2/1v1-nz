@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#07152c" />
+  <link rel="icon" href="data:," />
+  <title>Connect 4 Game</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Paytone+One&display=swap');
+
+    :root {
+      color-scheme: light dark;
+      --ink: #12203a;
+      --muted: #60708b;
+      --paper: #f3f6fb;
+      --panel: rgba(255,255,255,.86);
+      --line: rgba(33,63,110,.14);
+      --board: #1468df;
+      --board-hi: #2e86f4;
+      --hole: #e7edf7;
+      --red: #f04455;
+      --red-hi: #ff7682;
+      --gold: #ffbf2f;
+      --gold-hi: #ffe070;
+      --shadow: 0 24px 70px rgba(31,73,142,.23), 0 6px 18px rgba(15,44,92,.16);
+      --button: #102c5b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink: #edf5ff;
+        --muted: #95a8c4;
+        --paper: #061226;
+        --panel: rgba(8,25,51,.84);
+        --line: rgba(169,201,255,.16);
+        --board: #1168e6;
+        --board-hi: #2f8bff;
+        --hole: #07172f;
+        --shadow: 0 28px 80px rgba(0,0,0,.46), 0 7px 20px rgba(0,0,0,.35);
+        --button: #d9e8ff;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "DM Sans", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button { font: inherit; }
+    #sky {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: max(22px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+    }
+    .game {
+      width: min(100%, 680px);
+      display: grid;
+      gap: 18px;
+    }
+    .topline {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    h1 {
+      margin: 0;
+      max-width: 390px;
+      font-family: "Paytone One", sans-serif;
+      font-weight: 400;
+      font-size: clamp(32px, 6vw, 54px);
+      line-height: .98;
+      letter-spacing: -.025em;
+    }
+    h1 span { color: var(--board); }
+    .controls {
+      display: grid;
+      gap: 7px;
+      justify-items: end;
+      flex: 0 0 auto;
+    }
+    .mode, .difficulty {
+      display: inline-grid;
+      padding: 4px;
+      border-radius: 14px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 24px rgba(21,55,100,.09);
+    }
+    .mode { grid-template-columns: 1fr 1fr; }
+    .difficulty { grid-template-columns: repeat(3, 1fr); }
+    .mode button, .difficulty button {
+      min-height: 36px;
+      padding: 7px 12px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .difficulty button { min-height: 31px; padding: 5px 10px; font-size: 11px; }
+    .mode button.active, .difficulty button.active {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .mode button:focus-visible, .difficulty button:focus-visible, .new-round:focus-visible {
+      outline: 3px solid var(--board-hi);
+      outline-offset: 2px;
+    }
+    .scorebar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 12px 35px rgba(26,62,111,.10);
+      backdrop-filter: blur(15px);
+    }
+    .player {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 8px;
+      border-radius: 12px;
+      opacity: .54;
+      transition: opacity .2s, background .2s;
+    }
+    .player:last-child { justify-content: flex-end; text-align: right; }
+    .player.active { opacity: 1; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+    .chip {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      box-shadow: inset 0 -4px 0 rgba(0,0,0,.14), inset 0 3px 0 rgba(255,255,255,.35);
+    }
+    .chip.red { background: var(--red); }
+    .chip.gold { background: var(--gold); }
+    .who { overflow: hidden; }
+    .who strong, .who small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .who strong { font-size: 14px; }
+    .who small { color: var(--muted); font-size: 11px; }
+    .points {
+      min-width: 54px;
+      text-align: center;
+      font-family: "Paytone One", sans-serif;
+      font-size: 24px;
+      line-height: 1;
+    }
+    .points small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font: 600 9px/1 "DM Sans", sans-serif;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    .arena {
+      position: relative;
+      isolation: isolate;
+    }
+    .column-markers {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: clamp(4px, 1.1vw, 10px);
+      padding: 0 clamp(13px, 3vw, 24px) 7px;
+    }
+    .column-marker {
+      display: grid;
+      place-items: center;
+      height: 24px;
+      opacity: 0;
+      transform: translateY(5px);
+      transition: .14s ease;
+      pointer-events: none;
+    }
+    .column-marker::before {
+      content: "";
+      width: clamp(14px, 3.3vw, 23px);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--turn-color, var(--red));
+      box-shadow: inset 0 -3px 0 rgba(0,0,0,.15);
+    }
+    .arena[data-hover] .column-marker.hover { opacity: .8; transform: none; }
+    .board-wrap {
+      position: relative;
+      padding: clamp(13px, 3vw, 24px);
+      border-radius: clamp(20px, 4vw, 34px);
+      background: linear-gradient(155deg, var(--board-hi), var(--board) 46%, #084cae);
+      box-shadow: var(--shadow), inset 0 2px 1px rgba(255,255,255,.38), inset 0 -7px 0 rgba(3,42,102,.45);
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: clamp(4px, 1.1vw, 10px);
+    }
+    .cell {
+      position: relative;
+      aspect-ratio: 1;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: var(--hole);
+      box-shadow: inset 0 6px 11px rgba(2,33,80,.36), 0 2px 0 rgba(255,255,255,.24);
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .cell:focus-visible { outline: 4px solid #fff; outline-offset: -1px; }
+    .disc {
+      position: absolute;
+      inset: 4%;
+      border-radius: 50%;
+      transform: translateY(-760%);
+      box-shadow: inset 0 -8px 0 rgba(0,0,0,.14), inset 0 6px 0 rgba(255,255,255,.27), 0 4px 8px rgba(0,0,0,.2);
+    }
+    .cell.red .disc { background: radial-gradient(circle at 35% 27%, var(--red-hi), var(--red) 57%); }
+    .cell.gold .disc { background: radial-gradient(circle at 35% 27%, var(--gold-hi), var(--gold) 57%); }
+    .cell.filled .disc { transform: translateY(0); }
+    .cell.drop .disc { animation: drop .44s cubic-bezier(.2,.9,.35,1.12); }
+    @keyframes drop {
+      0% { transform: translateY(calc(-100% * var(--drop, 6))); }
+      72% { transform: translateY(8%); }
+      88% { transform: translateY(-4%); }
+      100% { transform: translateY(0); }
+    }
+    .cell.winner .disc { animation: winPulse .75s ease-in-out infinite alternate; }
+    @keyframes winPulse { to { transform: scale(.82); filter: brightness(1.14); box-shadow: 0 0 0 7px rgba(255,255,255,.8), 0 0 24px rgba(255,255,255,.5); } }
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 46px;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      font-weight: 700;
+    }
+    .status-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      background: var(--red);
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--red) 20%, transparent);
+    }
+    .status.gold .status-dot { background: var(--gold); box-shadow: 0 0 0 5px color-mix(in srgb, var(--gold) 22%, transparent); }
+    .new-round {
+      border: 0;
+      border-radius: 13px;
+      background: var(--button);
+      color: var(--paper);
+      padding: 11px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(11,38,78,.22);
+    }
+    .new-round:active { transform: translateY(1px); }
+    .hint { margin: -8px 0 0; text-align: center; color: var(--muted); font-size: 12px; }
+
+    @media (max-width: 560px) {
+      .shell { place-items: start center; padding-left: 12px; padding-right: 12px; }
+      .game { gap: 13px; }
+      .topline { align-items: center; flex-wrap: wrap; }
+      h1 { font-size: clamp(29px, 9vw, 41px); }
+      .controls { width: 100%; grid-template-columns: auto auto; justify-content: space-between; align-items: center; }
+      .mode button { padding-inline: 9px; font-size: 11px; }
+      .difficulty button { padding-inline: 8px; }
+      .scorebar { padding: 8px; }
+      .player { gap: 6px; padding-inline: 5px; }
+      .chip { width: 22px; height: 22px; }
+      .who strong { font-size: 12px; }
+      .who small { display: none; }
+      .points { min-width: 44px; font-size: 20px; }
+      .column-markers { height: 20px; padding-bottom: 3px; }
+      .column-marker { height: 17px; }
+      .status-row { padding-inline: 4px; }
+      .hint { display: none; }
+    }
+    @media (max-width: 360px) {
+      .shell { padding-inline: 8px; }
+      .mode, .difficulty { border-radius: 11px; padding: 3px; }
+      .mode button { min-height: 32px; border-radius: 8px; padding-inline: 7px; }
+      .difficulty button { min-height: 30px; border-radius: 8px; padding-inline: 6px; }
+      .board-wrap { padding: 11px; border-radius: 19px; }
+      .board { gap: 4px; }
+      .column-markers { padding-inline: 11px; gap: 4px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+      #sky { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <main class="shell">
+    <section class="game" aria-label="Connect Four game">
+      <div class="topline">
+        <h1>Drop four.<br><span>Rule the grid.</span></h1>
+        <div class="controls">
+          <div class="mode" role="group" aria-label="Game mode">
+            <button type="button" id="twoPlayer">2 players</button>
+            <button type="button" id="vsCpu" class="active">vs CPU</button>
+          </div>
+          <div class="difficulty" id="difficultyControl" role="group" aria-label="CPU difficulty">
+            <button type="button" data-difficulty="easy">Easy</button>
+            <button type="button" data-difficulty="medium">Medium</button>
+            <button type="button" data-difficulty="hard" class="active">Hard</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="scorebar" aria-label="Score">
+        <div class="player active" id="redPlayer">
+          <span class="chip red"></span>
+          <span class="who"><strong>You</strong><small>Red discs</small></span>
+        </div>
+        <div class="points"><span id="scoreText">0—0</span><small>wins</small></div>
+        <div class="player" id="goldPlayer">
+          <span class="who"><strong id="goldName">CPU · Hard</strong><small>Gold discs</small></span>
+          <span class="chip gold"></span>
+        </div>
+      </div>
+
+      <div class="arena" id="arena">
+        <div class="column-markers" aria-hidden="true" id="markers"></div>
+        <div class="board-wrap">
+          <div class="board" id="board" role="grid" aria-label="Connect Four board"></div>
+        </div>
+      </div>
+
+      <div class="status-row">
+        <div class="status" id="status" aria-live="polite"><span class="status-dot"></span><span id="statusText">Your move</span></div>
+        <button type="button" class="new-round" id="newRound">New round</button>
+      </div>
+      <p class="hint">Choose any column. First to connect four wins.</p>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const ROWS = 6, COLS = 7;
+      const boardEl = document.getElementById('board');
+      const arena = document.getElementById('arena');
+      const markers = document.getElementById('markers');
+      const status = document.getElementById('status');
+      const statusText = document.getElementById('statusText');
+      const redPlayer = document.getElementById('redPlayer');
+      const goldPlayer = document.getElementById('goldPlayer');
+      const goldName = document.getElementById('goldName');
+      const scoreText = document.getElementById('scoreText');
+      const newRound = document.getElementById('newRound');
+      const twoPlayer = document.getElementById('twoPlayer');
+      const vsCpu = document.getElementById('vsCpu');
+      const difficultyControl = document.getElementById('difficultyControl');
+      const difficultyButtons = [...difficultyControl.querySelectorAll('button')];
+      let grid, turn, locked, ended, mode = 'cpu', difficulty = 'hard';
+      let scores = [0,0], moveHistory = [], audio;
+
+      for (let c = 0; c < COLS; c++) {
+        const m = document.createElement('span');
+        m.className = 'column-marker';
+        markers.appendChild(m);
+      }
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'cell';
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+        cell.setAttribute('role', 'gridcell');
+        cell.setAttribute('aria-label', `Row ${r + 1}, column ${c + 1}, empty`);
+        cell.innerHTML = '<span class="disc"></span>';
+        cell.addEventListener('click', () => play(c));
+        cell.addEventListener('mouseenter', () => showMarker(c));
+        cell.addEventListener('focus', () => showMarker(c));
+        boardEl.appendChild(cell);
+      }
+      boardEl.addEventListener('mouseleave', clearMarker);
+      boardEl.addEventListener('keydown', e => {
+        const current = document.activeElement;
+        if (!current.classList.contains('cell')) return;
+        let col = +current.dataset.col;
+        if (e.key === 'ArrowLeft') col = Math.max(0, col - 1);
+        else if (e.key === 'ArrowRight') col = Math.min(COLS - 1, col + 1);
+        else return;
+        e.preventDefault();
+        boardEl.querySelector(`[data-row="${current.dataset.row}"][data-col="${col}"]`).focus();
+      });
+
+      function reset() {
+        grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+        moveHistory = [];
+        turn = 1; locked = false; ended = false;
+        document.querySelectorAll('.cell').forEach(cell => {
+          cell.className = 'cell';
+          cell.setAttribute('aria-label', `Row ${+cell.dataset.row + 1}, column ${+cell.dataset.col + 1}, empty`);
+        });
+        setStatus();
+        clearMarker();
+      }
+      function setStatus(message) {
+        redPlayer.classList.toggle('active', turn === 1 && !ended);
+        goldPlayer.classList.toggle('active', turn === 2 && !ended);
+        status.classList.toggle('gold', turn === 2);
+        arena.style.setProperty('--turn-color', turn === 1 ? 'var(--red)' : 'var(--gold)');
+        if (message) statusText.textContent = message;
+        else if (mode === 'cpu') statusText.textContent = turn === 1 ? 'Your move' : 'CPU is thinking…';
+        else statusText.textContent = turn === 1 ? 'Red to move' : 'Gold to move';
+      }
+      function showMarker(col) {
+        if (locked || ended || grid[0][col]) return clearMarker();
+        arena.dataset.hover = col;
+        markers.children[col].classList.add('hover');
+      }
+      function clearMarker() {
+        delete arena.dataset.hover;
+        [...markers.children].forEach(m => m.classList.remove('hover'));
+      }
+      function play(col) {
+        if (locked || ended || grid[0][col]) return;
+        if (mode === 'cpu' && turn === 2) return;
+        drop(col);
+      }
+      function drop(col) {
+        let row = ROWS - 1;
+        while (row >= 0 && grid[row][col]) row--;
+        if (row < 0) return false;
+        grid[row][col] = turn;
+        moveHistory.push(col);
+        const cell = boardEl.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+        cell.classList.add(turn === 1 ? 'red' : 'gold', 'filled', 'drop');
+        cell.style.setProperty('--drop', row + 1);
+        cell.setAttribute('aria-label', `Row ${row + 1}, column ${col + 1}, ${turn === 1 ? 'red' : 'gold'} disc`);
+        sound(turn === 1 ? 240 : 320);
+        burstAt(cell, turn === 1 ? '#f04455' : '#ffbf2f', 8);
+        const win = winningLine(row, col, turn);
+        if (win) {
+          ended = true; locked = true;
+          win.forEach(([r,c]) => boardEl.querySelector(`[data-row="${r}"][data-col="${c}"]`).classList.add('winner'));
+          scores[turn - 1]++;
+          scoreText.textContent = `${scores[0]}—${scores[1]}`;
+          const name = mode === 'cpu' ? (turn === 1 ? 'You win!' : 'CPU wins') : (turn === 1 ? 'Red wins!' : 'Gold wins!');
+          setStatus(name);
+          celebrate(turn === 1 ? '#f04455' : '#ffbf2f');
+          sound(520, true);
+          clearMarker();
+          return true;
+        }
+        if (grid[0].every(Boolean)) {
+          ended = true; locked = true; setStatus('A perfect draw'); clearMarker(); return true;
+        }
+        turn = turn === 1 ? 2 : 1;
+        setStatus(); clearMarker();
+        if (mode === 'cpu' && turn === 2) {
+          locked = true;
+          setTimeout(() => { locked = false; if (!ended) drop(cpuMove()); }, 520);
+        }
+        return true;
+      }
+      function winningLine(row, col, player, testGrid = grid) {
+        const directions = [[1,0],[0,1],[1,1],[1,-1]];
+        for (const [dr,dc] of directions) {
+          const line = [[row,col]];
+          for (const sign of [-1,1]) {
+            let r = row + dr*sign, c = col + dc*sign;
+            while (r>=0&&r<ROWS&&c>=0&&c<COLS&&testGrid[r][c]===player) {
+              sign < 0 ? line.unshift([r,c]) : line.push([r,c]); r += dr*sign; c += dc*sign;
+            }
+          }
+          if (line.length >= 4) return line;
+        }
+        return null;
+      }
+      function validMoves() {
+        return [3,2,4,1,5,0,6].filter(c => !grid[0][c]);
+      }
+      function playableRow(col) {
+        let row = ROWS - 1;
+        while (row >= 0 && grid[row][col]) row--;
+        return row;
+      }
+      function tacticalMove(player) {
+        for (const col of validMoves()) {
+          const row = playableRow(col);
+          grid[row][col] = player;
+          const wins = Boolean(winningLine(row, col, player));
+          grid[row][col] = 0;
+          if (wins) return col;
+        }
+      }
+      function evaluateWindow(cells) {
+        let cpu = 0, human = 0, empty = 0;
+        for (const value of cells) {
+          if (value === 2) cpu++;
+          else if (value === 1) human++;
+          else empty++;
+        }
+        if (cpu === 4) return 100000;
+        if (human === 4) return -100000;
+        let score = 0;
+        if (cpu === 3 && empty === 1) score += 140;
+        else if (cpu === 2 && empty === 2) score += 18;
+        if (human === 3 && empty === 1) score -= 175;
+        else if (human === 2 && empty === 2) score -= 22;
+        return score;
+      }
+      function evaluatePosition() {
+        let score = 0;
+        for (let r = 0; r < ROWS; r++) score += grid[r][3] === 2 ? 9 : grid[r][3] === 1 ? -9 : 0;
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c <= COLS - 4; c++)
+          score += evaluateWindow([grid[r][c],grid[r][c+1],grid[r][c+2],grid[r][c+3]]);
+        for (let c = 0; c < COLS; c++) for (let r = 0; r <= ROWS - 4; r++)
+          score += evaluateWindow([grid[r][c],grid[r+1][c],grid[r+2][c],grid[r+3][c]]);
+        for (let r = 0; r <= ROWS - 4; r++) for (let c = 0; c <= COLS - 4; c++) {
+          score += evaluateWindow([grid[r][c],grid[r+1][c+1],grid[r+2][c+2],grid[r+3][c+3]]);
+          score += evaluateWindow([grid[r+3][c],grid[r+2][c+1],grid[r+1][c+2],grid[r][c+3]]);
+        }
+        return score;
+      }
+      function openingPreference() {
+        if (moveHistory.length > 6) return null;
+        if (!grid[0][3]) return 3;
+        const first = moveHistory[0];
+        return first === 3 ? (!grid[0][2] ? 2 : 4) : 3;
+      }
+      function orderedMoves(player, preferred = null) {
+        const opponent = player === 2 ? 1 : 2;
+        return validMoves().map(col => {
+          const row = playableRow(col);
+          let priority = 10 - Math.abs(3 - col) * 2;
+          if (col === preferred) priority += 18;
+          grid[row][col] = player;
+          if (winningLine(row, col, player)) priority += 10000;
+          grid[row][col] = opponent;
+          if (winningLine(row, col, opponent)) priority += 800;
+          grid[row][col] = 0;
+          return {col, priority};
+        }).sort((a,b) => b.priority - a.priority).map(item => item.col);
+      }
+
+      let searchDeadline = 0, searchNodes = 0, searchTimedOut = false, transpositions;
+      function boardKey(maximizing) {
+        let key = maximizing ? 'M' : 'm';
+        for (let r = 0; r < ROWS; r++) key += grid[r].join('');
+        return key;
+      }
+      function minimax(depth, alpha, beta, maximizing) {
+        if (((++searchNodes) & 511) === 0 && performance.now() > searchDeadline) searchTimedOut = true;
+        if (searchTimedOut || depth === 0 || grid[0].every(Boolean)) return evaluatePosition();
+
+        const originalAlpha = alpha, originalBeta = beta;
+        const key = boardKey(maximizing);
+        const cached = transpositions.get(key);
+        if (cached && cached.depth >= depth) {
+          if (cached.flag === 'exact') return cached.score;
+          if (cached.flag === 'lower') alpha = Math.max(alpha, cached.score);
+          else beta = Math.min(beta, cached.score);
+          if (alpha >= beta) return cached.score;
+        }
+
+        const player = maximizing ? 2 : 1;
+        let best = maximizing ? -Infinity : Infinity;
+        for (const col of orderedMoves(player)) {
+          const row = playableRow(col);
+          grid[row][col] = player;
+          let score;
+          if (winningLine(row, col, player)) score = player === 2 ? 1000000 + depth : -1000000 - depth;
+          else score = minimax(depth - 1, alpha, beta, !maximizing);
+          grid[row][col] = 0;
+          if (searchTimedOut) break;
+          if (maximizing) {
+            best = Math.max(best, score);
+            alpha = Math.max(alpha, best);
+          } else {
+            best = Math.min(best, score);
+            beta = Math.min(beta, best);
+          }
+          if (alpha >= beta) break;
+        }
+        if (!Number.isFinite(best)) best = evaluatePosition();
+        const flag = best <= originalAlpha ? 'upper' : best >= originalBeta ? 'lower' : 'exact';
+        transpositions.set(key, {depth, score: best, flag});
+        return best;
+      }
+      function searchBestMove(maxDepth, budgetMs) {
+        const preferred = openingPreference();
+        let bestMove = orderedMoves(2, preferred)[0];
+        searchDeadline = performance.now() + budgetMs;
+        for (let depth = 4; depth <= maxDepth; depth++) {
+          searchNodes = 0; searchTimedOut = false; transpositions = new Map();
+          let iterationMove = bestMove, iterationScore = -Infinity;
+          for (const col of orderedMoves(2, preferred)) {
+            const row = playableRow(col);
+            grid[row][col] = 2;
+            const score = winningLine(row, col, 2) ? 1000000 + depth : minimax(depth - 1, -Infinity, Infinity, false);
+            grid[row][col] = 0;
+            if (searchTimedOut) break;
+            if (score > iterationScore) {
+              iterationScore = score;
+              iterationMove = col;
+            }
+          }
+          if (searchTimedOut) break;
+          bestMove = iterationMove;
+          if (Math.abs(iterationScore) >= 1000000) break;
+        }
+        return bestMove;
+      }
+      function cpuMove() {
+        const win = tacticalMove(2);
+        if (win !== undefined) return win;
+        const block = tacticalMove(1);
+        if (block !== undefined) return block;
+
+        const moves = validMoves();
+        if (difficulty === 'easy') {
+          const centered = moves.slice(0, Math.min(4, moves.length));
+          return centered[Math.floor(Math.random() * centered.length)];
+        }
+        if (difficulty === 'medium') return searchBestMove(6, 130);
+
+        const emptyCount = grid.flat().filter(v => !v).length;
+        const depth = emptyCount <= 15 ? emptyCount : emptyCount <= 24 ? 12 : 11;
+        return searchBestMove(depth, 700);
+      }
+      function updateCpuLabel() {
+        goldName.textContent = mode === 'cpu' ? `CPU · ${difficulty[0].toUpperCase() + difficulty.slice(1)}` : 'Gold';
+      }
+      function switchMode(next) {
+        mode = next; scores = [0,0]; scoreText.textContent = '0—0';
+        twoPlayer.classList.toggle('active', mode === 'two');
+        vsCpu.classList.toggle('active', mode === 'cpu');
+        difficultyControl.hidden = mode !== 'cpu';
+        updateCpuLabel();
+        redPlayer.querySelector('strong').textContent = mode === 'cpu' ? 'You' : 'Red';
+        reset();
+      }
+      function setDifficulty(next) {
+        difficulty = next;
+        difficultyButtons.forEach(button => button.classList.toggle('active', button.dataset.difficulty === difficulty));
+        scores = [0,0]; scoreText.textContent = '0—0';
+        updateCpuLabel();
+        reset();
+      }
+      twoPlayer.addEventListener('click', () => switchMode('two'));
+      vsCpu.addEventListener('click', () => switchMode('cpu'));
+      difficultyButtons.forEach(button => button.addEventListener('click', () => setDifficulty(button.dataset.difficulty)));
+      newRound.addEventListener('click', reset);
+
+      function sound(freq, win = false) {
+        try {
+          audio ||= new (window.AudioContext || window.webkitAudioContext)();
+          if (audio.state === 'suspended') audio.resume();
+          const now = audio.currentTime;
+          const o = audio.createOscillator(), g = audio.createGain();
+          o.type = 'sine'; o.frequency.setValueAtTime(freq, now);
+          if (win) o.frequency.exponentialRampToValueAtTime(freq*1.7, now+.22);
+          g.gain.setValueAtTime(.065, now); g.gain.exponentialRampToValueAtTime(.001, now+(win?.32:.12));
+          o.connect(g).connect(audio.destination); o.start(); o.stop(now+(win?.34:.14));
+        } catch (_) {}
+      }
+
+      // Reactive JavaScript background: drifting connection nodes + gameplay sparks.
+      const canvas = document.getElementById('sky'), ctx = canvas.getContext('2d');
+      let dots = [], sparks = [], w = 0, h = 0, dpr = 1, mouse = {x:-9999,y:-9999};
+      function resize() {
+        dpr = Math.min(2, devicePixelRatio || 1); w = innerWidth; h = innerHeight;
+        canvas.width = w*dpr; canvas.height = h*dpr; canvas.style.width = w+'px'; canvas.style.height = h+'px';
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        const n = Math.max(20, Math.min(58, Math.round(w*h/22000)));
+        dots = Array.from({length:n}, () => ({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.22,vy:(Math.random()-.5)*.22,r:Math.random()*2.4+1}));
+      }
+      function background() {
+        ctx.clearRect(0,0,w,h);
+        const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+        const line = dark ? '115,168,240' : '50,112,196';
+        for (let i=0;i<dots.length;i++) {
+          const a=dots[i]; a.x+=a.vx; a.y+=a.vy;
+          if(a.x<0||a.x>w)a.vx*=-1; if(a.y<0||a.y>h)a.vy*=-1;
+          const md=Math.hypot(a.x-mouse.x,a.y-mouse.y); if(md<120){a.x+=(a.x-mouse.x)*.006;a.y+=(a.y-mouse.y)*.006;}
+          for(let j=i+1;j<dots.length;j++){
+            const b=dots[j], dist=Math.hypot(a.x-b.x,a.y-b.y);
+            if(dist<120){ctx.beginPath();ctx.strokeStyle=`rgba(${line},${(1-dist/120)*.15})`;ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
+          }
+          ctx.beginPath();ctx.fillStyle=`rgba(${line},${dark?.32:.22})`;ctx.arc(a.x,a.y,a.r,0,Math.PI*2);ctx.fill();
+        }
+        sparks = sparks.filter(s => s.life>0);
+        sparks.forEach(s => {s.x+=s.vx;s.y+=s.vy;s.vy+=.04;s.life-=.018;ctx.globalAlpha=Math.max(0,s.life);ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
+        ctx.globalAlpha=1; requestAnimationFrame(background);
+      }
+      function burstAt(el, color, count) {
+        const r=el.getBoundingClientRect(), x=r.left+r.width/2, y=r.top+r.height/2;
+        for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2, v=Math.random()*1.7+.4;sparks.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:Math.random()*2.5+1,color,life:.8});}
+      }
+      function celebrate(color) {
+        for(let i=0;i<90;i++) sparks.push({x:w/2+(Math.random()-.5)*w*.55,y:h*.45,vx:(Math.random()-.5)*5,vy:-Math.random()*4-1,r:Math.random()*4+2,color:Math.random()>.35?color:'#ffffff',life:1.2+Math.random()*.5});
+      }
+      addEventListener('pointermove', e => {mouse.x=e.clientX;mouse.y=e.clientY;});
+      addEventListener('resize', resize); resize(); background(); reset();
+    })();
+  </script>
+</body>
+</html>
