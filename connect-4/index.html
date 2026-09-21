@@ -2062,10 +2062,18 @@
           } else if (m.t === 'matched' && m.code) {
             onMatched(cleanCode(m.code));
           } else if (m.t === 'matchFailed') {
-            // The server already put us back in line; stay on this screen.
-            mmPendingCode = '';
+            // The room fizzled and the server dissolved it; the server already
+            // put us back in line on this socket. Drop the dead room session
+            // and bring the lobby's search UI back into view.
+            const reason = m.reason || 'Opponent never joined — searching again…';
+            const failedCode = mmPendingCode;
+            mmPendingCode = ''; // clear before dropSession so it keeps our mm socket open
             mmSearching = true;
-            setSearchingUI(true, m.reason || 'Opponent never joined — searching again…');
+            const dead = failedCode ? sessionByCode(failedCode) : null;
+            if (dead) dropSession(dead);
+            else showLobby();
+            setSearchingUI(true, reason);
+            showLobbyNote(reason);
           } else if (m.t === 'cancelled') {
             stopSearching();
           } else if (m.t === 'error') {
