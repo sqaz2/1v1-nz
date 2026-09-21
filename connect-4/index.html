@@ -820,7 +820,7 @@
           const s = activeSession;
           // Tapping your column while the connection is down reconnects first
           // and queues the move instead of silently swallowing the tap.
-          if (s && s.state && s.state.status === 'playing' && s.state.turn === s.color && !grid[0][col] && !socketHealthy(s)) {
+          if (s && s.state && s.state.status === 'playing' && s.state.turn === s.color && !grid[0][col] && !s.moveInFlight && !socketHealthy(s)) {
             s.pendingMove = col;
             reconnectNow();
             statusText.textContent = 'Reconnecting…';
@@ -830,7 +830,8 @@
         if (locked || ended || grid[0][col]) return;
         if (mode === 'online') {
           const s = activeSession;
-          if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || !socketHealthy(s)) return;
+          if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || s.moveInFlight || !socketHealthy(s)) return;
+          s.moveInFlight = true;
           s.socket.send(JSON.stringify({t: 'move', col}));
           clearMarker();
           return;
@@ -1214,24 +1215,37 @@
         if (s === activeSession && mode === 'online') renderGameView();
         renderLobby();
       }
-      // Sends a move/resign that was queued while the socket was down, but only
-      // if it is still valid against the latest server state.
+      // Sends anything queued while the socket was down, but only if still valid
+      // against the latest server state.
       function flushPendingOnlineAction(s) {
         if (!s || s !== activeSession || mode !== 'online') return;
         if (!socketHealthy(s) || !s.state) return;
+        if (s.pendingChat && s.pendingChat.length) {
+          const queued = s.pendingChat; s.pendingChat = [];
+          for (const text of queued) { try { s.socket.send(JSON.stringify({t: 'chat', text})); } catch (_) {} }
+        }
+        if (s.pendingVoice && s.pendingVoice.length) {
+          const queued = s.pendingVoice; s.pendingVoice = [];
+          for (const v of queued) { try { s.socket.send(JSON.stringify({t: 'voice', data: v.data, dur: v.dur})); } catch (_) {} }
+        }
         if (s.pendingMove != null) {
           const col = s.pendingMove;
           s.pendingMove = null;
           if (s.state.status === 'playing' && s.state.turn === s.color && col >= 0 && col < COLS && !grid[0][col]) {
-            try { s.socket.send(JSON.stringify({t: 'move', col})); } catch (_) {}
-            clearMarker();
+            try { s.socket.send(JSON.stringify({t: 'move', col})); clearMarker(); }
+            catch (_) { s.pendingMove = col; }
           }
-          return;
         }
         if (s.pendingResign) {
           s.pendingResign = false;
           if (s.state.status === 'playing') {
-            try { s.socket.send(JSON.stringify({t: 'resign'})); } catch (_) {}
+            try { s.socket.send(JSON.stringify({t: 'resign'})); } catch (_) { s.pendingResign = true; }
+          }
+        }
+        if (s.pendingRematch) {
+          s.pendingRematch = false;
+          if (s.state.status === 'over') {
+            try { s.socket.send(JSON.stringify({t: 'rematch'})); } catch (_) { s.pendingRematch = true; }
           }
         }
       }
@@ -1429,6 +1443,7 @@
         }
       }
       function handleSessionError(s, text) {
+        s.moveInFlight = false;
         if (!s.seatConfirmed || ROOM_GONE_PATTERN.test(text)) {
           dropSession(s, s.seatConfirmed ? 'That game has ended.' : (text || ROOM_UNAVAILABLE_MESSAGE));
           return;
@@ -1441,6 +1456,7 @@
       function applyState(s, state) {
         const prev = s.state;
         s.state = state;
+        s.moveInFlight = false;
         s.code = cleanCode(state.code || s.code);
         if (prev && prev.status !== 'over' && state.status === 'over') countSeriesResult(s, state);
         if (prev && prev.status === 'playing' && state.status === 'playing' &&
@@ -1702,7 +1718,9 @@
         const opponentGone = !opponent || opponent.connected === false;
         const socketOpen = socketHealthy(s);
         // Never show "Your move" on a dead connection: the state may be stale.
-        locked = state.status !== 'playing' || state.turn !== s.color || opponentGone || !mine?.connected || !socketOpen;
+        // Note: the opponent being disconnected does NOT lock the board — the
+        // server still accepts your moves and they see them on return.
+        locked = state.status !== 'playing' || state.turn !== s.color || !mine?.connected || !socketOpen;
         resignButton.hidden = state.status !== 'playing';
         if (state.status === 'over') {
           const result = state.winner === 3 ? 'A perfect draw' : state.winner === s.color ? 'You win!' : `${players.find(player => player.color === state.winner)?.name || (state.winner === 1 ? 'Red' : 'Yellow')} wins`;
@@ -1722,8 +1740,8 @@
           rematch.disabled = false;
           rematch.textContent = 'Rematch';
           if (!socketOpen) statusText.textContent = 'Reconnecting…';
+          else if (state.turn === s.color) statusText.textContent = opponentGone ? 'Your move — opponent reconnecting…' : 'Your move';
           else if (opponentGone) statusText.textContent = 'Opponent disconnected — waiting for them to return';
-          else if (state.turn === s.color) statusText.textContent = 'Your move';
           else statusText.textContent = `${players.find(player => player.color === state.turn)?.name || 'Opponent'} to move`;
         }
         clearMarker();
@@ -1911,15 +1929,24 @@
         }
         return wrap;
       }
+      function queueOfflinePayload(s, key, value, max = 20) {
+        (s[key] = s[key] || []).push(value);
+        if (s[key].length > max) s[key].splice(0, s[key].length - max);
+      }
       function sendChatMessage() {
         const s = chatOpenFor || activeSession;
         if (!s || s.dropped) return;
         const text = chatInput.value.trim().slice(0, 500);
         if (!text) return;
         chatInput.value = '';
-        try {
-          if (s.socket && s.socket.readyState === WebSocket.OPEN) s.socket.send(JSON.stringify({ t: 'chat', text }));
-        } catch (_) {}
+        if (socketHealthy(s)) {
+          try { s.socket.send(JSON.stringify({ t: 'chat', text })); }
+          catch (_) { queueOfflinePayload(s, 'pendingChat', text); reconnectNow(); }
+        } else {
+          // Still show it instantly, but queue it so the opponent actually gets it.
+          queueOfflinePayload(s, 'pendingChat', text);
+          reconnectNow();
+        }
         receiveChatMessage(s, { kind: 'text', from: s.name, color: s.color, text, ts: Date.now() });
       }
 
@@ -1992,8 +2019,13 @@
             const dataUrl = String(reader.result || '');
             const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
             if (!base64 || base64.length > 650000) return;
-            if (s.socket && s.socket.readyState === WebSocket.OPEN) {
-              s.socket.send(JSON.stringify({ t: 'voice', data: base64, dur }));
+            const payload = { data: base64, dur };
+            if (socketHealthy(s)) {
+              try { s.socket.send(JSON.stringify({ t: 'voice', data: base64, dur })); }
+              catch (_) { queueOfflinePayload(s, 'pendingVoice', payload, 5); reconnectNow(); }
+            } else {
+              queueOfflinePayload(s, 'pendingVoice', payload, 5);
+              reconnectNow();
             }
             receiveChatMessage(s, { kind: 'voice', from: s.name, color: s.color, data: base64, dur, ts: Date.now() });
           } catch (_) {}
@@ -2058,11 +2090,16 @@
       addEventListener('online', () => reconnectNow());
       rematch.addEventListener('click', () => {
         const s = activeSession;
-        if (s && s.socket && s.socket.readyState === WebSocket.OPEN) {
-          s.socket.send(JSON.stringify({t: 'rematch'}));
-          rematch.disabled = true;
-          rematch.textContent = 'Waiting for opponent…';
+        if (!s) return;
+        if (socketHealthy(s)) {
+          try { s.socket.send(JSON.stringify({t: 'rematch'})); } catch (_) { return; }
+        } else {
+          // Reconnect first; the request goes out once the seat is confirmed.
+          s.pendingRematch = true;
+          reconnectNow();
         }
+        rematch.disabled = true;
+        rematch.textContent = 'Waiting for opponent…';
       });
 
       const tracks = [
