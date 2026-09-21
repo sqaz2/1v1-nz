@@ -806,7 +806,7 @@
         if (locked || ended || grid[0][col]) return clearMarker();
         if (mode === 'online') {
           const s = activeSession;
-          if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || !s.socket || s.socket.readyState !== WebSocket.OPEN) return clearMarker();
+          if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || !socketHealthy(s)) return clearMarker();
         }
         arena.dataset.hover = col;
         markers.children[col].classList.add('hover');
@@ -820,8 +820,7 @@
           const s = activeSession;
           // Tapping your column while the connection is down reconnects first
           // and queues the move instead of silently swallowing the tap.
-          if (s && s.state && s.state.status === 'playing' && s.state.turn === s.color && !grid[0][col] &&
-              (!s.socket || s.socket.readyState !== WebSocket.OPEN)) {
+          if (s && s.state && s.state.status === 'playing' && s.state.turn === s.color && !grid[0][col] && !socketHealthy(s)) {
             s.pendingMove = col;
             reconnectNow();
             statusText.textContent = 'Reconnecting…';
@@ -831,7 +830,7 @@
         if (locked || ended || grid[0][col]) return;
         if (mode === 'online') {
           const s = activeSession;
-          if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || !s.socket || s.socket.readyState !== WebSocket.OPEN) return;
+          if (!s || !s.state || s.state.status !== 'playing' || s.state.turn !== s.color || !socketHealthy(s)) return;
           s.socket.send(JSON.stringify({t: 'move', col}));
           clearMarker();
           return;
@@ -1219,7 +1218,7 @@
       // if it is still valid against the latest server state.
       function flushPendingOnlineAction(s) {
         if (!s || s !== activeSession || mode !== 'online') return;
-        if (!s.socket || s.socket.readyState !== WebSocket.OPEN || !s.state) return;
+        if (!socketHealthy(s) || !s.state) return;
         if (s.pendingMove != null) {
           const col = s.pendingMove;
           s.pendingMove = null;
@@ -1335,6 +1334,12 @@
         s.reconnectAttempt = 0;
         connectSession(s);
       }
+      // A socket counts as healthy only if it is open AND recently heard from the
+      // server (keepalive pongs arrive every ~20s). This catches half-open
+      // sockets where the OS killed the connection without a close event.
+      function socketHealthy(s) {
+        return !!(s.socket && s.socket.readyState === WebSocket.OPEN && Date.now() - (s.lastMessageAt || 0) < 30000);
+      }
       // Reconnect immediately and aggressively: tear down anything that is not a
       // healthy open socket (stuck "connecting" attempts, half-open sockets left
       // behind when the OS suspends the tab) so that coming back to the page
@@ -1345,9 +1350,7 @@
         let acted = false;
         for (const s of sessions) {
           if (s.dropped || s.superseded || s.intentionalClose) continue;
-          const ws = s.socket;
-          const healthy = ws && ws.readyState === WebSocket.OPEN && Date.now() - (s.lastMessageAt || 0) < 30000;
-          if (healthy) continue;
+          if (socketHealthy(s)) continue;
           acted = true;
           s.connectFailures = 0;
           s.reconnectAttempt = 0;
@@ -1697,7 +1700,7 @@
         status.classList.toggle('gold', state.turn === 2);
         arena.style.setProperty('--turn-color', state.turn === 1 ? 'var(--red)' : 'var(--gold)');
         const opponentGone = !opponent || opponent.connected === false;
-        const socketOpen = s.socket && s.socket.readyState === WebSocket.OPEN;
+        const socketOpen = socketHealthy(s);
         // Never show "Your move" on a dead connection: the state may be stale.
         locked = state.status !== 'playing' || state.turn !== s.color || opponentGone || !mine?.connected || !socketOpen;
         resignButton.hidden = state.status !== 'playing';
@@ -2024,7 +2027,7 @@
         const s = activeSession;
         if (!s || !s.state || s.state.status !== 'playing') return;
         if (await showConfirm('Resign this game?', 'Resign')) {
-          if (s.socket && s.socket.readyState === WebSocket.OPEN) {
+          if (socketHealthy(s)) {
             try { s.socket.send(JSON.stringify({ t: 'resign' })); } catch (_) {}
           } else {
             // Connection is down: reconnect now and send the resign once back.
