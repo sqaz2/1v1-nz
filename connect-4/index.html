@@ -169,6 +169,27 @@
     .online-button:disabled { opacity: .5; cursor: not-allowed; }
     .online-button:focus-visible, .online-form input:focus-visible { outline: 3px solid var(--board-hi); outline-offset: 2px; }
     .online-error { min-height: 20px; color: var(--red) !important; font-size: 13px; font-weight: 700; }
+    .confirm-overlay {
+      position: fixed; inset: 0; z-index: 90;
+      display: flex; align-items: center; justify-content: center;
+      padding: 22px;
+      background: rgba(8, 18, 38, .55);
+      backdrop-filter: blur(4px);
+    }
+    .confirm-overlay[hidden] { display: none; }
+    .confirm-dialog {
+      width: min(340px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 24px 60px rgba(10, 30, 70, .35);
+      display: grid; gap: 16px;
+    }
+    .confirm-title { margin: 0; font-weight: 700; font-size: 16px; line-height: 1.45; color: var(--ink); }
+    .confirm-actions { display: flex; gap: 10px; }
+    .confirm-actions .online-button { flex: 1; }
+    .online-button.danger { background: var(--red); color: #fff; }
     .invite-block { text-align: center; padding: 6px 0 2px; }
     .invite-code { margin: 4px 0 8px; font-family: "Paytone One", sans-serif; font-size: clamp(38px, 10vw, 68px); letter-spacing: .12em; line-height: 1; color: var(--board); }
     .waiting-line { display: inline-flex; align-items: center; gap: 9px; color: var(--ink) !important; font-weight: 700; }
@@ -638,6 +659,15 @@
       <p class="hint" id="gameHint">Choose any column. First to connect four wins.</p>
     </section>
   </main>
+  <div class="confirm-overlay" id="confirmOverlay" hidden>
+    <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <p class="confirm-title" id="confirmTitle"></p>
+      <div class="confirm-actions">
+        <button class="online-button secondary" id="confirmCancel" type="button">Cancel</button>
+        <button class="online-button danger" id="confirmOk" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     (() => {
@@ -701,6 +731,10 @@
       const onlineGameActions = document.getElementById('onlineGameActions');
       const rematch = document.getElementById('rematch');
       const copyGameLink = document.getElementById('copyGameLink');
+      const confirmOverlay = document.getElementById('confirmOverlay');
+      const confirmTitle = document.getElementById('confirmTitle');
+      const confirmOk = document.getElementById('confirmOk');
+      const confirmCancel = document.getElementById('confirmCancel');
       const difficultyControl = document.getElementById('difficultyControl');
       const difficultyButtons = [...difficultyControl.querySelectorAll('button')];
       const musicToggle = document.getElementById('musicToggle');
@@ -1109,6 +1143,22 @@
         clearTimeout(lobbyNoteTimer);
         if (text) lobbyNoteTimer = setTimeout(() => { lobbyNote.textContent = ''; }, 9000);
       }
+      // In-page confirmation dialog (replaces native confirm(), which is
+      // unreliable inside mobile browsers and automated views).
+      let confirmResolve = null;
+      function showConfirm(message, okLabel) {
+        return new Promise(resolve => {
+          confirmTitle.textContent = message;
+          confirmOk.textContent = okLabel || 'Confirm';
+          confirmOverlay.hidden = false;
+          confirmResolve = resolve;
+          confirmCancel.focus();
+        });
+      }
+      function closeConfirm(result) {
+        confirmOverlay.hidden = true;
+        if (confirmResolve) { confirmResolve(result); confirmResolve = null; }
+      }
       function dropSession(s, note) {
         if (!s || s.dropped) return;
         s.dropped = true;
@@ -1121,10 +1171,10 @@
         renderLobby();
         if (note) showLobbyNote(note);
       }
-      function leaveSession(s) {
+      async function leaveSession(s) {
         if (!s || s.dropped) return;
         const playing = s.state && s.state.status === 'playing';
-        if (playing && !confirm('Leave this game? Leaving mid-game counts as a loss.')) return;
+        if (playing && !(await showConfirm('Leave this game? Leaving mid-game counts as a loss.', 'Leave'))) return;
         try {
           if (s.socket && s.socket.readyState === WebSocket.OPEN) s.socket.send(JSON.stringify({ t: 'leave' }));
         } catch (_) {}
@@ -1609,12 +1659,19 @@
           const result = state.winner === 3 ? 'A perfect draw' : state.winner === s.color ? 'You win!' : `${players.find(player => player.color === state.winner)?.name || (state.winner === 1 ? 'Red' : 'Yellow')} wins`;
           statusText.textContent = result;
           onlineGameActions.hidden = false;
+          const rematchColors = Array.isArray(state.rematch) ? state.rematch : [];
+          const iWantRematch = rematchColors.includes(s.color);
+          const oppWantsRematch = rematchColors.some(c => c && c !== s.color);
+          rematch.disabled = iWantRematch;
+          rematch.textContent = iWantRematch ? 'Waiting for opponent…' : oppWantsRematch ? 'Accept rematch' : 'Rematch';
           if (state.winner === s.color) {
             celebrate(s.color === 1 ? '#f04455' : '#ffbf2f');
             sound(520, true);
           }
         } else {
           onlineGameActions.hidden = true;
+          rematch.disabled = false;
+          rematch.textContent = 'Rematch';
           if (opponentGone) statusText.textContent = 'Opponent disconnected — waiting for them to return';
           else if (state.turn === s.color) statusText.textContent = 'Your move';
           else statusText.textContent = `${players.find(player => player.color === state.turn)?.name || 'Opponent'} to move`;
@@ -1682,7 +1739,7 @@
         try {
           if (!room) {
             onlineError.textContent = lastFailure === 'server'
-              ? ROOM_UNAVAILABLE_MESSAGE
+              ? 'Could not create a game. Please try again.'
               : 'Could not reach the game server. Check your connection and try again.';
             return;
           }
@@ -1916,24 +1973,27 @@
       chatForm.addEventListener('submit', event => { event.preventDefault(); sendChatMessage(); });
       micButton.addEventListener('click', toggleVoiceRecording);
       chatRecStop.addEventListener('click', () => stopVoiceRecording(true));
-      resignButton.addEventListener('click', () => {
+      resignButton.addEventListener('click', async () => {
         const s = activeSession;
         if (!s || !s.state || s.state.status !== 'playing') return;
-        if (confirm('Resign this game?')) {
+        if (await showConfirm('Resign this game?', 'Resign')) {
           try { if (s.socket && s.socket.readyState === WebSocket.OPEN) s.socket.send(JSON.stringify({ t: 'resign' })); } catch (_) {}
         }
       });
       leaveGameButton.addEventListener('click', () => { if (activeSession) leaveSession(activeSession); });
-      ghSeries.addEventListener('click', () => {
+      ghSeries.addEventListener('click', async () => {
         const s = activeSession;
         if (!s) return;
-        if (confirm(`Reset your series score against ${opponentName(s)}?`)) {
+        if (await showConfirm(`Reset your series score against ${opponentName(s)}?`, 'Reset')) {
           s.series = { w: 0, l: 0 };
           persistSessions();
           renderGameView();
           renderLobby();
         }
       });
+      confirmCancel.addEventListener('click', () => closeConfirm(false));
+      confirmOk.addEventListener('click', () => closeConfirm(true));
+      confirmOverlay.addEventListener('click', event => { if (event.target === confirmOverlay) closeConfirm(false); });
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') reconnectWhenAvailable();
       });
@@ -1943,7 +2003,7 @@
         if (s && s.socket && s.socket.readyState === WebSocket.OPEN) {
           s.socket.send(JSON.stringify({t: 'rematch'}));
           rematch.disabled = true;
-          setTimeout(() => { rematch.disabled = false; }, 1000);
+          rematch.textContent = 'Waiting for opponent…';
         }
       });
 
@@ -2092,6 +2152,8 @@
           // Reclaim the saved seat in this tab instead of joining as a stranger.
           showLobbyNote('Welcome back — reconnecting to your game…');
           openSession(sharedCode);
+          // Reconnect every other saved game too, so none stay stuck on "Connecting…".
+          restoreAllSessions();
         } else {
           joinCode.value = sharedCode;
           const setupIntro = onlineSetup.querySelector('p');
