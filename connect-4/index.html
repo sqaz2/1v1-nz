@@ -816,6 +816,18 @@
         [...markers.children].forEach(m => m.classList.remove('hover'));
       }
       function play(col) {
+        if (mode === 'online') {
+          const s = activeSession;
+          // Tapping your column while the connection is down reconnects first
+          // and queues the move instead of silently swallowing the tap.
+          if (s && s.state && s.state.status === 'playing' && s.state.turn === s.color && !grid[0][col] &&
+              (!s.socket || s.socket.readyState !== WebSocket.OPEN)) {
+            s.pendingMove = col;
+            reconnectNow();
+            statusText.textContent = 'Reconnecting…';
+            return;
+          }
+        }
         if (locked || ended || grid[0][col]) return;
         if (mode === 'online') {
           const s = activeSession;
@@ -1203,6 +1215,27 @@
         if (s === activeSession && mode === 'online') renderGameView();
         renderLobby();
       }
+      // Sends a move/resign that was queued while the socket was down, but only
+      // if it is still valid against the latest server state.
+      function flushPendingOnlineAction(s) {
+        if (!s || s !== activeSession || mode !== 'online') return;
+        if (!s.socket || s.socket.readyState !== WebSocket.OPEN || !s.state) return;
+        if (s.pendingMove != null) {
+          const col = s.pendingMove;
+          s.pendingMove = null;
+          if (s.state.status === 'playing' && s.state.turn === s.color && col >= 0 && col < COLS && !grid[0][col]) {
+            try { s.socket.send(JSON.stringify({t: 'move', col})); } catch (_) {}
+            clearMarker();
+          }
+          return;
+        }
+        if (s.pendingResign) {
+          s.pendingResign = false;
+          if (s.state.status === 'playing') {
+            try { s.socket.send(JSON.stringify({t: 'resign'})); } catch (_) {}
+          }
+        }
+      }
       function scheduleSessionReconnect(s, immediate = false) {
         if (s.intentionalClose || s.dropped || s.superseded) return;
         if (s.connectFailures >= MAX_CONNECT_FAILURES) {
@@ -1302,16 +1335,26 @@
         s.reconnectAttempt = 0;
         connectSession(s);
       }
-      function reconnectWhenAvailable() {
-        if (mode !== 'online') return;
+      // Reconnect immediately and aggressively: tear down anything that is not a
+      // healthy open socket (stuck "connecting" attempts, half-open sockets left
+      // behind when the OS suspends the tab) so that coming back to the page
+      // never leaves a game deaf. Called on visibility return, pageshow, and
+      // before any online action while disconnected.
+      function reconnectNow() {
+        if (mode !== 'online') return false;
+        let acted = false;
         for (const s of sessions) {
           if (s.dropped || s.superseded || s.intentionalClose) continue;
-          if (!s.socket || s.socket.readyState === WebSocket.CLOSED) {
-            s.connectFailures = 0;
-            s.reconnectAttempt = 0;
-            connectSession(s);
-          }
+          const ws = s.socket;
+          const healthy = ws && ws.readyState === WebSocket.OPEN && Date.now() - (s.lastMessageAt || 0) < 30000;
+          if (healthy) continue;
+          acted = true;
+          s.connectFailures = 0;
+          s.reconnectAttempt = 0;
+          closeSessionSocket(s, true);
+          connectSession(s);
         }
+        return acted;
       }
 
       // ----- incoming messages -----
@@ -1407,6 +1450,7 @@
         }
         if (s === activeSession && mode === 'online') renderGameView();
         renderLobby();
+        flushPendingOnlineAction(s);
       }
       function countSeriesResult(s, state) {
         const winner = state.winner | 0;
@@ -1653,7 +1697,9 @@
         status.classList.toggle('gold', state.turn === 2);
         arena.style.setProperty('--turn-color', state.turn === 1 ? 'var(--red)' : 'var(--gold)');
         const opponentGone = !opponent || opponent.connected === false;
-        locked = state.status !== 'playing' || state.turn !== s.color || opponentGone || !mine?.connected;
+        const socketOpen = s.socket && s.socket.readyState === WebSocket.OPEN;
+        // Never show "Your move" on a dead connection: the state may be stale.
+        locked = state.status !== 'playing' || state.turn !== s.color || opponentGone || !mine?.connected || !socketOpen;
         resignButton.hidden = state.status !== 'playing';
         if (state.status === 'over') {
           const result = state.winner === 3 ? 'A perfect draw' : state.winner === s.color ? 'You win!' : `${players.find(player => player.color === state.winner)?.name || (state.winner === 1 ? 'Red' : 'Yellow')} wins`;
@@ -1672,7 +1718,8 @@
           onlineGameActions.hidden = true;
           rematch.disabled = false;
           rematch.textContent = 'Rematch';
-          if (opponentGone) statusText.textContent = 'Opponent disconnected — waiting for them to return';
+          if (!socketOpen) statusText.textContent = 'Reconnecting…';
+          else if (opponentGone) statusText.textContent = 'Opponent disconnected — waiting for them to return';
           else if (state.turn === s.color) statusText.textContent = 'Your move';
           else statusText.textContent = `${players.find(player => player.color === state.turn)?.name || 'Opponent'} to move`;
         }
@@ -1977,7 +2024,14 @@
         const s = activeSession;
         if (!s || !s.state || s.state.status !== 'playing') return;
         if (await showConfirm('Resign this game?', 'Resign')) {
-          try { if (s.socket && s.socket.readyState === WebSocket.OPEN) s.socket.send(JSON.stringify({ t: 'resign' })); } catch (_) {}
+          if (s.socket && s.socket.readyState === WebSocket.OPEN) {
+            try { s.socket.send(JSON.stringify({ t: 'resign' })); } catch (_) {}
+          } else {
+            // Connection is down: reconnect now and send the resign once back.
+            s.pendingResign = true;
+            reconnectNow();
+            statusText.textContent = 'Reconnecting…';
+          }
         }
       });
       leaveGameButton.addEventListener('click', () => { if (activeSession) leaveSession(activeSession); });
@@ -1995,9 +2049,10 @@
       confirmOk.addEventListener('click', () => closeConfirm(true));
       confirmOverlay.addEventListener('click', event => { if (event.target === confirmOverlay) closeConfirm(false); });
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') reconnectWhenAvailable();
+        if (document.visibilityState === 'visible') reconnectNow();
       });
-      addEventListener('online', reconnectWhenAvailable);
+      addEventListener('pageshow', () => reconnectNow());
+      addEventListener('online', () => reconnectNow());
       rematch.addEventListener('click', () => {
         const s = activeSession;
         if (s && s.socket && s.socket.readyState === WebSocket.OPEN) {
