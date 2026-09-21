@@ -1,1 +1,2 @@
-/ https://starmuff.pages.dev/ 302
+# No homepage redirect — 1v1.nz serves its own index.html
+# (Previously / redirected to starmuff.pages.dev and broke SEO.)
