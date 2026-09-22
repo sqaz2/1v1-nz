@@ -73,3 +73,17 @@ a stubbed canvas and original input handlers, including launch, three-life
 completion, exact source parity, seeded frame-rate fairness, forfeit/reload,
 physics/RNG/math checkpoint restoration and stale-message checks. Browser/mobile
 and two-real-client network testing remain necessary before production promotion.
+
+### Preview browser smoke check — 22 September 2026
+
+The original table launched through its real drag control and earned 1,100 points.
+Menu/Return preserved the run. In-page forfeit confirmation could be cancelled;
+confirmation then produced the P2 handoff, a fresh P2 table, a final draw when
+both forfeited, and a clean P1 rematch at zero points with three balls. The active
+menu no longer exposes a whole-match Start P1 reset. At 390×844 CSS pixels, the
+original table and controls fit without horizontal overflow. Original music
+loaded; no game-origin console errors were observed in those flows.
+
+This does not verify a full natural browser run or public online play. Full
+three-drain settlement is covered by the engine test, and internet play remains
+gated on deploying the shared room backend and conducting two-device QA.

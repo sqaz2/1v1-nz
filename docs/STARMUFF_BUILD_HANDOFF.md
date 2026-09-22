@@ -57,9 +57,9 @@ The full-port preview was exercised through visible controls in Chrome, not by c
 |---|---|
 | Cargo Bay | Original solo hard-drop scoring and pause/resume; CPU real play/attacks/loss; clean rematch; independent F/Space local controls; phone-width boards/next/controls without horizontal overflow |
 | Simon | Solo scoring/failure/retry/close; CPU result and reset; opaque hotseat handoff and winner; phone-width original pads without horizontal overflow |
-| Artillery | CPU selection/fire/actual returning damage; different hotseat hulls; targeting math/shield/energy and shot handoff; original Wave 1 solo; phone-width fire control/no horizontal overflow |
+| Artillery | CPU selection/fire/actual returning damage; different hotseat hulls; targeting math/shield/energy and shot handoff; original Wave 1 solo; second-preview check confirms unobscured player cards, readable labels, visible Fire and no horizontal overflow |
 | Odyssey | Original solo launch and autonomous original wave progression to score 500 / upgrade choice; original loadout workflow on desktop/phone width; online unavailable message with disabled create/join; no phone-width horizontal overflow |
-| Pinball | Full original table launches and scores 1,100; menu pause and Return preserve score. Final forfeit/handoff/mobile follow-up recorded separately after the UI fix. |
+| Pinball | Full original table launches and scores 1,100; menu pause and Return preserve score; cancel preserves a run; confirmed P1 forfeit leads to a fresh P2 table; second forfeit settles draw; rematch starts fresh P1 at 0 points/3 balls; original music and phone-width table without horizontal overflow |
 
 Browser QA found and corrected: duel/CPU scores overwriting Cargo Bay's solo high score; duplicate Simon header/room controls during active phone patterns; an imported fixed Artillery home link overlaying the HUD; Pinball's active menu exposing a whole-match restart. Pinball's native confirmation was replaced with an explicit in-page confirm/cancel control after the browser's native-dialog API failed; that tool failure was not treated as a game physics failure.
 

@@ -4,7 +4,7 @@
   const D = window.PinballDuel;
   let mode = 'solo', match = null, slot = 0, frame = null, mp = null, restoreExpected = null;
   let music = null, mood = null, queue = [], muted = false, isEgg = false;
-  let pendingForfeit = null;
+  let pendingForfeit = null, resumeLocal = false;
   let audio = new Audio(), egg = new Audio();
   const localKey = 'starmuff-pinball-hotseat-v1';
   function id() { return crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2); }
@@ -26,7 +26,7 @@
     button.textContent = 'Confirm forfeit — tap again';
     setStatus('Forfeit this run? Tap the button again within six seconds to confirm.');
     setTimeout(() => {
-      if (pendingForfeit === pending) cancelForfeit();
+      if (pendingForfeit === pending) { cancelForfeit(); setStatus('Forfeit not confirmed. Your run remains saved.'); }
     }, 6000);
   }
   function control(type, data = {}) {
@@ -93,11 +93,13 @@
     control('pause', {paused:true});
     show('result');
     if (mode === 'local' && slot === 0) {
+      setStatus('Player 1’s run is locked. Pass the device to Player 2.');
       $('result-title').textContent = 'Player 1 finished';
       $('result-detail').textContent = match.players[0].score.toLocaleString() + ' points. Pass the device to Player 2. Same original table, same seed, fresh run.';
       $('next').textContent = 'Player 2 — ready'; $('next').hidden = false;
       $('next').onclick = () => { slot = 1; save(); drawScores(); makeFrame(true); setStatus('Player 2 · beat ' + match.players[0].score.toLocaleString() + ' points'); };
     } else {
+      setStatus('Your run is locked. Waiting for the other player to finish.');
       $('result-title').textContent = 'Run complete';
       $('result-detail').textContent = 'Your score is locked at ' + match.players[slot].score.toLocaleString() + '. Waiting for the other player’s real run to finish.';
       $('next').hidden = true;
@@ -143,7 +145,7 @@
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('selected', b.dataset.mode === mode));
     $('online-lobby').hidden = mode !== 'online';
     $('start').hidden = mode === 'online' || (mode === 'local' && !!frame && !!match && !match.result);
-    $('start').textContent = mode === 'solo' ? 'Play original Pinball' : 'Start Player 1’s run';
+    $('start').textContent = mode === 'solo' ? 'Play original Pinball' : resumeLocal && match ? 'Resume saved duel' : 'Start Player 1’s run';
     $('rules').textContent = mode === 'solo' ? 'The full original game, including your local high scores and unlocks.' : mode === 'local' ? 'Player 1 plays, then Player 2. Three starting balls plus the original earned extra balls. Same seed, normal speed, identical starting unlocks. Highest score wins.' : 'Create a room, share its link, and both ready up. Play the original table simultaneously: same seed, three starting balls plus earned extra balls, normal speed and identical starting unlocks. Highest score wins.';
     if (mode === 'online') mountOnline();
     drawScores();
@@ -240,8 +242,8 @@
   document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => selectMode(b.dataset.mode));
   $('moods').onclick = e => { const button = e.target.closest('[data-mood]'); if (button) selectMood(button.dataset.mood); };
   $('start').onclick = () => {
-    if (mode === 'solo') { match = null; drawScores(); makeFrame(false); setStatus('Solo · original table, settings, unlocks and local scores'); }
-    else startLocal();
+    if (mode === 'solo') { resumeLocal = false; match = null; drawScores(); makeFrame(false); setStatus('Solo · original table, settings, unlocks and local scores'); }
+    else { startLocal(resumeLocal && !!match); resumeLocal = false; }
   };
   $('resume').onclick = () => { show('play'); playNext(); };
   $('menu-toggle').onclick = () => show($('setup').hidden ? 'setup' : frame ? 'play' : 'setup');
@@ -273,8 +275,7 @@
     try {
       const saved = JSON.parse(sessionStorage.getItem(localKey) || 'null');
       if (saved && D.validate(saved.match, saved.match.id) && !saved.match.result) {
-        mode = 'local'; match = saved.match; slot = saved.slot; selectMode('local'); drawScores();
-        $('start').textContent = 'Resume saved duel'; $('start').onclick = () => startLocal(true);
+        mode = 'local'; match = saved.match; slot = saved.slot; resumeLocal = true; selectMode('local'); drawScores();
         setStatus('Your unfinished pass-and-play duel is saved on this tab.');
       }
     } catch (_) {}
