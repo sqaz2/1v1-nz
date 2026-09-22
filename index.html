@@ -45,10 +45,11 @@
         "itemListElement": [
           {"@type":"ListItem","position":1,"name":"Battleship","url":"https://1v1.nz/battleship/"},
           {"@type":"ListItem","position":2,"name":"Connect 4","url":"https://1v1.nz/connect-4/"},
-          {"@type":"ListItem","position":3,"name":"StarMuff Tetris 1v1","url":"https://1v1.nz/tetris/"},
+          {"@type":"ListItem","position":3,"name":"Cargo Bay Tetris","url":"https://1v1.nz/tetris/"},
           {"@type":"ListItem","position":4,"name":"StarMuff Pinball 1v1","url":"https://1v1.nz/pinball/"},
-          {"@type":"ListItem","position":5,"name":"StarMuff Simon 1v1","url":"https://1v1.nz/simon/"},
-          {"@type":"ListItem","position":6,"name":"StarMuff Skirmish 1v1","url":"https://1v1.nz/skirmish/"}
+          {"@type":"ListItem","position":5,"name":"Simon Protocol","url":"https://1v1.nz/simon/"},
+          {"@type":"ListItem","position":6,"name":"StarMuff Artillery Defense","url":"https://1v1.nz/skirmish/"},
+          {"@type":"ListItem","position":7,"name":"Odyssey Tanks","url":"https://1v1.nz/odyssey-tanks/"}
         ]
       }
     ]
@@ -132,41 +133,49 @@
       <a class="game" role="listitem" href="/connect-4/">
         Connect 4
         <span class="meta">
-          <small>vs CPU · 3 difficulties</small>
+          <small>Online friend · vs CPU · local 2P</small>
           <span class="blurb">Drop discs and get four in a row.</span>
         </span>
       </a>
     </div>
 
     <h2 class="section">StarMuff 1v1</h2>
-    <p class="section-blurb">Cloned StarMuff games rebuilt as real 1v1 — hotseat and vs CPU now; online coming soon.</p>
+    <p class="section-blurb">Your original StarMuff games, now with head-to-head modes. Solo stays intact.</p>
+    <p class="section-blurb" id="onlineAvailability">Online room code is included; its game server still needs deployment. Local and solo play work without it.</p>
     <div class="games" role="list">
       <a class="game" role="listitem" href="/tetris/">
-        Tetris
+        Cargo Bay Tetris
         <span class="meta">
-          <small>vs CPU · local 2P</small>
-          <span class="blurb">Dual boards + garbage attacks. Online soon.</span>
+          <small>Solo · vs CPU · shared keyboard</small>
+          <span class="blurb">The original space-sector game, with dual boards and garbage attacks.</span>
         </span>
       </a>
       <a class="game" role="listitem" href="/pinball/">
         Pinball
         <span class="meta">
-          <small>Score duel · hotseat / vs CPU</small>
-          <span class="blurb">3 balls each — highest score wins. Online soon.</span>
+          <small>Solo · pass-and-play score duel</small>
+          <span class="blurb">The full StarMuff table, music and multiball. Same-seed score attack.</span>
         </span>
       </a>
       <a class="game" role="listitem" href="/simon/">
-        Simon
+        Simon Protocol
         <span class="meta">
-          <small>Memory duel · hotseat / vs CPU</small>
-          <span class="blurb">Growing sequence — miss once and you lose.</span>
+          <small>Solo · vs CPU · pass-and-play</small>
+          <span class="blurb">Original light-and-sound protocol, with equal-length paired challenges.</span>
         </span>
       </a>
       <a class="game" role="listitem" href="/skirmish/">
-        Skirmish
+        Artillery Defense
         <span class="meta">
-          <small>Artillery · hotseat / vs CPU</small>
-          <span class="blurb">Space tanks — plasma through gravity wells.</span>
+          <small>Solo · vs CPU · pass-and-play</small>
+          <span class="blurb">Aim across terrain. Original classes, loadouts, wind, special ammo and abilities.</span>
+        </span>
+      </a>
+      <a class="game" role="listitem" href="/odyssey-tanks/">
+        Odyssey Tanks
+        <span class="meta">
+          <small>Solo arena · online PvP mode</small>
+          <span class="blurb">The other tank game: drive, aim and fire in a real-time top-down arena. Online server setup pending.</span>
         </span>
       </a>
     </div>
@@ -175,11 +184,11 @@
       <h2>FAQ</h2>
       <details open>
         <summary>What is 1v1.nz?</summary>
-        <p>1v1.nz is a collection of free 1 versus 1 browser games — Battleship and Connect 4 plus StarMuff 1v1 clones (Tetris, Pinball, Simon, Skirmish).</p>
+        <p>1v1.nz brings together Battleship, Connect 4, and the original StarMuff games: Cargo Bay Tetris, Pinball, Simon Protocol, Artillery Defense and Odyssey Tanks.</p>
       </details>
       <details>
         <summary>Can I play vs a friend?</summary>
-        <p>Battleship supports online 1v1. Tetris, Pinball, Simon, and Skirmish support hotseat (same device) and vs CPU today; online friend matches are coming soon.</p>
+        <p>Battleship and Connect 4 support online 1v1. Pinball, Simon and Artillery support pass-and-play; Tetris supports two players on a keyboard. The new StarMuff online rooms require their multiplayer server to be deployed. Pinball duels use real player scores, not simulated CPU scores.</p>
       </details>
       <details>
         <summary>Do I need an account?</summary>

@@ -167,7 +167,19 @@
     padding: 12px; width: 100%; max-width: 460px;
   }
   .board-card h2 { margin: 0 0 8px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+  .own-board-card > summary { display: none; }
   .hint { color: var(--faint); font-size: 12px; margin: 8px 0 0; text-align: center; }
+
+  @media (max-width: 600px) {
+    .battle { gap: 8px; }
+    .board-card { padding: 8px; }
+    .own-board-card > summary {
+      display: list-item; cursor: pointer; color: var(--muted); font-size: 14px;
+      font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; padding: 3px 0;
+    }
+    .own-board-card > h2 { display: none; }
+    .own-board-card[open] > summary { margin-bottom: 8px; }
+  }
 
   .bgrid {
     display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; width: 100%;
@@ -470,10 +482,11 @@
           <div id="cpuEnemyGrid" class="bgrid aim" role="grid" aria-label="Enemy waters — tap to fire"></div>
           <p class="hint">Tap a square to fire</p>
         </div>
-        <div class="board-card">
+        <details class="board-card own-board-card" open>
+          <summary>Your fleet</summary>
           <h2>Your fleet</h2>
           <div id="cpuOwnGrid" class="bgrid" role="grid" aria-label="Your fleet"></div>
-        </div>
+        </details>
       </div>
       <div class="row center">
         <button type="button" id="cpuNew" class="btn ghost">New game</button>
@@ -546,10 +559,11 @@
             <h2>Enemy waters</h2>
             <div id="enemyGrid" class="bgrid aim" role="grid" aria-label="Enemy waters — tap to fire"></div>
           </div>
-          <div class="board-card">
+          <details class="board-card own-board-card" open>
+            <summary>Your fleet</summary>
             <h2>Your fleet</h2>
             <div id="ownGrid" class="bgrid" role="grid" aria-label="Your fleet"></div>
-          </div>
+          </details>
         </div>
         <div class="row center">
           <button type="button" id="resignButton" class="btn danger" hidden>Resign</button>
@@ -635,11 +649,17 @@
       const NAME_KEY = 'bs_name';
       const CPU_SERIES_KEY = 'bs_cpu_series';
       const ROOM_UNAVAILABLE_MESSAGE = 'Could not join that room. It may be full or no longer available.';
-      const ROOM_GONE_PATTERN = /not found|room is full|is full|expired|closed|invalid|gone|does not exist/i;
+      const ROOM_GONE_PATTERN = /not found|room is full|is full|expired|closed|gone|does not exist/i;
       const FALLBACK_API_BASE = 'https://1v1.nz';
       const CONNECT_TIMEOUT_MS = 8000;
       const MESSAGE_WATCHDOG_MS = 45000;
       const MAX_CONNECT_FAILURES = 4;
+      async function fetchWithDeadline(input, init = {}, timeoutMs = 8000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try { return await fetch(input, { ...init, signal: controller.signal }); }
+        finally { clearTimeout(timer); }
+      }
       const ACTION_ACK_MS = 6000; // action ack timeout: requeue + reconnect + resend, never freeze
       const SHIP_DEFS = [
         { name: 'Carrier', size: 5, art: 'assets/ship-carrier.png' },
@@ -1243,6 +1263,19 @@
             render();
           },
           getShips() { return ships.map(s => ({ defIdx: s.defIdx, cells: s.cells.map(([r, c]) => [r, c]) })); },
+          loadDraft(draft) {
+            const candidate = Array.isArray(draft) ? draft.map(s => ({
+              defIdx: s.defIdx | 0,
+              cells: Array.isArray(s.cells) ? s.cells.map(cell => [cell[0] | 0, cell[1] | 0]) : [],
+            })) : [];
+            ships = candidate.length && validateFleet(candidate).ok ? candidate : [];
+            selected = ships.length === 5 ? -1 : SHIP_DEFS.findIndex((_, i) => !ships.some(s => s.defIdx === i));
+            if (selected < 0 && ships.length !== 5) selected = 0;
+            horizontal = true; locked = false;
+            orientBtn.textContent = '⟳ Horizontal';
+            waitMsg.hidden = true; readyBtn.style.display = '';
+            clearGhost(); render();
+          },
           setSending() {
             locked = true;
             readyBtn.disabled = true;
@@ -1282,6 +1315,13 @@
         aiHits: [], mySunk: new Set(), cpuSunk: new Set(),
         last: null, // {by:'you'|'cpu', r, c}
       };
+      let cpuGeneration = 0;
+      let cpuMoveTimer = 0;
+      function invalidateCpuRound() {
+        cpuGeneration++;
+        clearTimeout(cpuMoveTimer);
+        cpuMoveTimer = 0;
+      }
       let cpuSeries = { w: 0, l: 0 };
       try {
         const saved = JSON.parse(storeGet(CPU_SERIES_KEY) || 'null');
@@ -1338,22 +1378,24 @@
           cell.setAttribute('aria-label', `Enemy row ${r + 1}, column ${c + 1}, ` +
             (cpu.mySunk.has(r + ',' + c) ? 'sunk' : v === 2 ? 'hit' : v === 1 ? 'miss' : 'unknown'));
         }
-        const hitSet = new Set();
+        const shipAt = new Map();
         for (const ship of cpu.myFleet) {
           ship.cells.forEach(([r, c]) => {
-            const key = r + ',' + c;
-            const wasHit = ship.hits.some(([hr, hc]) => hr === r && hc === c);
-            if (wasHit) hitSet.add(key);
-            cpuOwnCells[r][c].className = 'bcell ' + (ship.sunk ? 'shipsunk' : wasHit ? 'shiphit' : 'ship');
+            shipAt.set(r + ',' + c, ship);
           });
         }
         for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) {
-          if (hitSet.has(r + ',' + c)) continue;
+          const cell = cpuOwnCells[r][c];
+          const ship = shipAt.get(r + ',' + c);
           const v = cpu.cpuShots[r][c];
-          if (v) {
-            cpuOwnCells[r][c].className = 'bcell ' + (v === 2 ? 'hit' : 'miss');
-            cpuOwnCells[r][c].setAttribute('aria-label', `Your row ${r + 1}, column ${c + 1}, ${v === 2 ? 'hit by enemy' : 'enemy miss'}`);
-          }
+          const wasHit = !!(ship && ship.hits.some(([hr, hc]) => hr === r && hc === c));
+          cell.className = 'bcell' + (ship
+            ? ' ' + (ship.sunk ? 'shipsunk' : wasHit ? 'shiphit' : 'ship')
+            : v === 2 ? ' hit' : v === 1 ? ' miss' : '');
+          const state = ship
+            ? (ship.sunk ? 'sunk ship' : wasHit ? 'ship hit by enemy' : 'ship')
+            : v === 2 ? 'hit by enemy' : v === 1 ? 'enemy miss' : 'water';
+          cell.setAttribute('aria-label', `Your row ${r + 1}, column ${c + 1}, ${state}`);
         }
         syncShipSprites(cpuOwnGrid, cpu.myFleet);
         // last-shot highlight
@@ -1368,9 +1410,10 @@
       function cpuPlayerFire(r, c) {
         if (cpu.phase !== 'battle' || cpu.turn !== 'you' || cpu.busy) return;
         if (r < 0 || r > 9 || c < 0 || c > 9 || cpu.myShots[r][c] !== 0) return;
+        const generation = cpuGeneration;
         cpu.busy = true;
         animateTorpedo(cpuEnemyGrid, r, c, 'bottom').then(() => {
-          if (cpu.phase !== 'battle') { cpu.busy = false; return; }
+          if (generation !== cpuGeneration || cpu.phase !== 'battle') return;
           const res = applyShotToFleet(cpu.cpuFleet, cpu.mySunk, r, c);
           cpu.myShots[r][c] = res.hit ? 2 : 1;
           cpu.last = { by: 'you', r, c };
@@ -1379,7 +1422,7 @@
           if (fleetSunk(cpu.cpuFleet)) { cpuEnd(true); return; }
           cpu.turn = 'cpu';
           cpuStatus.textContent = res.sunk ? `You sunk their ${sunkName(cpu.cpuFleet, r, c)}! CPU is thinking…` : res.hit ? 'Hit! CPU is thinking…' : 'Miss. CPU is thinking…';
-          setTimeout(cpuMove, 620);
+          cpuMoveTimer = setTimeout(() => cpuMove(generation), 620);
         });
       }
       function sunkName(fleet, r, c) {
@@ -1428,14 +1471,16 @@
         if (parity.length) return parity[(Math.random() * parity.length) | 0];
         return cpuEasyPick(); // endgame mop-up
       }
-      function cpuMove() {
+      function cpuMove(generation = cpuGeneration) {
+        cpuMoveTimer = 0;
+        if (generation !== cpuGeneration) return;
         if (cpu.phase !== 'battle' || cpu.turn !== 'cpu') { cpu.busy = false; return; }
         const pick = difficulty === 'hard' ? cpuHardPick() : cpuEasyPick();
         if (!pick) { cpu.busy = false; return; }
         const [r, c] = pick;
         // Stay busy through travel so the player cannot fire mid-flight.
         animateTorpedo(cpuOwnGrid, r, c, 'top').then(() => {
-          if (cpu.phase !== 'battle') { cpu.busy = false; return; }
+          if (generation !== cpuGeneration || cpu.phase !== 'battle') return;
           const res = applyShotToFleet(cpu.myFleet, cpu.cpuSunk, r, c);
           cpu.cpuShots[r][c] = res.hit ? 2 : 1;
           cpu.last = { by: 'cpu', r, c };
@@ -1454,6 +1499,9 @@
         });
       }
       function cpuEnd(won) {
+        clearTimeout(cpuMoveTimer);
+        cpuMoveTimer = 0;
+        if (cpu.phase === 'over') return;
         cpu.phase = 'over';
         cpu.busy = false;
         if (won) { cpuSeries.w++; sound(520, true); } else { cpuSeries.l++; sound(200); }
@@ -1463,6 +1511,7 @@
         gameOverlay.hidden = false;
       }
       function cpuNewGame() {
+        invalidateCpuRound();
         cpu.phase = 'place';
         cpu.busy = false;
         gameOverlay.hidden = true;
@@ -1478,7 +1527,8 @@
       cpuNew.addEventListener('click', cpuNewGame);
       cpuResign.addEventListener('click', async () => {
         if (cpu.phase !== 'battle') return;
-        if (await showConfirm('Resign this game?', 'Resign')) cpuEnd(false);
+        const generation = cpuGeneration;
+        if (await showConfirm('Resign this game?', 'Resign') && generation === cpuGeneration && cpu.phase === 'battle') cpuEnd(false);
       });
       cpuSeriesReset.addEventListener('click', async () => {
         if (await showConfirm('Reset your series score vs the computer?', 'Reset')) {
@@ -1632,14 +1682,13 @@
           scheduleSessionReconnect(s);
           return;
         }
+        let authenticated = false;
         s.socket = ws;
         s.timers.connectTimeout = setTimeout(() => {
-          if (s.socket === ws && ws.readyState !== WebSocket.OPEN) ws.close();
+          if (s.socket === ws && !authenticated) ws.close();
         }, CONNECT_TIMEOUT_MS);
         ws.addEventListener('open', () => {
           if (s.socket !== ws) return;
-          clearTimeout(s.timers.connectTimeout);
-          s.timers.connectTimeout = 0;
           s.lastMessageAt = Date.now();
           const hello = { t: 'hello', name: s.name };
           if (s.token) hello.token = s.token;
@@ -1656,6 +1705,11 @@
           s.lastMessageAt = Date.now();
           let message;
           try { message = JSON.parse(event.data); } catch (_) { return; }
+          if (message.t === 'joined') {
+            authenticated = true;
+            clearTimeout(s.timers.connectTimeout);
+            s.timers.connectTimeout = 0;
+          }
           handleSessionMessage(s, message);
         });
         ws.addEventListener('close', event => {
@@ -1708,6 +1762,15 @@
         }
         return acted;
       }
+      function forceSessionReconnect(s) {
+        if (!s || s.dropped || s.superseded) return false;
+        s.connectFailures = 0;
+        s.reconnectAttempt = 0;
+        closeSessionSocket(s, true);
+        s.intentionalClose = false;
+        connectSession(s);
+        return true;
+      }
       setInterval(() => {
         if (mode !== 'online') return;
         for (const s of sessions) {
@@ -1748,7 +1811,7 @@
         } catch (_) {
           s.shotInFlight = false;
           s.pendingShot = { r, c };
-          reconnectNow();
+          forceSessionReconnect(s);
         }
       }
       function onShotAckTimeout(s) {
@@ -1758,7 +1821,7 @@
         // Never duplicate: flush revalidates against the latest server state,
         // so a shot that actually landed is never resent.
         s.pendingShot = s.shotCell;
-        reconnectNow();
+        forceSessionReconnect(s);
         if (s === activeSession && mode === 'online') onlineStatus.textContent = 'Reconnecting…';
       }
       function sendPlace(s, ships) {
@@ -1772,7 +1835,7 @@
         } catch (_) {
           s.placeInFlight = false;
           s.pendingPlace = ships;
-          reconnectNow();
+          forceSessionReconnect(s);
         }
       }
       function onPlaceAckTimeout(s) {
@@ -1780,7 +1843,7 @@
         if (!s || !s.placeInFlight) return;
         s.placeInFlight = false;
         s.pendingPlace = s.placeShips;
-        reconnectNow();
+        forceSessionReconnect(s);
         if (s === activeSession && mode === 'online') onlineStatus.textContent = 'Reconnecting…';
       }
       function sendResignMsg(s) {
@@ -1792,7 +1855,7 @@
         } catch (_) {
           s.resignInFlight = false;
           s.pendingResign = true;
-          reconnectNow();
+          forceSessionReconnect(s);
         }
       }
       function onResignAckTimeout(s) {
@@ -1800,7 +1863,7 @@
         if (!s || !s.state || s.state.status !== 'playing') return;
         s.resignInFlight = false;
         s.pendingResign = true;
-        reconnectNow();
+        forceSessionReconnect(s);
         if (s === activeSession && mode === 'online') onlineStatus.textContent = 'Reconnecting…';
       }
       function sendRematchMsg(s) {
@@ -1886,31 +1949,43 @@
           mmPendingCode = '';
           closeMmSocket();
         }
-        // Any state broadcast is an ack for in-flight actions.
-        clearActionTimers(s);
-        s.placeUiLocked = false;
+        // Presence/pong-adjacent snapshots are not action acknowledgements.
+        // Clear an action only when the authoritative state proves its result.
+        if (s.shotInFlight) {
+          const shot = s.shotCell;
+          const resolved = state.status !== 'playing' || state.turn !== s.color ||
+            (shot && Array.isArray(state.myShots) && state.myShots[shot.r] && state.myShots[shot.r][shot.c] !== 0);
+          if (resolved) {
+            s.shotInFlight = false;
+            s.pendingShot = null;
+            clearTimeout(s.timers.shotAck); s.timers.shotAck = 0;
+          }
+        }
+        if (s.placeInFlight && (state.status !== 'placement' || state.placed)) {
+          s.placeInFlight = false;
+          s.pendingPlace = null;
+          s.placeUiLocked = false;
+          clearTimeout(s.timers.placeAck); s.timers.placeAck = 0;
+        }
+        if (s.resignInFlight && state.status !== 'playing') {
+          s.resignInFlight = false;
+          s.pendingResign = false;
+          clearTimeout(s.timers.resignAck); s.timers.resignAck = 0;
+        }
         s.code = cleanCode(state.code || s.code);
         if (prev && prev.status !== 'over' && state.status === 'over') countSeriesResult(s, state);
         if (prev && prev.status === 'playing' && state.status === 'playing' &&
             prev.turn !== s.color && state.turn === s.color) {
           yourTurnAlert(s);
         }
-        // Track sunk enemy ships from the server's sunk announcements, since
-        // myShots only carries hit/miss (never positions — those stay secret).
-        const ls = state.lastShot;
-        if (ls && ls.by === s.color && ls.sunk && Number.isInteger(ls.r) && Number.isInteger(ls.c) &&
-            Array.isArray(state.myShots)) {
-          const stack = [[ls.r, ls.c]];
-          const seen = new Set([ls.r + ',' + ls.c]);
-          while (stack.length) {
-            const [r, c] = stack.pop();
-            s.sunkEnemy.add(r + ',' + c);
-            for (const [nr, nc] of [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]) {
-              const k = nr + ',' + nc;
-              if (nr >= 0 && nr < 10 && nc >= 0 && nc < 10 && !seen.has(k) &&
-                  state.myShots[nr] && state.myShots[nr][nc] === 2) {
-                seen.add(k);
-                stack.push([nr, nc]);
+        // Exact sunk cells may be supplied by a newer backend. Never infer a
+        // ship by flood-filling adjacent hits because touching ships are legal.
+        if (Array.isArray(state.sunkEnemyShips)) {
+          s.sunkEnemy = new Set();
+          for (const ship of state.sunkEnemyShips) {
+            for (const cell of (ship && Array.isArray(ship.cells) ? ship.cells : [])) {
+              if (Array.isArray(cell) && Number.isInteger(cell[0]) && Number.isInteger(cell[1])) {
+                s.sunkEnemy.add(cell[0] + ',' + cell[1]);
               }
             }
           }
@@ -1918,6 +1993,7 @@
         // Fresh placement round (e.g. after a rematch): reset local views.
         if (state.status === 'placement' && !state.placed && (!prev || prev.status === 'over')) {
           s.sunkEnemy = new Set();
+          s.placementDraft = [];
           if (s === activeSession) onlinePlaceUI.reset();
         }
         // Delay board paint for torpedo travel: never delay server authority (state already applied).
@@ -1979,6 +2055,7 @@
       const onlinePlaceUI = createPlacementUI(onlinePlace, ships => {
         const s = activeSession;
         if (!s || !s.state || s.state.status !== 'placement' || s.state.placed) return;
+        s.placementDraft = ships;
         onlinePlaceUI.setSending();
         s.placeUiLocked = true;
         if (socketHealthy(s)) sendPlace(s, ships);
@@ -2252,13 +2329,25 @@
           const opp = opponentOf(s);
           const oppGone = !opp || opp.connected === false;
           if (!socketOpen) onlineStatus.textContent = 'Reconnecting…';
-          else if (st.turn === s.color) onlineStatus.innerHTML = '<span class="turn-you">Your move — tap enemy waters to fire</span>';
-          else onlineStatus.innerHTML = '<span class="turn-them">' +
-            (oppGone ? 'Opponent disconnected — waiting for them to return'
-              : `${(opp && opp.name) || 'Opponent'} is aiming…`) + '</span>';
+          else {
+            const turnLine = document.createElement('span');
+            turnLine.className = st.turn === s.color ? 'turn-you' : 'turn-them';
+            turnLine.textContent = st.turn === s.color
+              ? 'Your move — tap enemy waters to fire'
+              : (oppGone ? 'Opponent disconnected — waiting for them to return'
+                : `${(opp && opp.name) || 'Opponent'} is aiming…`);
+            onlineStatus.replaceChildren(turnLine);
+          }
+        }
+      }
+      function saveActivePlacementDraft() {
+        const s = activeSession;
+        if (s && s.state && s.state.status === 'placement' && !s.state.placed && !s.placeUiLocked) {
+          s.placementDraft = onlinePlaceUI.getShips();
         }
       }
       function showLobby() {
+        saveActivePlacementDraft();
         activeSession = null;
         onlinePanel.hidden = false;
         gameView.hidden = true;
@@ -2273,12 +2362,14 @@
       function openSession(code) {
         const s = sessionByCode(code);
         if (!s || s.dropped) return;
+        saveActivePlacementDraft();
         activeSession = s;
         s.attention = false;
         onlineSetup.hidden = true;
         matchSearch.hidden = true;
         sessionListWrap.hidden = true;
         gameView.hidden = false;
+        if (s.state && s.state.status === 'placement' && !s.state.placed) onlinePlaceUI.loadDraft(s.placementDraft || []);
         renderGameView();
         renderLobby();
         if (!s.superseded && (!s.socket || (s.socket.readyState !== WebSocket.OPEN && s.socket.readyState !== WebSocket.CONNECTING))) {
@@ -2286,6 +2377,7 @@
         }
       }
       function switchMode(next) {
+        if (next !== 'online') saveActivePlacementDraft();
         mode = next;
         const online = next === 'online';
         tabCpu.classList.toggle('active', !online);
@@ -2310,14 +2402,15 @@
         let room = null;
         let selectedBase = null;
         let lastFailure = 'network';
+        const createId = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random()}`;
         for (const apiBase of ['', FALLBACK_API_BASE]) {
           const endpoint = apiBase ? `${apiBase}/api/battleship/rooms` : '/api/battleship/rooms';
           let response;
           try {
-            response = await fetch(endpoint, {
+            response = await fetchWithDeadline(endpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name }),
+              body: JSON.stringify({ name, createId }),
             });
           } catch (_) {
             lastFailure = 'network';

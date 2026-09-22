@@ -1,212 +1,43 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>StarMuff Pinball 1v1 — Score Duel | 1v1.nz</title>
-<meta name="description" content="Play StarMuff Pinball 1v1 free — alternating score duel vs CPU or hotseat. Three balls each; highest score wins on 1v1.nz."/>
-<link rel="canonical" href="https://1v1.nz/pinball/"/>
-<link rel="icon" href="/assets/favicon.png" type="image/png" sizes="64x64"/>
-<meta name="theme-color" content="#050510"/>
-<meta property="og:title" content="StarMuff Pinball 1v1 | 1v1.nz"/>
-<meta property="og:description" content="Pinball score duel — 3 balls each, vs CPU or hotseat."/>
-<meta property="og:url" content="https://1v1.nz/pinball/"/>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#050510;color:#eaf1ff;font-family:system-ui,-apple-system,sans-serif;overflow:hidden;touch-action:auto;-webkit-user-select:none;user-select:none}
-a.back{position:fixed;top:8px;left:10px;z-index:30;color:#00ffcc;text-decoration:none;font:600 11px ui-monospace,monospace;letter-spacing:1px;opacity:.9}
-#setup{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;background:radial-gradient(800px 500px at 50% 20%,#1a1040,#050510)}
-#setup h1{font-size:1.5rem;letter-spacing:.08em;background:linear-gradient(120deg,#ff00ff,#aa44ff,#00eeff);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:8px}
-#setup p{color:#889;font-size:.9rem;text-align:center;max-width:360px;margin-bottom:18px;line-height:1.45}
-.modes{display:grid;gap:10px;width:100%;max-width:380px}
-.modes button{text-align:left;padding:14px 16px;border-radius:12px;border:1px solid rgba(0,255,204,.3);background:rgba(255,255,255,.06);color:#fff;cursor:pointer;display:flex;flex-direction:column;gap:4px}
-.modes button strong{font-size:1rem}
-.modes button span{font-size:.8rem;color:#889;font-weight:400}
-.modes button:disabled{opacity:.45;cursor:not-allowed}
-.modes button:hover:not(:disabled){background:rgba(0,255,204,.1)}
-#hud{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;justify-content:space-between;align-items:center;padding:28px 12px 8px;background:linear-gradient(#050510ee,#05051000);font:700 12px ui-monospace,monospace;gap:8px;pointer-events:none}
-#hud .who{color:#00ffcc}
-#hud .scores{display:flex;gap:14px}
-#hud .scores b{color:#ffee22}
-#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding-bottom:88px}
-canvas{max-width:min(100vw,400px);max-height:calc(100dvh - 120px);width:auto;height:auto;border-radius:8px;border:1px solid rgba(0,255,204,.2);background:#02040a;touch-action:none}
-#pads{position:fixed;bottom:0;left:0;right:0;height:80px;display:flex;z-index:10;background:#000c;border-top:1px solid rgba(170,68,255,.25)}
-#pads button{flex:1;border:none;background:transparent;color:#c4b5fd;font-weight:700;font-size:.85rem;cursor:pointer;touch-action:manipulation}
-#pads button:active{background:rgba(124,58,237,.25)}
-#pads .mid{flex:0 0 90px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:1px solid rgba(170,68,255,.2);border-right:1px solid rgba(170,68,255,.2);font:600 10px ui-monospace,monospace;color:#889;text-align:center;gap:2px}
-#turnBanner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:15;background:rgba(0,0,0,.85);border:1px solid #00ffcc55;border-radius:14px;padding:18px 22px;text-align:center;max-width:90vw}
-#turnBanner h2{margin-bottom:8px;font-size:1.2rem}
-#turnBanner button{margin-top:10px;padding:10px 18px;border:none;border-radius:10px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#00ffcc,#aa44ff);color:#050510}
-#endScreen{position:fixed;inset:0;z-index:25;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,5,16,.92);gap:12px;padding:20px;text-align:center}
-#endScreen h2{font-size:1.5rem}
-#endScreen button{padding:12px 20px;border:none;border-radius:10px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#00ffcc,#aa44ff);color:#050510}
-#endScreen .ghost{background:#222;color:#ccc}
-[hidden]{display:none!important}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#060b13">
+  <title>StarMuff Pinball — Original Table · 1v1.nz</title>
+  <meta name="description" content="The original StarMuff Pinball table: play solo, pass-and-play, or a live online score duel. Cosmic bumpers, MUFF jackpots, music and math challenges preserved.">
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./duel.js"></script>
+  <script defer src="/multiplayer/config.js"></script>
+  <script defer src="/multiplayer/client.js"></script>
+  <script defer src="./shell.js"></script>
 </head>
 <body>
-<a class="back" href="https://1v1.nz/">← 1v1.nz</a>
-
-<div id="setup">
-  <h1>STARMUFF PINBALL 1v1</h1>
-  <p>Score duel — each player gets <strong>3 balls</strong>. Highest total wins. Flippers: Z / ◀ and M / ▶ (or tap sides).</p>
-  <div class="modes">
-    <button type="button" data-mode="hotseat"><strong>Hotseat 1v1</strong><span>P1 plays 3 balls, then P2 — compare scores</span></button>
-    <button type="button" data-mode="cpu"><strong>vs CPU</strong><span>You play 3 balls, then CPU plays the same table</span></button>
-    <button type="button" disabled><strong>Online</strong><span>vs friend — coming soon</span></button>
+  <div id="app">
+    <header><a href="/" aria-label="All 1v1 games">‹ 1v1</a><strong>STARMUFF <span>PINBALL</span></strong><button id="music-toggle" aria-label="Mute music">♫</button><button id="menu-toggle" aria-label="Game menu">Menu</button></header>
+    <section id="scoreboard" hidden aria-label="Duel scores"><div id="score-0">Player 1 <b>0</b></div><div id="score-1">Player 2 <b>0</b></div></section>
+    <p id="status" role="status">The complete original StarMuff table.</p>
+    <div id="forfeit-prompt" hidden role="alert"><span>Forfeit this run? Tap confirm again, or cancel.</span><button id="cancel-forfeit">Cancel forfeit</button></div>
+    <main id="setup">
+      <p class="eyebrow">THE ORIGINAL TABLE • REAL SCORE DUELS</p>
+      <h1>Gravity has<br><em>no favourites.</em></h1>
+      <p class="intro">Cosmic bumpers. MUFF jackpots. Multiball madness. Your original StarMuff Pinball, with a challenger.</p>
+      <div class="modes" role="group" aria-label="Play mode"><button data-mode="solo" class="selected">Solo</button><button data-mode="local">Pass & play</button><button data-mode="online">Online 1v1</button></div>
+      <p id="rules">The full original game, including your local high scores and unlocks.</p>
+      <div id="online-lobby" hidden></div>
+      <h2>Pick your soundtrack</h2>
+      <p class="subtle">The five original StarMuff playlists. Music is optional; table sound effects stay on.</p>
+      <div id="moods"><button data-mood="none" class="mood selected"><span>◌</span><div><b>No music</b><small>Just the table sounds</small></div></button></div>
+      <p id="music-status" class="subtle" role="status"></p>
+      <button id="start" class="primary">Play original Pinball</button>
+      <button id="resume" hidden>Return to your game</button>
+      <button id="forfeit" hidden>Forfeit this duel</button>
+      <p class="subtle">Touch: hold and release LAUNCH; use the original left/right flipper controls. Keyboard: left/right arrows or Z/X, Space to launch.</p>
+      <p class="subtle">Online is a casual, client-scored duel—not a cheat-proof ranked competition. Each player runs the same original table locally; only match progress is shared.</p>
+    </main>
+    <section id="play" hidden aria-label="Original StarMuff Pinball"></section>
+    <section id="result" hidden role="status"><h2 id="result-title"></h2><p id="result-detail"></p><button id="next" class="primary"></button></section>
+    <video id="stable-video" muted loop playsinline hidden aria-label="Original stable mode video"></video>
   </div>
-</div>
-
-<div id="hud" hidden>
-  <div class="who" id="who">P1</div>
-  <div class="scores">
-    <span>P1 <b id="sc0">0</b></span>
-    <span><span id="sc1name">P2</span> <b id="sc1">0</b></span>
-    <span>Balls <b id="balls">3</b></span>
-  </div>
-</div>
-<div id="wrap" hidden><canvas id="cv" width="400" height="700"></canvas></div>
-<div id="pads" hidden>
-  <button type="button" id="leftPad">◀ LEFT · Z</button>
-  <div class="mid" id="midHud">FLIP</div>
-  <button type="button" id="rightPad">RIGHT · M ▶</button>
-</div>
-<div id="turnBanner" hidden>
-  <h2 id="turnTitle">Player 1</h2>
-  <p id="turnText">3 balls — highest score wins</p>
-  <button type="button" id="turnGo">Launch</button>
-</div>
-<div id="endScreen" hidden>
-  <h2 id="endTitle">Winner</h2>
-  <p id="endScores"></p>
-  <button type="button" id="again">Play again</button>
-  <button type="button" class="ghost" id="chg">Change mode</button>
-</div>
-
-<script>
-(function(){
-const W=400,H=700,STEP=1/120,GRAVITY=1008,FRICTION_60=0.985,BALL_R=11,PADDLE_LEN=90,PADDLE_Y=H-40;
-const LEFT_PIVOT=W*.25,RIGHT_PIVOT=W*.75,PADDLE_REST=.35,PADDLE_FIRED=-.45,PADDLE_HALF=7;
-const BUMPERS=[
-  {rx:.25,ry:.18,r:22,label:'🌍'},{rx:.55,ry:.14,r:18,label:'⭐'},{rx:.80,ry:.22,r:26,label:'🪐'},
-  {rx:.15,ry:.38,r:16,label:'🔴'},{rx:.65,ry:.32,r:20,label:'💫'},{rx:.40,ry:.30,r:18,label:'🌑'},
-  {rx:.82,ry:.48,r:22,label:'🌀'},{rx:.30,ry:.52,r:15,label:'⚡'},{rx:.60,ry:.50,r:17,label:'🛸'},
-  {rx:.48,ry:.65,r:14,label:'💎'}
-];
-const BALLS_EACH=3;
-const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
-let mode=null,names=['Player 1','Player 2'],scores=[0,0],current=0,ballsLeft=BALLS_EACH;
-let playing=false,paused=false,raf=0,leftFired=false,rightFired=false,lastFrame=0,accumulator=0,elapsed=0;
-let ball={x:W/2,y:160,vx:150,vy:120},bumpers=BUMPERS.map(()=>({lit:false,t:0})),runScore=0,cpuSim=false;
-let generation=0,timers=new Set();
-
-function invalidate(){generation++;for(const id of timers)clearTimeout(id);timers.clear();cancelAnimationFrame(raf);raf=0;lastFrame=0;accumulator=0}
-function schedule(ms,fn){const g=generation,id=setTimeout(()=>{timers.delete(id);if(g===generation)fn()},ms);timers.add(id);return id}
-function dist(ax,ay,bx,by){return Math.hypot(ax-bx,ay-by)}
-function capSpeed(b,max=840){const sp=Math.hypot(b.vx,b.vy);if(sp>max){b.vx*=max/sp;b.vy*=max/sp}}
-function reflectCircle(b,cx,cy,combined){
-  const dx=b.x-cx,dy=b.y-cy,len=Math.hypot(dx,dy)||1,nx=dx/len,ny=dy/len;
-  const dot=b.vx*nx+b.vy*ny;if(dot<0){b.vx=(b.vx-2*dot*nx)*1.04;b.vy=(b.vy-2*dot*ny)*1.04}
-  b.x=cx+nx*(combined+1);b.y=cy+ny*(combined+1);capSpeed(b)
-}
-function flipper(side){
-  const left=side==='left',fired=left?leftFired:rightFired;
-  const angle=left?(fired?PADDLE_FIRED:PADDLE_REST):(fired?Math.PI-PADDLE_FIRED:Math.PI-PADDLE_REST);
-  const x=left?LEFT_PIVOT:RIGHT_PIVOT;
-  return{x1:x,y1:PADDLE_Y,x2:x+Math.cos(angle)*PADDLE_LEN,y2:PADDLE_Y+Math.sin(angle)*PADDLE_LEN,angle,fired,left}
-}
-function reflectPaddle(b,pad){
-  const dx=pad.x2-pad.x1,dy=pad.y2-pad.y1,len2=dx*dx+dy*dy;
-  const t=Math.max(0,Math.min(1,((b.x-pad.x1)*dx+(b.y-pad.y1)*dy)/len2));
-  const cx=pad.x1+dx*t,cy=pad.y1+dy*t,rx=b.x-cx,ry=b.y-cy,d=Math.hypot(rx,ry)||1;
-  if(d>BALL_R+PADDLE_HALF)return false;
-  const nx=rx/d,ny=ry/d,dot=b.vx*nx+b.vy*ny;
-  if(dot<0){b.vx-=2*dot*nx;b.vy-=2*dot*ny}
-  if(pad.fired){b.vy-=360;b.vx+=(pad.left?1:-1)*90}
-  b.x=cx+nx*(BALL_R+PADDLE_HALF+1);b.y=cy+ny*(BALL_R+PADDLE_HALF+1);capSpeed(b);return true
-}
-function setLeft(on){leftFired=on}
-function setRight(on){rightFired=on}
-function resetBall(){ball={x:W/2+(Math.random()-.5)*60,y:160,vx:(Math.random()-.5)*300,vy:120}}
-function updateScores(){
-  document.getElementById('sc0').textContent=scores[0]+(current===0?runScore:0);
-  document.getElementById('sc1').textContent=scores[1]+(current===1?runScore:0)
-}
-function startTurn(){
-  runScore=0;ballsLeft=BALLS_EACH;resetBall();paused=false;cpuSim=mode==='cpu'&&current===1;
-  document.getElementById('who').textContent=names[current]+"'s turn";
-  document.getElementById('balls').textContent=ballsLeft;updateScores();
-  document.getElementById('midHud').textContent=cpuSim?'CPU READY':'FLIP';
-  document.getElementById('turnTitle').textContent=names[current];
-  document.getElementById('turnText').textContent=cpuSim?'CPU plays the same table with three balls.':BALLS_EACH+' balls — rack up points. Opponent: '+names[1-current];
-  document.getElementById('turnGo').hidden=cpuSim;
-  document.getElementById('turnBanner').hidden=false;playing=false;
-  if(cpuSim)schedule(650,launch)
-}
-function launch(){
-  document.getElementById('turnBanner').hidden=true;document.getElementById('turnGo').hidden=false;
-  playing=true;if(!paused){resetBall();elapsed=0}paused=false;lastFrame=0;accumulator=0;document.getElementById('turnGo').textContent='Launch';cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)
-}
-function drain(){
-  ballsLeft--;document.getElementById('balls').textContent=Math.max(0,ballsLeft);
-  if(ballsLeft<=0){
-    playing=false;cancelAnimationFrame(raf);scores[current]+=runScore;runScore=0;updateScores();
-    if(current===0){current=1;startTurn()}else finishMatch();return
-  }
-  resetBall()
-}
-function finishMatch(){
-  playing=false;cpuSim=false;cancelAnimationFrame(raf);
-  document.getElementById('pads').hidden=true;document.getElementById('wrap').hidden=true;document.getElementById('hud').hidden=true;
-  const end=document.getElementById('endScreen');end.hidden=false;
-  const title=scores[0]>scores[1]?names[0]+' wins!':scores[1]>scores[0]?names[1]+' wins!':"It's a tie!";
-  document.getElementById('endTitle').textContent=title;
-  document.getElementById('endScores').textContent=names[0]+' '+scores[0]+'  —  '+names[1]+' '+scores[1]
-}
-function draw(){
-  const hue=(elapsed/60)%360,bg=ctx.createLinearGradient(0,0,W,H);
-  bg.addColorStop(0,`hsl(${hue},80%,4%)`);bg.addColorStop(.5,`hsl(${(hue+60)%360},70%,6%)`);bg.addColorStop(1,`hsl(${(hue+120)%360},80%,4%)`);
-  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);ctx.strokeStyle=`hsla(${hue},90%,60%,.5)`;ctx.lineWidth=4;
-  ctx.beginPath();ctx.moveTo(2,0);ctx.lineTo(2,H);ctx.moveTo(W-2,0);ctx.lineTo(W-2,H);ctx.stroke();
-  BUMPERS.forEach((b,i)=>{const bx=b.rx*W,by=b.ry*H,bs=bumpers[i];if(bs.t>0){bs.t-=STEP;bs.lit=bs.t>0}
-    ctx.save();ctx.shadowBlur=bs.lit?30:8;ctx.shadowColor=bs.lit?`hsl(${(hue+i*40)%360},100%,70%)`:`hsla(${hue},60%,50%,.4)`;
-    ctx.beginPath();ctx.arc(bx,by,b.r,0,Math.PI*2);ctx.fillStyle=bs.lit?`hsl(${(hue+i*40)%360},100%,60%)`:`hsla(${(hue+i*30)%360},70%,20%,.8)`;ctx.fill();ctx.strokeStyle=`hsla(${(hue+i*40)%360},90%,60%,.7)`;ctx.lineWidth=2;ctx.stroke();ctx.restore();
-    ctx.font=`${Math.round(b.r*1.1)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(b.label,bx,by)});
-  for(const pad of [flipper('left'),flipper('right')]){ctx.save();ctx.lineCap='round';ctx.lineWidth=PADDLE_HALF*2;ctx.shadowBlur=16;ctx.shadowColor=`hsl(${(hue+180)%360},100%,60%)`;ctx.strokeStyle=`hsl(${(hue+180)%360},90%,65%)`;ctx.beginPath();ctx.moveTo(pad.x1,pad.y1);ctx.lineTo(pad.x2,pad.y2);ctx.stroke();ctx.restore()}
-  ctx.save();ctx.shadowBlur=24;ctx.shadowColor=`hsl(${(hue+200)%360},100%,70%)`;const g=ctx.createRadialGradient(ball.x-3,ball.y-3,1,ball.x,ball.y,BALL_R);g.addColorStop(0,'white');g.addColorStop(.4,`hsl(${(hue+200)%360},100%,80%)`);g.addColorStop(1,`hsl(${(hue+220)%360},80%,40%)`);ctx.beginPath();ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();ctx.restore();
-  ctx.font='bold 14px monospace';ctx.fillStyle=`hsla(${hue},90%,75%,.9)`;ctx.textAlign='left';ctx.fillText('✦ '+runScore,14,22);ctx.textAlign='right';ctx.fillText('●'.repeat(ballsLeft),W-12,22)
-}
-function cpuControl(){
-  if(!cpuSim)return;
-  const near=ball.y>PADDLE_Y-180;
-  setLeft(near&&ball.x<W*.58);setRight(near&&ball.x>W*.42)
-}
-function stepPhysics(){
-  cpuControl();const drag=Math.pow(FRICTION_60,STEP*60);ball.vy+=GRAVITY*STEP;ball.vx*=drag;ball.vy*=drag;ball.x+=ball.vx*STEP;ball.y+=ball.vy*STEP;
-  if(ball.x-BALL_R<0){ball.x=BALL_R;ball.vx=Math.abs(ball.vx)*.9}if(ball.x+BALL_R>W){ball.x=W-BALL_R;ball.vx=-Math.abs(ball.vx)*.9}if(ball.y-BALL_R<0){ball.y=BALL_R;ball.vy=Math.abs(ball.vy)*.85}
-  reflectPaddle(ball,flipper('left'));reflectPaddle(ball,flipper('right'));
-  BUMPERS.forEach((b,i)=>{const bx=b.rx*W,by=b.ry*H,combined=BALL_R+b.r;if(dist(ball.x,ball.y,bx,by)<combined){reflectCircle(ball,bx,by,combined);bumpers[i].lit=true;bumpers[i].t=.3;runScore+=10;updateScores()}});
-  if(ball.y-BALL_R>H+20)drain();
-  document.getElementById('midHud').textContent=cpuSim?'CPU · '+runScore:runScore+' pts'
-}
-function loop(ts){
-  if(!playing)return;if(!lastFrame)lastFrame=ts;accumulator+=Math.min(.05,(ts-lastFrame)/1000);elapsed+=ts-lastFrame;lastFrame=ts;
-  while(accumulator>=STEP&&playing){stepPhysics();accumulator-=STEP}draw();if(playing)raf=requestAnimationFrame(loop)
-}
-function begin(m){
-  invalidate();mode=m;names=m==='cpu'?['You','CPU']:['Player 1','Player 2'];scores=[0,0];current=0;runScore=0;cpuSim=false;paused=false;leftFired=false;rightFired=false;
-  document.getElementById('setup').hidden=true;document.getElementById('hud').hidden=false;document.getElementById('wrap').hidden=false;document.getElementById('pads').hidden=false;document.getElementById('endScreen').hidden=true;
-  document.getElementById('sc1name').textContent=m==='cpu'?'CPU':'P2';document.getElementById('midHud').textContent='FLIP';startTurn()
-}
-document.querySelectorAll('#setup [data-mode]').forEach(b=>b.onclick=()=>begin(b.dataset.mode));
-document.getElementById('turnGo').onclick=launch;document.getElementById('again').onclick=()=>begin(mode);
-document.getElementById('chg').onclick=()=>{invalidate();playing=false;cpuSim=false;document.getElementById('endScreen').hidden=true;document.getElementById('hud').hidden=true;document.getElementById('wrap').hidden=true;document.getElementById('pads').hidden=true;document.getElementById('turnBanner').hidden=true;document.getElementById('setup').hidden=false};
-function bindHold(id,setter){const el=document.getElementById(id);el.onpointerdown=e=>{e.preventDefault();try{el.setPointerCapture(e.pointerId)}catch(_){}setter(true)};el.onpointerup=el.onpointercancel=()=>setter(false)}
-bindHold('leftPad',setLeft);bindHold('rightPad',setRight);
-window.addEventListener('keydown',e=>{if(e.key==='z'||e.key==='Z')setLeft(true);if(e.key==='m'||e.key==='M'||e.key==='/')setRight(true)});
-window.addEventListener('keyup',e=>{if(e.key==='z'||e.key==='Z')setLeft(false);if(e.key==='m'||e.key==='M'||e.key==='/')setRight(false)});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing){playing=false;paused=true;cancelAnimationFrame(raf);document.getElementById('turnBanner').hidden=false;document.getElementById('turnTitle').textContent='Paused';document.getElementById('turnText').textContent='Tap Resume when you are ready.';document.getElementById('turnGo').textContent='Resume'}});
-})();
-</script>
 </body>
 </html>

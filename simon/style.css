@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #070b17; color: #eef2ff; }
+body { margin: 0; background: radial-gradient(ellipse at top, #271044 0, #0b1020 55%, #070b17 100%); min-height: 100dvh; }
+button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+button:focus-visible,a:focus-visible { outline: 3px solid #67e8f9; outline-offset: 4px; }
+.simon-page { max-width: 620px; margin: 0 auto; padding: 18px 14px max(28px, env(safe-area-inset-bottom)); }
+.simon-page nav { display:flex; justify-content:space-between; gap: 12px; align-items:center; margin-bottom:20px; font-size:12px; color:#94a3b8; }
+.simon-page nav a { font-size:14px; color:#67e8f9; padding:10px 0; }
+.simon-shell { background:rgba(15, 23, 42, .85); border:1px solid #a855f74d; border-radius:22px; overflow:hidden; box-shadow:0 20px 80px #0005; }
+.simon-shell header { padding:24px 22px 18px; }
+.simon-shell h1 { font-size:30px; line-height:1.15; font-weight:750; margin:7px 0 12px; }
+.simon-shell header p:not(.eyebrow) { font-size:14px; line-height:1.6; color:#a8b6cf; }
+.eyebrow { color:#c084fc; letter-spacing:.16em; font-size:10px; font-weight:700; }
+.simon-modes { display:grid; gap:12px; padding:0 20px 20px; }
+.simon-modes button { border:1px solid #a855f740; background:#ffffff06; border-radius:14px; padding:16px; text-align:left; display:grid; gap:5px; }
+.simon-modes button:hover { background:#a855f712; border-color:#a855f7; }
+.simon-modes strong { font-size:17px; }.simon-modes span { color:#a8b6cf; font-size:13px; line-height:1.5; }
+.duel-score { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:15px 20px; border-block:1px solid #a855f730; font-size:12px; color:#a8b6cf; }.duel-score strong { color:#67e8f9; font-size:22px; }
+.simon-handoff { min-height:300px; background:#0c1223; padding:36px 24px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:18px; }
+.simon-handoff h2 { font-size:24px; font-weight:700; }.simon-handoff p { color:#a8b6cf; line-height:1.6; max-width:350px; font-size:14px; }.simon-handoff small { color:#94a3b8; font-size:12px; line-height:1.6; }
+.primary { border:0; background:linear-gradient(110deg,#0891b2,#9333ea); border-radius:12px; color:white; padding:14px 24px; font-weight:650; min-height:48px; }.primary:disabled { opacity:.5; cursor:wait; }
+.simon-actions { display:flex; justify-content:center; padding:15px; }.simon-actions button { background:#1e293b; color:#cbd5e1; border-radius:10px; padding:11px 20px; font-size:13px; }
+.simon-shell footer { color:#8491ac; font-size:11px; line-height:1.8; text-align:center; padding:15px 20px 22px; }
+.simon-online { padding:0 16px 16px; }.simon-online[hidden] { display:none!important; }
+.notice,.connection-note { margin:0; padding:12px 20px; font-size:12px; color:#c4b5fd; line-height:1.6; }.connection-note { background:#fbbf2412; color:#fcd34d; }
+@media (prefers-reduced-motion: reduce) { *,*::before,*::after { transition:none!important; } }

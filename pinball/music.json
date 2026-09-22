@@ -1,0 +1,242 @@
+{
+  "moods": [
+    {
+      "id": "chill",
+      "name": "Deep Space Chill",
+      "subtitle": "Ambient & atmospheric",
+      "emoji": "🌌",
+      "color": "from-cyan-500 to-blue-600",
+      "glow": "rgba(34,211,238,0.25)",
+      "tracks": [
+        {
+          "id": "stellar-prelude",
+          "name": "Stellar Prelude",
+          "path": "https://starmuff.com/assets/casino_StarMuff_2_(2)_1768645105886-CZzcGdT5.mp3"
+        },
+        {
+          "id": "deep-space-chill",
+          "name": "Deep Space Chill",
+          "path": "https://starmuff.com/assets/casino_StarMuff_2_1768645105937-DEzYWXHf.mp3"
+        },
+        {
+          "id": "astral-haze",
+          "name": "Astral Haze",
+          "path": "https://starmuff.com/assets/casino_StarMuff_3_(4)_1768645472090-NBSHEk4Q.mp3"
+        },
+        {
+          "id": "docking-bay-blues",
+          "name": "Docking Bay Blues",
+          "path": "https://starmuff.com/assets/casino_StarMuff_3_(3)_1768645472133-CyguF3vL.mp3"
+        },
+        {
+          "id": "twilight-drift",
+          "name": "Twilight Drift",
+          "path": "https://starmuff.com/assets/casino_StarMuff_3_(2)_1768645472154-DeK6RBPO.mp3"
+        },
+        {
+          "id": "galactic-lull",
+          "name": "Galactic Lull",
+          "path": "https://starmuff.com/assets/casino_StarMuff_3_1768645472186-vge5SAzw.mp3"
+        },
+        {
+          "id": "star-menu-1",
+          "name": "Star Menu I",
+          "path": "https://starmuff.com/assets/start_menu_music_1764741017058-DaxyUUps.mp3"
+        },
+        {
+          "id": "star-menu-2",
+          "name": "Star Menu II",
+          "path": "https://starmuff.com/assets/start_menu_music_2_1764741017043-BEo6XsIF.mp3"
+        }
+      ]
+    },
+    {
+      "id": "explore",
+      "name": "Cosmic Explorer",
+      "subtitle": "Journey through the stars",
+      "emoji": "🚀",
+      "color": "from-emerald-500 to-teal-600",
+      "glow": "rgba(52,211,153,0.25)",
+      "tracks": [
+        {
+          "id": "nebula-explorer",
+          "name": "Nebula Explorer",
+          "path": "https://starmuff.com/assets/space_music_show_exploration_1764741017029-t_VszP87.mp3"
+        },
+        {
+          "id": "cosmic-wanderer",
+          "name": "Cosmic Wanderer",
+          "path": "https://starmuff.com/assets/space_music_show_exploration_2_1764741017016-CM97KMOx.mp3"
+        },
+        {
+          "id": "deep-space",
+          "name": "Deep Space",
+          "path": "https://starmuff.com/assets/other_exploration_music_1764741016990-BFnE42mK.mp3"
+        },
+        {
+          "id": "infinite-horizon",
+          "name": "Infinite Horizon",
+          "path": "https://starmuff.com/assets/exploration_music_extended_1764741016978-OR6wYa_y.mp3"
+        },
+        {
+          "id": "starlight-journey",
+          "name": "Starlight Journey",
+          "path": "https://starmuff.com/assets/exploration_music_extended_2_1764741016964-jI9T0Juy.mp3"
+        },
+        {
+          "id": "stellar-drift-a",
+          "name": "Stellar Drift A",
+          "path": "https://starmuff.com/assets/Casino_StarMuff_15_(3)_1768636599088-DGB-3AJJ.mp3"
+        },
+        {
+          "id": "stellar-drift-b",
+          "name": "Stellar Drift B",
+          "path": "https://starmuff.com/assets/Casino_StarMuff_15_(4)_1768636599045-DtmYMtOP.mp3"
+        },
+        {
+          "id": "cosmic-voyage-a",
+          "name": "Cosmic Voyage A",
+          "path": "https://starmuff.com/assets/Casino_StarMuff_15_2_(3)_1768636599120-DfDWF4xd.mp3"
+        },
+        {
+          "id": "cosmic-voyage-b",
+          "name": "Cosmic Voyage B",
+          "path": "https://starmuff.com/assets/Casino_StarMuff_15_2_(4)_1768636599108-cEFLhYDC.mp3"
+        }
+      ]
+    },
+    {
+      "id": "hype",
+      "name": "Battle Mode",
+      "subtitle": "High energy combat",
+      "emoji": "⚔️",
+      "color": "from-red-500 to-orange-600",
+      "glow": "rgba(239,68,68,0.25)",
+      "tracks": [
+        {
+          "id": "battle-theme",
+          "name": "Battle Theme",
+          "path": "https://starmuff.com/assets/space_enter_battle_music_1764741017004-DfaH6OeV.mp3"
+        },
+        {
+          "id": "gravity-well",
+          "name": "Gravity Well",
+          "path": "https://starmuff.com/assets/casino_StarMuff_9_(winning)_(1)_1768642936579-DdYNWbqg.mp3"
+        },
+        {
+          "id": "zero-g",
+          "name": "Zero-G",
+          "path": "https://starmuff.com/assets/casino_StarMuff_9_(winning)_1768643043039-BX8vmEXe.mp3"
+        },
+        {
+          "id": "pulsar-drop",
+          "name": "Pulsar Drop",
+          "path": "https://starmuff.com/assets/casino_StarMuff_10_(winning)_(1)_1768644004986-BSjIFJqp.mp3"
+        },
+        {
+          "id": "meteor-bounce",
+          "name": "Meteor Bounce",
+          "path": "https://starmuff.com/assets/casino_StarMuff_10_(winning)_1768644005040-DfoRh_Vo.mp3"
+        },
+        {
+          "id": "cosmic-grind",
+          "name": "Cosmic Grind",
+          "path": "https://starmuff.com/assets/Casino_StarMuff_12_(1)_1768644005070-Dkdk_Uaa.mp3"
+        },
+        {
+          "id": "orbital-bass",
+          "name": "Orbital Bass",
+          "path": "https://starmuff.com/assets/casino_StarMuff_12_1768644005094-pZ9NwpDy.mp3"
+        },
+        {
+          "id": "warp-core-pulse",
+          "name": "Warp Core Pulse",
+          "path": "https://starmuff.com/assets/Casino_StarMuff_13_(1)_1768644694593-BqTKaGkr.mp3"
+        },
+        {
+          "id": "street-fighter-1",
+          "name": "Street Fighter I",
+          "path": "https://starmuff.com/assets/starmuff_street_fighter_mode_1_(1)_1770479935417-tLKQ3c6v.mp3"
+        },
+        {
+          "id": "street-fighter-2",
+          "name": "Street Fighter II",
+          "path": "https://starmuff.com/assets/starmuff_street_fighter_mode_1_1770479935444-DSNahUdI.mp3"
+        }
+      ]
+    },
+    {
+      "id": "lounge",
+      "name": "Lounge Orbit",
+      "subtitle": "Smooth & laid back",
+      "emoji": "🎧",
+      "color": "from-violet-500 to-purple-600",
+      "glow": "rgba(139,92,246,0.25)",
+      "tracks": [
+        {
+          "id": "hyperspace-hold",
+          "name": "Hyperspace Hold",
+          "path": "https://starmuff.com/assets/casino_StarMuff_4_1768645663148-FVF12vKO.mp3"
+        },
+        {
+          "id": "lounge-orbit",
+          "name": "Lounge Orbit",
+          "path": "https://starmuff.com/assets/casino_StarMuff_5_(this_is_lounge_music)_1768645663198-BmqGGUO5.mp3"
+        },
+        {
+          "id": "waystation",
+          "name": "Waystation",
+          "path": "https://starmuff.com/assets/casino_StarMuff_6_1768645663231-BoL45M7z.mp3"
+        },
+        {
+          "id": "galactic-grove",
+          "name": "Galactic Grove",
+          "path": "https://starmuff.com/assets/Galactic_Grove_(StarMuff_casino)_1768645663245-CZGRn8p7.mp3"
+        },
+        {
+          "id": "quantum-shuffle",
+          "name": "Quantum Shuffle",
+          "path": "https://starmuff.com/assets/Casino_StarMuff_13_1768644694625-dXf2ilOW.mp3"
+        },
+        {
+          "id": "nebula-jackpot",
+          "name": "Nebula Jackpot",
+          "path": "https://starmuff.com/assets/casino_StarMuff_11_(winning)_1768642334076-DVO_jujr.mp3"
+        }
+      ]
+    },
+    {
+      "id": "bass",
+      "name": "Void Bass",
+      "subtitle": "Heavy dubstep & drops",
+      "emoji": "🔊",
+      "color": "from-pink-500 to-rose-600",
+      "glow": "rgba(236,72,153,0.25)",
+      "tracks": [
+        {
+          "id": "void-bass-1",
+          "name": "Void Bass I",
+          "path": "https://starmuff.com/assets/exploration_music_extended_half_speed_dubstep_1764741016948-DDyVW_t7.mp3"
+        },
+        {
+          "id": "void-bass-2",
+          "name": "Void Bass II",
+          "path": "https://starmuff.com/assets/exploration_music_extended_half_speed_dubstep_2_1764741016931-DUvekiOj.mp3"
+        },
+        {
+          "id": "dark-matter-flow",
+          "name": "Dark Matter Flow",
+          "path": "https://starmuff.com/assets/Casino_StarMuff_12__1768644005081-7paNZS0q.mp3"
+        }
+      ]
+    }
+  ],
+  "easterEggs": {
+    "acid": "https://starmuff.com/assets/you_didn't_need_ACID_(dubstep)_1773500337908-DInWZ1k2.mp3",
+    "headgroove": "https://starmuff.com/assets/head_groove_2026_1773500337918-BYqMcTOK.mp3",
+    "banana1": "https://starmuff.com/assets/Bananas___Apples_(Plugged_In)_1773609189815-DGYkUUVz.mp3",
+    "banana2": "https://starmuff.com/assets/Bananas___Apples_(Plugged_In)_2_1773609189839-BVOxV5iZ.mp3"
+  },
+  "stableVideo": "https://starmuff.com/horse-stable.mp4",
+  "source": "Original StarMuff deployed music; no replacement soundtrack"
+}
