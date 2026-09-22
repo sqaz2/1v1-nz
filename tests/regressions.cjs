@@ -42,12 +42,11 @@ const grid10 = () => Array.from({ length: 10 }, () => Array(10).fill(0));
 const cells10 = () => Array.from({ length: 10 }, () => Array.from({ length: 10 }, () => cell()));
 const noop = () => {};
 
-test('all executable inline scripts parse', () => {
-  for (const file of ['battleship/index.html', 'connect-4/index.html', 'tetris/index.html', 'pinball/index.html', 'simon/index.html']) {
+test('classic-game executable inline scripts parse', () => {
+  for (const file of ['battleship/index.html', 'connect-4/index.html']) {
     const scripts = [...source(file).matchAll(/<script(?![^>]*application\/ld\+json)[^>]*>([\s\S]*?)<\/script>/g)];
     for (const match of scripts) if (match[1].trim()) assert.doesNotThrow(() => new vm.Script(match[1], { filename: file }));
   }
-  assert.doesNotThrow(() => new vm.Script(source('skirmish/app.js'), { filename: 'skirmish/app.js' }));
 });
 
 test('Battleships repaint clears every stale own-board marker and label', () => {
@@ -148,66 +147,8 @@ test('Battleships consumes exact sunk cells and does not flood-fill neighbors', 
   assert.deepEqual([...session.sunkEnemy].sort(), ['0,0', '0,1']);
 });
 
-test('Tetris garbage overflow is detected before the top row is discarded', () => {
-  let winner = null;
-  const c = load('tetris/index.html', ['applyGarbage'], {
-    COLS: 10, ROWS: 20, players: [], endMatch: value => { winner = value; }, Math,
-  });
-  const board = Array.from({ length: 20 }, () => Array(10).fill(null)); board[0][0] = '#fff';
-  const p = { board, pendingGarbage: 1, over: false }; c.players = [p, {}];
-  assert.equal(c.applyGarbage(p), false);
-  assert.equal(p.over, true);
-  assert.equal(winner, 1);
-});
-
-test('Tetris garbage on a low stack no longer collides with a retired piece', () => {
-  const math = Object.create(Math); math.random = () => 0;
-  const c = load('tetris/index.html', ['applyGarbage'], { COLS: 10, ROWS: 20, players: [], endMatch: noop, Math: math });
-  const board = Array.from({ length: 20 }, () => Array(10).fill(null));
-  for (const [x, y] of [[4, 18], [5, 18], [4, 19], [5, 19]]) board[y][x] = '#ffd84d';
-  const p = { board, pendingGarbage: 1, cur: null, over: false }; c.players = [p, {}];
-  assert.equal(c.applyGarbage(p), true);
-  assert.equal(p.over, false);
-});
-
-test('Skirmish projectile starts outside its shooter and circle sweep detects contact', () => {
-  const state = { players: [{ x: 192, y: 400 }, { x: 768, y: 400 }] };
-  const config = { nova: { speed: 1 } };
-  const c = load('skirmish/app.js', ['makeProjectile', 'segmentCircle'], {
-    state, weaponConfig: config, TANK_R: 14, SHOT_R: 6,
-  });
-  const p = c.makeProjectile(0, 45, 62, 'nova');
-  assert.ok(Math.hypot(p.x - 192, p.y - 400) > 20);
-  assert.equal(c.segmentCircle(0, 0, 20, 0, 10, 0, 3), 0.35);
-  assert.equal(c.segmentCircle(0, 0, 5, 0, 10, 0, 3), null);
-});
-
-test('Skirmish resize only changes its renderer', () => {
-  const text = source('skirmish/app.js');
-  assert.match(text, /window\.addEventListener\("resize", \(\) => \{ if \(state\.mode\) resizeRenderer\(\); \}\)/);
-  assert.doesNotMatch(text, /addEventListener\("resize"[\s\S]{0,180}resetMatch/);
-});
-
-test('Pinball flipper geometry responds to an approaching ball', () => {
-  const c = load('pinball/index.html', ['capSpeed', 'flipper', 'reflectPaddle'], {
-    PADDLE_LEN: 90, PADDLE_Y: 660, LEFT_PIVOT: 100, RIGHT_PIVOT: 300,
-    PADDLE_REST: 0.35, PADDLE_FIRED: -0.45, PADDLE_HALF: 7, BALL_R: 11,
-    leftFired: false, rightFired: false,
-  });
-  const pad = c.flipper('left');
-  const mid = { x: (pad.x1 + pad.x2) / 2, y: (pad.y1 + pad.y2) / 2 };
-  const ball = { x: mid.x + 6, y: mid.y - 16, vx: 0, vy: 300 };
-  assert.equal(c.reflectPaddle(ball, pad), true);
-  assert.ok(ball.vy < 0);
-});
-
-test('Simon creates equal-length independent challenges', () => {
-  const c = load('simon/index.html', ['makeSequence', 'buildChallenges'], { Array, Math, level: 7, sequences: [[], []] });
-  c.buildChallenges();
-  assert.equal(c.sequences[0].length, 7);
-  assert.equal(c.sequences[1].length, 7);
-  assert.notEqual(c.sequences[0], c.sequences[1]);
-});
+// Discarded-clone tests were replaced by tests/tetris*, tests/pinball*,
+// tests/simon*, tests/artillery* and tests/odyssey*: they exercise the ports.
 
 test('remote Battleships name is rendered with textContent', () => {
   const text = source('battleship/index.html');

@@ -226,6 +226,7 @@ button.big:disabled{opacity:0.3;pointer-events:none}
 @media(max-width:520px){.controls{grid-template-columns:1fr}.hud-row{gap:1px}}
 .hub-back{position:fixed;top:max(8px,env(safe-area-inset-top));left:8px;z-index:200;padding:7px 10px;border:1px solid rgba(56,189,248,.35);border-radius:10px;background:rgba(10,12,16,.86);color:#7dd3fc;text-decoration:none;font-size:12px;font-weight:800;backdrop-filter:blur(8px)}
 </style>
+<link rel="stylesheet" href="./duel.css"/>
 </head>
 <body>
 
@@ -375,8 +376,17 @@ button.big:disabled{opacity:0.3;pointer-events:none}
   <button class="math-skip" id="mathSkip">Skip</button>
 </div></div>
 
+<script src="/multiplayer/client.js"></script>
+<script src="./duel-core.js"></script>
+<script src="./duel.js"></script>
 <script>
 (()=>{
+// Campaign timers are scoped to a run so old return-fire/math callbacks cannot
+// reach the new duel or a restarted campaign.
+let campaignEpoch=0;const campaignTimers=new Set();
+const setTimeout=(fn,ms,...args)=>{const epoch=campaignEpoch;const id=window.setTimeout(()=>{campaignTimers.delete(id);if(epoch===campaignEpoch&&!window.artilleryDuel?.active)fn(...args)},ms);campaignTimers.add(id);return id};
+const clearTimeout=id=>{campaignTimers.delete(id);window.clearTimeout(id)};
+function cancelCampaignTimers(){campaignEpoch++;for(const id of campaignTimers)window.clearTimeout(id);campaignTimers.clear()}
 const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
 const $=id=>document.getElementById(id);
 const msgEl=$("msg"),angleEl=$("angle"),powerEl=$("power");
@@ -563,7 +573,7 @@ let crates=[];
 let previewTrail=[],previewImpact=null,previewKind="miss",previewSelfRisk=false;
 
 // ═══ RESIZE ═══
-function resize(){DPR=Math.min(2,devicePixelRatio||1);W=Math.min(innerWidth-16,980);H=Math.round(W*0.48);canvas.style.width=W+"px";canvas.style.height=H+"px";canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);dangerX=Math.floor(W*0.12)}
+function resize(){if(window.artilleryDuel?.active){window.artilleryDuel.resize();return}DPR=Math.min(2,devicePixelRatio||1);W=Math.min(innerWidth-16,980);H=Math.round(W*0.48);canvas.style.width=W+"px";canvas.style.height=H+"px";canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);dangerX=Math.floor(W*0.12)}
 
 // ═══ HELPERS ═══
 function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
@@ -1252,10 +1262,11 @@ fireBtn.addEventListener("click",()=>{
 
 // ═══ LOOP ═══
 function draw(){ctx.clearRect(0,0,W,H);drawSky();drawDangerZone();drawTerrain();drawCrates();drawGhostTrail();if(hasPerk("targeting")&&previewUnlocked)computePreview();drawPreviewTrail();drawBarrelIndicator();drawLiveTrail();drawGhostTanks();drawPlayer();drawEnemies();drawProjectiles();drawGhostProjs();drawParticles()}
-function loop(){for(const e of enemies){if(e.animX===undefined)e.animX=e.x;e.animX+=(e.x-e.animX)*0.14}updatePlayerProj();updateClusterBombs();updateEnemyProjs();updateGhostProjs();updateParticles();draw();requestAnimationFrame(loop)}
+function loop(now){if(window.artilleryDuel?.active){window.artilleryDuel.frame(now);requestAnimationFrame(loop);return}if(!uiEl.classList.contains('show')){requestAnimationFrame(loop);return}for(const e of enemies){if(e.animX===undefined)e.animX=e.x;e.animX+=(e.x-e.animX)*0.14}updatePlayerProj();updateClusterBombs();updateEnemyProjs();updateGhostProjs();updateParticles();draw();requestAnimationFrame(loop)}
 
 // ═══ INIT ═══
 function startGame(){
+  cancelCampaignTimers();
   hull=getHull();menuScreen.classList.add("hide");uiEl.classList.add("show");
   titleHull.textContent=hull.icon+" "+hull.name;
   gameOver=false;playerHP=hull.hp;maxHP=hull.hp;wave=1;score=0;totalKills=0;shotsFired=0;shotsThisWave=0;killsThisWave=0;
@@ -1271,7 +1282,7 @@ function startGame(){
   resize();pickTerrain();genTerrain();spawnWave();setAngle(45);setPower(50);setWind();updateHUD();
   showMsg(`Wave 1 — ${hull.icon} ${hull.name} · ${curTT.name} · ${ammo} shells`);
   if(!loopRunning){loopRunning=true;requestAnimationFrame(loop)}}
-function returnToMenu(){uiEl.classList.remove("show");menuScreen.classList.remove("hide");
+function returnToMenu(){cancelCampaignTimers();uiEl.classList.remove("show");menuScreen.classList.remove("hide");
   [upgradeOverlay,goOverlay,mathOverlay,$("tutOverlay"),lootOverlay,swapOverlay,ammoShopOverlay,pauseOverlay].forEach(o=>o.classList.remove("show"));closeMath();
   while(selectedPerks.size>PERK_MAX){const arr=[...selectedPerks];selectedPerks.delete(arr[arr.length-1])}
   setStep(1);renderShipCarousel()}
@@ -1294,6 +1305,37 @@ $("pauseSwap").addEventListener("click",()=>{
 $("pauseQuit").addEventListener("click",()=>pauseConfirmDiv.style.display="");
 $("pauseConfirmNo").addEventListener("click",()=>pauseConfirmDiv.style.display="none");
 $("pauseConfirmYes").addEventListener("click",()=>{pauseOverlay.classList.remove("show");returnToMenu()});
+// Duel adapter deliberately reuses the original terrain, tank, shield, trail,
+// projectile and particle drawing routines. The original campaign above remains
+// playable; its single-player timers never simulate the shared duel world.
+window.installArtilleryDuel({
+  catalog:{hulls:HULLS,perks:PERKS,weapons:WEAPONS,terrains:TTYPES},
+  getLoadout:()=>({hull:selHull,perks:[...selectedPerks]}),
+  resetSetup(){selectedPerks=new Set();shipIdx=0;renderShipCarousel();setStep(1);updatePerkCount()},
+  buildPerks:(element,picks,max=3)=>buildPerkUI(element,picks,null,max),
+  returnToMenu(){gameOver=true;playerProj=null;enemyProjs=[];clusterBombs=[];ghostProjs=[];closeMath();returnToMenu()},
+  startLoop(){cancelCampaignTimers();gameOver=true;closeMath();particles=[];playerProj=null;enemyProjs=[];clusterBombs=[];ghostTanks=[];ghostProjs=[];if(!loopRunning){loopRunning=true;requestAnimationFrame(loop)}},
+  resize(width,height){W=width;H=height;DPR=Math.min(2,devicePixelRatio||1);canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);canvas.style.width='100%';canvas.style.height='auto';ctx.setTransform(DPR,0,0,DPR,0,0)},
+  explode(effect){boom(effect.x,effect.y,effect.color,20)},
+  draw(s,view){
+    if(W!==s.width||H!==s.height||!canvas.width){W=s.width;H=s.height;DPR=Math.min(2,devicePixelRatio||1);canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width='100%';canvas.style.height='auto';ctx.setTransform(DPR,0,0,DPR,0,0)}
+    terrain=s.terrain;curTT=TTYPES[s.biome];wind=s.wind;phase=s.phase;gameOver=s.phase==='finished';
+    ctx.clearRect(0,0,W,H);drawSky();drawTerrain();
+    const current=s.tanks[s.turn];selectedPerks=new Set(current.perks);ghostTrail=s.lastTrail;ghostImpact=s.lastImpact;ghostResult='hit';drawGhostTrail();
+    if(current.perks.includes('crates')&&!s.crateClaimed){crates=[{x:W/2,y:terrain[Math.floor(W/2)]-12,s:18}];drawCrates()}else crates=[];
+    if(view.preview.length>1){ctx.strokeStyle='rgba(125,211,252,.65)';ctx.setLineDash([4,5]);ctx.lineWidth=2;ctx.beginPath();view.preview.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.setLineDash([])}
+    const oldAngle=angleEl.value;
+    for(const t of s.tanks){
+      hull=HULLS.find(h=>h.id===t.hull);playerX=t.slot?W-t.x:t.x;playerY=t.y;playerHP=t.hp;maxHP=t.maxHP;selectedPerks=new Set(t.perks);defCharges=t.shield;defType=t.shieldType;fortifyCharges=t.fortify;cloakTurns=t.cloak;furyActive=t.fury;angleEl.value=t.slot===s.turn?view.angle:t.angle;
+      ctx.save();if(t.slot){ctx.translate(W,0);ctx.scale(-1,1)}drawPlayer();ctx.restore();
+      ctx.fillStyle=t.slot?'#fda4af':'#7dd3fc';ctx.font='bold 15px monospace';ctx.textAlign='center';ctx.fillText(`P${t.slot+1} · ${t.hp} HP`,t.x,t.y-23);
+      ghostTanks=t.ghosts.map(g=>({x:g.x,y:g.y,turnsLeft:g.turns,spawnAnim:0,isAlly:g.isAlly}));drawGhostTanks();
+    }
+    angleEl.value=oldAngle;
+    playerProj=s.projectiles.find(p=>!p.child&&!p.ghost)||null;clusterBombs=s.projectiles.filter(p=>p.child);enemyProjs=[];ghostProjs=s.projectiles.filter(p=>p.ghost);drawProjectiles();drawGhostProjs();
+    ctx.strokeStyle='rgba(253,224,71,.28)';ctx.lineWidth=1.5;ctx.beginPath();s.trail.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();updateParticles();drawParticles();
+  }
+});
 window.addEventListener("resize",()=>{if(uiEl.classList.contains("show")){resize();reseatAll()}});
 })();
 </script>

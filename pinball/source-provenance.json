@@ -1,0 +1,9 @@
+{
+  "source": "sqaz2/StarMuff:client/src/pages/Pinball.tsx",
+  "blob": "4327231a041d6c8fee381c8726a8c711ef0cd503",
+  "sourceSha256": "f7e706f1643982732d120b329696afaedf4e2dea2028ecf55d608e094d8f6d23",
+  "templateSha256": "69c6fcbb6760ca3dd7020c68cf24351091e0e9296fac57451a3afcab52ad14ab",
+  "generatedBy": "node pinball/extract.cjs",
+  "preserved": "Original table, physics, artwork, flippers, math, music, multiball, progression, events and Easter eggs",
+  "integration": "Seed, fixed-step timing, lifecycle/snapshot adapter; local-only solo leaderboard"
+}

@@ -2,6 +2,28 @@
   "name": "1v1-nz",
   "private": true,
   "scripts": {
-    "test": "node --test tests/regressions.cjs"
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.cjs tests/*.mjs",
+    "check": "npm run build && npm run typecheck && npm test",
+    "dev:multiplayer": "node multiplayer/local-server.mjs --port 8787",
+    "deploy:multiplayer": "wrangler deploy --config multiplayer/wrangler.toml",
+    "check:worker": "wrangler deploy --config multiplayer/wrangler.toml --dry-run"
+  },
+  "dependencies": {
+    "lucide-react": "0.468.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "esbuild": "0.25.12",
+    "postcss": "8.5.6",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.8.3",
+    "wrangler": "4.136.1",
+    "ws": "8.18.3"
   }
 }
