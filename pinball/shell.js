@@ -4,10 +4,31 @@
   const D = window.PinballDuel;
   let mode = 'solo', match = null, slot = 0, frame = null, mp = null, restoreExpected = null;
   let music = null, mood = null, queue = [], muted = false, isEgg = false;
+  let pendingForfeit = null;
   let audio = new Audio(), egg = new Audio();
   const localKey = 'starmuff-pinball-hotseat-v1';
   function id() { return crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2); }
   function setStatus(text) { $('status').textContent = text; }
+  function cancelForfeit() {
+    if (pendingForfeit) pendingForfeit.button.textContent = pendingForfeit.label;
+    pendingForfeit = null;
+    $('forfeit-prompt').hidden = true;
+  }
+  function confirmForfeit(button, action) {
+    if (pendingForfeit?.matchId === match?.id && pendingForfeit.button === button && Date.now() < pendingForfeit.until) {
+      cancelForfeit();
+      action();
+      return;
+    }
+    const pending = {matchId:match?.id, button, label:button.textContent, until:Date.now()+6000};
+    pendingForfeit = pending;
+    $('forfeit-prompt').hidden = false;
+    button.textContent = 'Confirm forfeit — tap again';
+    setStatus('Forfeit this run? Tap the button again within six seconds to confirm.');
+    setTimeout(() => {
+      if (pendingForfeit === pending) cancelForfeit();
+    }, 6000);
+  }
   function control(type, data = {}) {
     if (frame?.contentWindow && match) frame.contentWindow.postMessage({channel: 'starmuff-pinball-control', type, runId: match.id, ...data}, location.origin);
   }
@@ -15,6 +36,7 @@
     for (const name of ['setup','play','result']) $(name).hidden = name !== section;
     $('resume').hidden = !frame || section !== 'setup';
     $('forfeit').hidden = !frame || mode === 'solo' || !match || !!match.result;
+    $('start').hidden = mode === 'online' || (mode === 'local' && !!frame && !!match && !match.result);
     if (mode !== 'solo') control('pause', {paused: section !== 'play' || (mode === 'online' && !mp?.connected)});
   }
   function drawScores() {
@@ -32,6 +54,7 @@
     if (mode === 'local' && match) try { sessionStorage.setItem(localKey, JSON.stringify({match, slot})); } catch (_) {}
   }
   function makeFrame(isDuel) {
+    cancelForfeit();
     frame?.remove();
     frame = document.createElement('iframe');
     frame.title = 'Original StarMuff Pinball table';
@@ -51,9 +74,10 @@
     $('result-detail').textContent = 'This browser has the shared score but not the saved pinball physics. Return to the tab where you started, or forfeit this run. Starting a replacement run would not be fair.';
     $('next').textContent = 'Forfeit missing run'; $('next').hidden = false;
     $('next').onclick = () => {
-      if (!confirm('Forfeit the run from your original tab?')) return;
-      const progress = {...previous, seq:previous.seq + 1, status:'forfeit'};
-      if (commit(slot,progress)) mp.send('pinball-progress',progress);
+      confirmForfeit($('next'), () => {
+        const progress = {...previous, seq:previous.seq + 1, status:'forfeit'};
+        if (commit(slot,progress)) mp.send('pinball-progress',progress);
+      });
     };
     setStatus('Saved table state is unavailable here; the existing score is preserved.');
   }
@@ -118,7 +142,7 @@
     mode = nextMode;
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('selected', b.dataset.mode === mode));
     $('online-lobby').hidden = mode !== 'online';
-    $('start').hidden = mode === 'online';
+    $('start').hidden = mode === 'online' || (mode === 'local' && !!frame && !!match && !match.result);
     $('start').textContent = mode === 'solo' ? 'Play original Pinball' : 'Start Player 1’s run';
     $('rules').textContent = mode === 'solo' ? 'The full original game, including your local high scores and unlocks.' : mode === 'local' ? 'Player 1 plays, then Player 2. Three starting balls plus the original earned extra balls. Same seed, normal speed, identical starting unlocks. Highest score wins.' : 'Create a room, share its link, and both ready up. Play the original table simultaneously: same seed, three starting balls plus earned extra balls, normal speed and identical starting unlocks. Highest score wins.';
     if (mode === 'online') mountOnline();
@@ -221,7 +245,8 @@
   };
   $('resume').onclick = () => { show('play'); playNext(); };
   $('menu-toggle').onclick = () => show($('setup').hidden ? 'setup' : frame ? 'play' : 'setup');
-  $('forfeit').onclick = () => { if (confirm('Forfeit this run? Your opponent will win if they complete theirs.')) control('forfeit'); };
+  $('forfeit').onclick = () => confirmForfeit($('forfeit'), () => control('forfeit'));
+  $('cancel-forfeit').onclick = () => { cancelForfeit(); setStatus('Forfeit cancelled. Your run is still saved.'); };
   $('music-toggle').onclick = () => {
     muted = !muted; audio.volume = muted ? 0 : .4; egg.volume = muted ? 0 : .5;
     $('music-toggle').textContent = muted ? '♫×' : '♫';

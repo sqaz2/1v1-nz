@@ -42,8 +42,16 @@ guest forwarding/no simulation, pause/resume, snapshot continuation, keymaps and
 rematch/timer cleanup, and finished-match messages arriving during React mount.
 esbuild compilation and whitespace checks pass.
 
-Browser layout/playability and real two-device online verification remain for the
-integrated deployment QA pass; no real-device pass is claimed by these unit tests.
+Preview browser QA at commit `0155706` verified original solo canvas/next/ghost,
+hard drop and pause/resume, CPU play with sector progression and garbage, game-over
+result, clean rematch scores, independent F/Space local controls, and the 390×844
+CSS viewport fixture with visible original next preview and no horizontal overflow.
+Phone-width button clicks work. This is layout/browser QA, not real phone touch/GPU
+testing. No application console errors were seen; browser-extension noise excluded.
+The visible online-unavailable state correctly disables create/join controls.
+Actual two-device online/reconnect/rematch testing and real-phone gestures remain
+unverified because the shared online backend is not connected to this preview.
+Solo maths remains source-preserved and was not reached during this browser pass.
 Online requires the shared rooms backend to be configured and deployed. It is
 casual host-authoritative play: host disconnect pauses play, and a modified host
 could cheat. There is no ranked matchmaking or server-authoritative Tetris

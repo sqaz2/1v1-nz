@@ -43,3 +43,16 @@ This is casual host-authoritative multiplayer, not a cheat-proof ranked server. 
 Tests cover seeded maps, original catalogs, illegal/out-of-turn/stale/duplicate commands, real CPU damage, exact snapshot continuation, four math factions across host reconnect, pause/timeouts, inventories, movement, class abilities, crate math/loot, support projectiles, Carrier branches, win locks, reset cleanliness, and original rendering/campaign retention.
 
 Browser acceptance still requires two connected browser sessions on a deployed room service, one phone-sized viewport, hotseat handoff, a full CPU victory, a class ability, a specialty weapon, mid-shot disconnect/reconnect, and rematch. Engine tests alone are not evidence those deployed integrations have passed.
+
+### Deployed browser evidence (2026-09-22, preview `0155706`)
+
+Checked through visible UI controls on `https://fix-1v1-audit-integrity.1v1-nz.pages.dev/skirmish/`:
+
+- CPU: selected original Dreadnought and Arsenal/Mobility/Defense perks, launched, fired. CPU replied with a real shot and Player 1's HP changed from **6/6 to 5/6** on turn 3. Pause/resume and New game worked.
+- Hotseat: Player 1 Dreadnought and Player 2 Destroyer selected independently. Both pass-turn and completed-shot transitions displayed the correct explicit handoff. P2 solved the visible **5 + 26** targeting question, received a block shield and +2 energy, then fired. Control returned to P1 only after handoff.
+- Solo: original Destroyer campaign launched with **Wave 1**, Hills, and six shells; original SOLVE/fire and original wave HUD were present.
+- Phone fixture: `/tests/mobile-preview.html?game=skirmish`, 390×844 iframe. Game content measured **375px clientWidth and 375px scrollWidth**, so no horizontal overflow. Canvas and all firing controls fit the narrow layout; Fire was reachable at y777–819 before the home-link fix.
+- Online: the room explicitly stated **“Online multiplayer is not connected to this deployment yet. Solo and local modes still work.”** Create/Join were disabled. No live online match, reconnect or rematch is claimed verified.
+- Found and fixed locally after this deployed pass: imported fixed home link obscured Player 1's card; it is now in normal flow. Tank text now has an 11px minimum rendered size. Solo hides the multiplayer mode hub during gameplay. These final adjustments need the root's second-preview visual check.
+
+Scratch evidence screenshots: `/workspace/scratch/artillery-mobile-qa.jpg` (shows the pre-fix home-link overlap) and `/workspace/scratch/artillery-hotseat-qa.jpg` (completed-shot handoff). Those are debugging evidence, not final polished screenshots. All 13 engine tests still pass after the layout corrections.

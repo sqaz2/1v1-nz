@@ -61,3 +61,17 @@ and one-pass/one-fail; two-device online create/invite/Ready, different patterns
 same result, disconnect during input, reload after submission, rematch with a new
 seed, leave room, and 360 px layout. Production online requires the shared backend
 deployment and binding; no local-only channel is represented as online.
+
+## Preview browser QA — 2026-09-22
+
+At preview commit `0155706`, browser interaction verified original solo round
+completion/high score, failure, Try Again and closing during sequence playback;
+CPU loss and clean rematch; first hotseat attempt followed by opaque P2 handoff
+and correct P2 winner. A 390 × 844 iframe check showed no horizontal overflow and
+all original pads visible. Online correctly displayed unavailable and disabled
+Create/Join while the deployment lacked its backend binding; a real two-client
+online game was therefore not tested in this preview.
+
+Follow-up mobile polish removes duplicate outer title/room-invite chrome during
+an active pattern. The original component's own header remains visible. This
+is a browser layout check, not physical-phone touch/audio certification.

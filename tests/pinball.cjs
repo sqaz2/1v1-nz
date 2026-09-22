@@ -200,4 +200,7 @@ test('Pinball shell ignores previous iframe messages and checks the current matc
   assert.match(shell,/e\.source !== frame\.contentWindow \|\| e\.origin !== location\.origin/);
   assert.match(shell,/data\.runId === match\?\.id/);
   assert.match(shell,/event\.matchId !== match\?\.id/);
+  assert.doesNotMatch(shell,/\bconfirm\(/,'mobile confirmation must remain in-page');
+  assert.match(shell,/Confirm forfeit — tap again/);
+  assert.match(shell,/\$\('start'\)\.hidden = mode === 'online' \|\| \(mode === 'local' && !!frame && !!match && !match\.result\)/);
 });

@@ -587,7 +587,10 @@ export default function CargoBayGame({ onClose, duel }: CargoBayGameProps) {
     sndGameOver();
     const score = d.score;
     const hi = d.hiScore;
-    if (score > hi && hi > 0) {
+    if (duelRef.current) {
+      // A CPU/opponent score must never overwrite the original player's solo record.
+      setHiMessage('Duel complete.');
+    } else if (score > hi && hi > 0) {
       d.hiScore = score;
       localStorage.setItem(STORAGE_KEY, String(score));
       setHiMessage('🎉 NEW HIGH SCORE!');

@@ -16,6 +16,8 @@ Original StarMuff games with multiplayer adapters, alongside Battleships and Con
 
 **Deployment gate:** New StarMuff internet rooms need the separate multiplayer Worker deployed and connected. Committing these frontend files alone does not make online rooms live. The UI checks a typed health response and explains when the backend is unavailable. Classic game APIs are unchanged.
 
+For the implementation map, verification boundaries and exact remaining release steps, see [the StarMuff build handoff](docs/STARMUFF_BUILD_HANDOFF.md).
+
 ## Source preservation
 
 `upstream/` contains pinned original StarMuff React sources (only the import's trailing newline is normalized). Game provenance manifests, extraction scripts and adapter notes live in each route. Cargo Bay and Simon bundle their original-derived React components. Pinball and Odyssey evaluate and extract their original embedded game HTML; Artillery retains the original renderer and solo campaign.

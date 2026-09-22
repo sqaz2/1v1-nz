@@ -77,3 +77,31 @@ test('leaving closes rather than recycling an active seat into another match', (
   const f = fixture(); f.start(); const effects = f.send(1, { kind: 'leave' });
   assert.equal(effects.at(-1).message.kind, 'closed'); assert.throws(() => f.core.join('skirmish'), { code: 'closed' });
 });
+
+test('snapshot watermark preserves guest commands the host had not yet observed', () => {
+  const f = fixture(); f.start();
+  f.send(1, { kind: 'event', type: 'fire', data: { turnId: 1 } });
+  f.send(0, { kind: 'snapshot', snapshot: { turnId: 1, fired: false }, appliedThrough: 0 });
+  assert.equal(f.core.state.snapshotSeq, 0);
+  assert.equal(f.core.state.events.length, 1, 'An older host snapshot cannot discard the in-flight guest fire.');
+  f.send(1, { kind: 'event', type: 'aim', data: { turnId: 2, angle: 45 } });
+  f.send(0, { kind: 'snapshot', snapshot: { turnId: 2, fired: true }, appliedThrough: 1 });
+  assert.equal(f.core.state.snapshotSeq, 1);
+  assert.deepEqual(f.core.state.events.map(event => event.serverSeq), [2], 'Only acknowledged/applied guest input may be retired.');
+  const recovered = f.core.connect(f.host.token, 'recovered-host').welcome;
+  assert.equal(recovered.snapshot.turnId, 2);
+  assert.equal(recovered.events.length, 1);
+  assert.equal(recovered.events[0].type, 'aim');
+  assert.equal(recovered.events[0].data.angle, 45);
+});
+
+test('future and negative snapshot watermarks cannot erase retained recovery history', () => {
+  const f = fixture(); f.start();
+  f.send(1, { kind: 'event', type: 'input', data: { fire: true } });
+  f.send(0, { kind: 'snapshot', snapshot: { frame: 10 }, appliedThrough: 0 });
+  for (const appliedThrough of [-1, 2, 0.5]) {
+    assert.throws(() => f.send(0, { kind: 'snapshot', snapshot: { forged: true }, appliedThrough }), { code: 'snapshot-sequence' });
+    assert.deepEqual(f.core.state.snapshot, { frame: 10 });
+    assert.equal(f.core.state.events.length, 1);
+  }
+});

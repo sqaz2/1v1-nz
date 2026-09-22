@@ -173,14 +173,14 @@ function App() {
   return <main className="simon-page">
     <nav><a href="/">← 1v1.nz</a><span>StarMuff original · memory duel</span></nav>
     <div className="simon-shell">
-      {mode !== 'solo' && <header><p className="eyebrow">A.R.I.A. MEMORY CORE</p><h1>Simon Protocol</h1><p>The original StarMuff pads, sounds and patterns. Now with a real opponent.</p></header>}
+      {mode !== 'solo' && activeSlot === null && <header><p className="eyebrow">A.R.I.A. MEMORY CORE</p><h1>Simon Protocol</h1><p>The original StarMuff pads, sounds and patterns. Now with a real opponent.</p></header>}
       {mode === null && <section className="simon-modes" aria-label="Game modes">
         <button onClick={() => setMode('solo')}><strong>Original Solo</strong><span>The original growing pattern and your saved high score.</span></button>
         <button onClick={() => localGame('cpu')}><strong>vs A.R.I.A.</strong><span>Equal-length memory challenges against the CPU.</span></button>
         <button onClick={() => localGame('hotseat')}><strong>Pass the phone</strong><span>Two players. Private patterns and a clear handoff.</span></button>
         <button onClick={() => setMode('online')}><strong>Online 1v1</strong><span>Create a room, send the link, and both tap Ready.</span></button>
       </section>}
-      <div hidden={!online} ref={onlineContainer} className="simon-online" />
+      <div hidden={!online || activeSlot !== null} ref={onlineContainer} className="simon-online" />
       {online && onlineError && <p role="alert">{onlineError}</p>}
       {mode === 'solo' && <SimonGame onClose={menu} />}
       {mode && mode !== 'solo' && duel && <>

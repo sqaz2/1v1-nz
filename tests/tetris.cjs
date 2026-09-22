@@ -12,7 +12,7 @@ const engineSource = compile('tetris/CargoBayGame.tsx');
 
 function engine(seed = 'test-seed', extra = {}) {
   let clock = 1000, nextId = 0, api;
-  const effects = [], cleanup = [], raf = new Map(), timers = new Map(), listeners = new Map(), attacks = [], inputs = [];
+  const effects = [], cleanup = [], raf = new Map(), timers = new Map(), listeners = new Map(), attacks = [], inputs = [], storageWrites = [];
   let over = 0;
   const context2d = new Proxy({}, { get: (obj, key) => obj[key] || (() => {}), set: (obj, key, value) => (obj[key] = value, true) });
   const element = () => ({ clientWidth: 300, clientHeight: 600, parentElement: { clientWidth: 60 }, style: {},
@@ -23,7 +23,7 @@ function engine(seed = 'test-seed', extra = {}) {
   const module = { exports: {} };
   const sandbox = { module, exports: module.exports, performance: { now: () => clock }, console,
     require(name) { if (name === 'react') return hooks; if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx }; if (name === 'lucide-react') return { X: () => null }; throw new Error(name); },
-    localStorage: { getItem: () => '0', setItem() {} },
+    localStorage: { getItem: () => '0', setItem(key, value) { storageWrites.push([key, value]); } },
     window: { addEventListener() {}, removeEventListener() {} },
     document: { addEventListener(type, fn) { listeners.set(type, fn); }, removeEventListener(type) { listeners.delete(type); } },
     requestAnimationFrame(fn) { const id = ++nextId; raf.set(id, fn); return id; }, cancelAnimationFrame(id) { raf.delete(id); },
@@ -34,7 +34,7 @@ function engine(seed = 'test-seed', extra = {}) {
   module.exports.default({ onClose() {}, duel: { seed, remote: false, controlled: true, keys: 'arrows', label: 'TEST',
     onReady(value) { api = value; }, onInput(a) { inputs.push(a); }, onAttack(n) { attacks.push(n); }, onOver() { over++; }, ...extra } });
   effects.forEach(effect => { const fn = effect(); if (fn) cleanup.push(fn); });
-  return { api, attacks, inputs, get over() { return over; },
+  return { api, attacks, inputs, storageWrites, get over() { return over; },
     key(key) { listeners.get('keydown')?.({ key, preventDefault() {}, target: { closest: () => false } }); },
     tick(ms = 1000) { clock += ms; const frames = [...raf.values()]; raf.clear(); frames.forEach(fn => fn(clock)); },
     close() { cleanup.forEach(fn => fn()); }, get timers() { return timers.size; }, get frames() { return raf.size; } };
@@ -87,7 +87,8 @@ test('Cargo Bay uncancelled garbage rises with exact hole positions after the lo
 test('Cargo Bay garbage overflow declares a single loss and stops simulation', () => {
   const game = engine(), state = game.api.snapshot(); state.board[0][0] = cell; game.api.hydrate(state);
   game.api.garbage([4]); game.api.input('hard'); assert.equal(game.over, 1);
-  game.api.input('hard'); game.tick(); assert.equal(game.over, 1); assert.equal(game.api.snapshot().running, false); game.close();
+  game.api.input('hard'); game.tick(); assert.equal(game.over, 1); assert.equal(game.api.snapshot().running, false);
+  assert.equal(game.storageWrites.length, 0, 'duel and CPU scores cannot overwrite the solo high score'); game.close();
 });
 
 test('Cargo Bay guests send input without predicting or advancing authoritative state', () => {
