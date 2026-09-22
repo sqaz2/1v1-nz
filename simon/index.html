@@ -4,12 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>StarMuff Simon 1v1 — Memory Duel | 1v1.nz</title>
-  <meta name="description" content="Play StarMuff Simon 1v1 free — competitive memory duel vs CPU or hotseat. Repeat the growing sequence; miss and you lose on 1v1.nz." />
+  <meta name="description" content="Play StarMuff Simon 1v1 free — fair paired memory challenges vs CPU or hotseat. Repeat equal-length sequences on 1v1.nz." />
   <link rel="canonical" href="https://1v1.nz/simon/" />
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="64x64" />
   <meta name="theme-color" content="#0b1020" />
   <meta property="og:title" content="StarMuff Simon 1v1 — Memory Duel | 1v1.nz" />
-  <meta property="og:description" content="Competitive Simon 1v1 — vs CPU or hotseat. Miss the sequence and you lose." />
+  <meta property="og:description" content="Competitive Simon 1v1 — equal-length memory challenges vs CPU or hotseat." />
   <meta property="og:url" content="https://1v1.nz/simon/" />
   <meta name="twitter:card" content="summary" />
   <style>
@@ -31,7 +31,7 @@
     .hud .name{font-size:.75rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em}
     .hud .round{font-size:1.4rem;font-weight:700;color:#fbbf24}
     .pad{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:280px;margin:0 auto 16px}
-    .pad button{aspect-ratio:1;border-radius:18px;border:2px solid rgba(255,255,255,.12);cursor:pointer;transition:transform .1s,box-shadow .15s;touch-action:manipulation}
+    .pad button{aspect-ratio:1;border-radius:18px;border:2px solid rgba(255,255,255,.12);cursor:pointer;transition:transform .1s,box-shadow .15s;touch-action:manipulation;color:#fff;font-size:1.2rem;font-weight:800;text-shadow:0 1px 3px #000}
     .pad button:disabled{cursor:default;opacity:.75}
     .pad button:not(:disabled):active{transform:scale(.95)}
     .c0{background:#0891b2}.c1{background:#7e22ce}.c2{background:#db2777}.c3{background:#16a34a}
@@ -58,7 +58,7 @@
 
   <div class="panel">
     <div id="modeScreen">
-      <p class="blurb"><strong>How it works:</strong> The sequence grows each round. On your turn, watch it, then repeat every color. Miss once and you lose the duel.</p>
+      <p class="blurb"><strong>How it works:</strong> Both players face a different sequence of the same length. Pass the phone, tap Ready, then watch and repeat.</p>
       <div class="modes">
         <button type="button" data-mode="hotseat"><strong>Hotseat 1v1</strong><span>Pass the phone — P1 vs P2</span></button>
         <button type="button" data-mode="cpu"><strong>vs CPU</strong><span>You vs A.R.I.A. memory core</span></button>
@@ -72,123 +72,86 @@
         <div class="card" id="p1card"><div class="name" id="p1name">P2</div><div class="round">Rnd <span id="p1round">0</span></div></div>
       </div>
       <div class="pad" id="pad">
-        <button type="button" class="c0" data-i="0" aria-label="Cyan" disabled></button>
-        <button type="button" class="c1" data-i="1" aria-label="Purple" disabled></button>
-        <button type="button" class="c2" data-i="2" aria-label="Magenta" disabled></button>
-        <button type="button" class="c3" data-i="3" aria-label="Green" disabled></button>
+        <button type="button" class="c0" data-i="0" aria-label="Cyan, key 1" disabled>1</button>
+        <button type="button" class="c1" data-i="1" aria-label="Purple, key 2" disabled>2</button>
+        <button type="button" class="c2" data-i="2" aria-label="Magenta, key 3" disabled>3</button>
+        <button type="button" class="c3" data-i="3" aria-label="Green, key 4" disabled>4</button>
       </div>
       <div class="status" id="status"></div>
     </div>
   </div>
-  <footer>Competitive memory duel · miss = lose</footer>
+  <footer>Competitive memory duel · equal-length challenges</footer>
 
 <script>
 (function(){
-  const FREQS=[261.63,329.63,392.00,523.25];
-  const buttons=[...document.querySelectorAll('#pad button')];
-  const statusEl=document.getElementById('status');
-  const modeScreen=document.getElementById('modeScreen');
-  const gameScreen=document.getElementById('gameScreen');
-
-  let mode=null, sequence=[], playerIndex=0, showing=false;
-  let turn=0, rounds=[0,0], phase='idle'; // idle|watch|input|over
-  let names=['Player 1','Player 2'];
-  let audioCtx=null;
-
+  const FREQS=[261.63,329.63,392,523.25];
+  const buttons=[...document.querySelectorAll('#pad button')],statusEl=document.getElementById('status');
+  const modeScreen=document.getElementById('modeScreen'),gameScreen=document.getElementById('gameScreen');
+  let mode=null,names=['Player 1','Player 2'],sequences=[[],[]],attempts=[null,null],rounds=[0,0];
+  let turn=0,level=1,playerIndex=0,phase='idle',generation=0,audioCtx=null;
   function ctx(){if(!audioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;audioCtx=new AC()}if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}
-  function playTone(i,dur){const c=ctx();if(!c)return;try{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.setValueAtTime(FREQS[i],c.currentTime);g.gain.setValueAtTime(0.28,c.currentTime);g.gain.exponentialRampToValueAtTime(0.01,c.currentTime+dur/1000);o.start(c.currentTime);o.stop(c.currentTime+dur/1000)}catch(e){}}
-  function playError(){const c=ctx();if(!c)return;try{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sawtooth';o.frequency.setValueAtTime(150,c.currentTime);o.frequency.exponentialRampToValueAtTime(50,c.currentTime+0.45);g.gain.setValueAtTime(0.28,c.currentTime);g.gain.exponentialRampToValueAtTime(0.01,c.currentTime+0.45);o.start(c.currentTime);o.stop(c.currentTime+0.45)}catch(e){}}
-  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-
-  async function flash(i,dur){buttons[i].classList.add('active');playTone(i,dur);await sleep(dur);buttons[i].classList.remove('active');await sleep(90)}
+  function playTone(i,dur){const c=ctx();if(!c)return;try{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.setValueAtTime(FREQS[i],c.currentTime);g.gain.setValueAtTime(.28,c.currentTime);g.gain.exponentialRampToValueAtTime(.01,c.currentTime+dur/1000);o.start();o.stop(c.currentTime+dur/1000)}catch(_){}}
+  function playError(){const c=ctx();if(!c)return;try{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sawtooth';o.frequency.setValueAtTime(150,c.currentTime);o.frequency.exponentialRampToValueAtTime(50,c.currentTime+.45);g.gain.setValueAtTime(.28,c.currentTime);g.gain.exponentialRampToValueAtTime(.01,c.currentTime+.45);o.start();o.stop(c.currentTime+.45)}catch(_){}}
+  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  function invalidate(){generation++;setPads(false);buttons.forEach(b=>b.classList.remove('active'))}
+  async function flash(i,dur,g=generation){if(g!==generation)return false;buttons[i].classList.add('active');playTone(i,dur);await sleep(dur);buttons[i].classList.remove('active');await sleep(90);return g===generation}
   function setPads(on){buttons.forEach(b=>b.disabled=!on)}
   function updateHud(){
-    document.getElementById('p0name').textContent=names[0];
-    document.getElementById('p1name').textContent=names[1];
-    document.getElementById('p0round').textContent=rounds[0];
-    document.getElementById('p1round').textContent=rounds[1];
-    document.getElementById('p0card').classList.toggle('active',turn===0&&phase!=='over');
-    document.getElementById('p1card').classList.toggle('active',turn===1&&phase!=='over');
+    document.getElementById('p0name').textContent=names[0];document.getElementById('p1name').textContent=names[1];
+    document.getElementById('p0round').textContent=rounds[0];document.getElementById('p1round').textContent=rounds[1];
+    document.getElementById('p0card').classList.toggle('active',turn===0&&phase!=='over');document.getElementById('p1card').classList.toggle('active',turn===1&&phase!=='over')
   }
-
-  function showStatus(html){statusEl.innerHTML=html}
-
+  function status(nodes){statusEl.replaceChildren(...nodes)}
+  function line(text,cls=''){const p=document.createElement('p');p.textContent=text;if(cls)p.className=cls;return p}
+  function action(label,fn,secondary=false){const b=document.createElement('button');b.type='button';b.className='btn'+(secondary?' secondary':'');b.textContent=label;b.onclick=fn;return b}
+  function makeSequence(length){return Array.from({length},()=>Math.floor(Math.random()*4))}
+  function buildChallenges(){sequences=[makeSequence(level),makeSequence(level)]}
+  function prepareTurn(index){
+    invalidate();turn=index;phase='handoff';playerIndex=0;updateHud();
+    const label=mode==='hotseat'?`Pass to ${names[turn]}. They should tap Ready themselves.`:`${names[turn]} faces length ${level}.`;
+    status([line(label),action(`${names[turn]} ready · length ${level}`,showSequence)])
+  }
   async function showSequence(){
-    phase='watch'; showing=true; setPads(false); updateHud();
-    showStatus('<p>'+names[turn]+' — watch the sequence…</p>');
-    await sleep(500);
-    for(const i of sequence) await flash(i,380);
-    showing=false; phase='input'; playerIndex=0; setPads(true); updateHud();
-    showStatus('<p>'+names[turn]+' — your turn! Repeat '+sequence.length+' color'+(sequence.length===1?'':'s')+'</p>');
-    if(mode==='cpu'&&turn===1) runCpuInput();
+    invalidate();const g=generation;phase='watch';setPads(false);updateHud();status([line(`${names[turn]} — watch ${level} signal${level===1?'':'s'}…`)]);await sleep(500);if(g!==generation)return;
+    for(const i of sequences[turn])if(!(await flash(i,380,g)))return;
+    if(g!==generation)return;phase='input';playerIndex=0;updateHud();
+    if(mode==='cpu'&&turn===1){setPads(false);status([line('A.R.I.A. is repeating its sequence…')]);runCpuInput(g);return}
+    setPads(true);status([line(`${names[turn]} — repeat ${level} signal${level===1?'':'s'}.`)]);
   }
-
-  function startRound(){
-    sequence=sequence.concat([Math.floor(Math.random()*4)]);
-    showSequence();
-  }
-
-  function winRound(){
-    rounds[turn]+=1; updateHud(); setPads(false);
-    showStatus('<p style="color:#4ade80">Perfect — sequence length '+sequence.length+'</p>');
-    // Switch turn for next longer sequence
-    turn=turn===0?1:0;
-    setTimeout(()=>startRound(),900);
-  }
-
-  function loseDuel(){
-    phase='over'; playError(); setPads(false); updateHud();
-    const winner=turn===0?1:0;
-    showStatus(
-      '<p class="over">'+names[turn]+' missed!</p>'+
-      '<p>'+names[winner]+' wins the duel</p>'+
-      '<button type="button" class="btn" id="again">Play again</button>'+
-      '<button type="button" class="btn secondary" id="chg">Change mode</button>'
-    );
-    document.getElementById('again').onclick=()=>beginMatch(mode);
-    document.getElementById('chg').onclick=()=>{gameScreen.hidden=true;modeScreen.hidden=false};
-  }
-
-  function onPress(i){
-    if(showing||phase!=='input')return;
-    if(mode==='cpu'&&turn===1)return;
-    flash(i,180);
-    if(i===sequence[playerIndex]){
-      playerIndex++;
-      if(playerIndex===sequence.length){setPads(false);setTimeout(winRound,400)}
-    }else loseDuel();
-  }
-
-  async function runCpuInput(){
-    await sleep(400+Math.random()*300);
-    for(let idx=0;idx<sequence.length;idx++){
-      if(phase!=='input'||turn!==1)return;
-      // CPU skill: small chance to fail on long sequences
-      const failChance=sequence.length>=8?0.12:sequence.length>=5?0.06:0.02;
-      let choice=sequence[idx];
-      if(Math.random()<failChance){choice=(choice+1+Math.floor(Math.random()*3))%4}
-      await flash(choice,200);
-      if(choice!==sequence[idx]){loseDuel();return}
-      playerIndex=idx+1;
-      await sleep(180);
+  function finishAttempt(success){
+    invalidate();attempts[turn]=success;if(success){rounds[turn]++;updateHud()}
+    if(attempts[0]===null||attempts[1]===null){
+      const next=turn===0?1:0;status([line(success?'Perfect. Hand off the device.':`${names[turn]} missed. The other player still gets the same-length chance.`,success?'':'over'),action(`Ready for ${names[next]}`,()=>prepareTurn(next))]);return
     }
-    setPads(false); setTimeout(winRound,350);
+    resolvePair()
   }
-
-  function beginMatch(m){
-    mode=m;
-    names=m==='cpu'?['You','CPU']:['Player 1','Player 2'];
-    sequence=[]; rounds=[0,0]; turn=0; phase='idle';
-    modeScreen.hidden=true; gameScreen.hidden=false;
-    updateHud();
-    showStatus('<button type="button" class="btn" id="go">Start duel</button>');
-    document.getElementById('go').onclick=()=>{sequence=[];startRound()};
+  function resolvePair(){
+    if(attempts[0]!==attempts[1]){endDuel(attempts[0]?0:1);return}
+    if(!attempts[0]){phase='handoff';status([line(`Both players missed length ${level}. Replay this length.`,'over'),action('Replay length '+level,startPair)]);return}
+    level++;phase='handoff';status([line(`Both cleared it. Next challenge: length ${level}.`),action('Start next challenge',startPair)])
   }
-
-  document.querySelectorAll('#modeScreen [data-mode]').forEach(b=>{
-    b.onclick=()=>beginMatch(b.dataset.mode);
-  });
+  function startPair(){attempts=[null,null];buildChallenges();prepareTurn(0)}
+  function endDuel(winner){phase='over';setPads(false);updateHud();status([line(`${names[winner]} wins the duel!`,'over'),line(`Final challenge length: ${level}`),action('Play again',()=>beginMatch(mode)),action('Change mode',()=>{invalidate();gameScreen.hidden=true;modeScreen.hidden=false},true)])}
+  function onPress(i){
+    if(phase!=='input'||(mode==='cpu'&&turn===1))return;const expected=sequences[turn][playerIndex];flash(i,180);
+    if(i!==expected){playError();finishAttempt(false);return}playerIndex++;if(playerIndex===sequences[turn].length)finishAttempt(true)
+  }
+  async function runCpuInput(g){
+    await sleep(450);if(g!==generation)return;
+    for(let i=0;i<sequences[1].length;i++){
+      const failChance=level>=9?.15:level>=6?.08:.02;let choice=sequences[1][i];if(Math.random()<failChance)choice=(choice+1+Math.floor(Math.random()*3))%4;
+      if(!(await flash(choice,200,g)))return;if(choice!==sequences[1][i]){playError();finishAttempt(false);return}await sleep(160);if(g!==generation)return
+    }
+    finishAttempt(true)
+  }
+  function beginMatch(nextMode){
+    invalidate();mode=nextMode;names=mode==='cpu'?['You','A.R.I.A.']:['Player 1','Player 2'];rounds=[0,0];turn=0;level=1;attempts=[null,null];phase='idle';modeScreen.hidden=true;gameScreen.hidden=false;updateHud();
+    status([line('Each player gets a different sequence of the same length.'),action('Start duel',startPair)])
+  }
+  document.querySelectorAll('#modeScreen [data-mode]').forEach(b=>b.onclick=()=>beginMatch(b.dataset.mode));
   buttons.forEach(b=>b.addEventListener('click',()=>onPress(+b.dataset.i)));
+  window.addEventListener('keydown',e=>{if(['1','2','3','4'].includes(e.key)){e.preventDefault();onPress(Number(e.key)-1)}});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden&&(phase==='watch'||phase==='input')){invalidate();phase='handoff'}else if(!document.hidden&&phase==='handoff'&&mode){status([line('Sequence paused while the page was hidden.'),action(`Replay ${names[turn]}'s sequence`,showSequence)])}});
 })();
 </script>
 </body>
