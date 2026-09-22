@@ -17,6 +17,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   background: radial-gradient(circle at top, #131a38 0%, #05070f 55%, #04060b 100%);

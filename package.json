@@ -1,0 +1,7 @@
+{
+  "name": "1v1-nz",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/regressions.cjs"
+  }
+}

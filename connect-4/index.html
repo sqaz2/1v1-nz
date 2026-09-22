@@ -823,11 +823,18 @@
       const trackStatus = document.getElementById('trackStatus');
       let grid, turn, locked, ended, mode = 'cpu', difficulty = 'hard';
       let scores = [0,0], moveHistory = [], audio;
+      let localGeneration = 0, cpuMoveTimer = 0;
       const FALLBACK_API_BASE = 'https://1v1.nz';
       const ROOM_UNAVAILABLE_MESSAGE = 'Could not join that room. It may be full or no longer available.';
       const CONNECT_TIMEOUT_MS = 8000;
       const MESSAGE_WATCHDOG_MS = 45000;
       const MAX_CONNECT_FAILURES = 4;
+      async function fetchWithDeadline(input, init = {}, timeoutMs = 8000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try { return await fetch(input, { ...init, signal: controller.signal }); }
+        finally { clearTimeout(timer); }
+      }
       // (online session-system state is declared in the lobby engine block below)
 
       for (let c = 0; c < COLS; c++) {
@@ -862,6 +869,9 @@
       });
 
       function reset() {
+        localGeneration++;
+        clearTimeout(cpuMoveTimer);
+        cpuMoveTimer = 0;
         grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
         moveHistory = [];
         turn = 1; locked = false; ended = false;
@@ -914,6 +924,7 @@
           s.moveInFlight = true;
           s.moveSentAt = Date.now();
           s.moveCol = col;
+          s.moveBoardBefore = JSON.stringify(grid);
           try {
             s.socket.send(JSON.stringify({t: 'move', col}));
           } catch (_) {
@@ -921,7 +932,7 @@
             clearActionTimers(s);
             s.pendingMove = col;
             clearMarker();
-            reconnectNow();
+            forceSessionReconnect(s);
             statusText.textContent = 'Reconnecting…';
             return;
           }
@@ -965,7 +976,21 @@
         setStatus(); clearMarker();
         if (mode === 'cpu' && turn === 2) {
           locked = true;
-          setTimeout(() => { locked = false; if (!ended) drop(cpuMove()); }, 520);
+          const generation = localGeneration;
+          cpuMoveTimer = setTimeout(() => {
+            cpuMoveTimer = 0;
+            if (generation !== localGeneration || mode !== 'cpu' || ended || turn !== 2) return;
+            if (difficulty === 'hard') {
+              cooperativeHardMove().then(col => {
+                if (generation !== localGeneration || mode !== 'cpu' || ended || turn !== 2) return;
+                locked = false;
+                drop(col);
+              });
+            } else {
+              locked = false;
+              drop(cpuMove());
+            }
+          }, 520);
         }
         return true;
       }
@@ -1118,6 +1143,34 @@
         }
         return bestMove;
       }
+      async function cooperativeHardMove() {
+        const win = tacticalMove(2);
+        if (win !== undefined) return win;
+        const block = tacticalMove(1);
+        if (block !== undefined) return block;
+        const preferred = openingPreference();
+        const emptyCount = grid.flat().filter(v => !v).length;
+        const maxDepth = emptyCount <= 15 ? emptyCount : emptyCount <= 24 ? 12 : 11;
+        const totalDeadline = performance.now() + 700;
+        let bestMove = orderedMoves(2, preferred)[0];
+        for (let depth = 4; depth <= maxDepth && performance.now() < totalDeadline; depth++) {
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          searchDeadline = Math.min(totalDeadline, performance.now() + 45);
+          searchNodes = 0; searchTimedOut = false; transpositions = new Map();
+          let iterationMove = bestMove, iterationScore = -Infinity;
+          for (const col of orderedMoves(2, preferred)) {
+            const row = playableRow(col);
+            grid[row][col] = 2;
+            const score = winningLine(row, col, 2) ? 1000000 + depth : minimax(depth - 1, -Infinity, Infinity, false);
+            grid[row][col] = 0;
+            if (searchTimedOut) break;
+            if (score > iterationScore) { iterationScore = score; iterationMove = col; }
+          }
+          if (!searchTimedOut) bestMove = iterationMove;
+          if (Math.abs(iterationScore) >= 1000000) break;
+        }
+        return bestMove;
+      }
       function cpuMove() {
         const win = tacticalMove(2);
         if (win !== undefined) return win;
@@ -1147,7 +1200,7 @@
       // ---------- Online multi-game lobby (sessions, chat, voice notes) ----------
       const SESSIONS_KEY = 'c4_sessions';
       const VOICE_MAX_SECONDS = 30;
-      const ROOM_GONE_PATTERN = /not found|room is full|is full|expired|closed|invalid|gone|does not exist/i;
+      const ROOM_GONE_PATTERN = /not found|room is full|is full|expired|closed|gone|does not exist/i;
       const memFallbackStore = {};
       function storeGet(key) {
         try { return window.localStorage.getItem(key); }
@@ -1161,7 +1214,7 @@
       let activeSession = null;
       let chatOpenFor = null;
       let lobbyNoteTimer = 0;
-      let voiceRecorder = null, voiceChunks = [], voiceStart = 0, voiceSendIt = true;
+      let voiceRecorder = null, voiceChunks = [], voiceStart = 0, voiceSendIt = true, voiceMime = 'audio/webm';
       let voiceCapTimer = 0, voiceTickTimer = 0, voiceStream = null;
 
       function cleanCode(value) {
@@ -1326,7 +1379,7 @@
         }
         if (s.pendingVoice && s.pendingVoice.length) {
           const queued = s.pendingVoice; s.pendingVoice = [];
-          for (const v of queued) { try { s.socket.send(JSON.stringify({t: 'voice', data: v.data, dur: v.dur})); } catch (_) {} }
+          for (const v of queued) { try { s.socket.send(JSON.stringify({t: 'voice', data: v.data, dur: v.dur, mime: v.mime})); } catch (_) {} }
         }
         if (s.pendingMove != null) {
           const col = s.pendingMove;
@@ -1337,6 +1390,7 @@
               s.moveInFlight = true;
               s.moveSentAt = Date.now();
               s.moveCol = col;
+              s.moveBoardBefore = JSON.stringify(grid);
               clearTimeout(s.moveAckTimer);
               s.moveAckTimer = setTimeout(() => onMoveAckTimeout(s), ACTION_ACK_MS);
               clearMarker();
@@ -1347,7 +1401,12 @@
         if (s.pendingResign) {
           s.pendingResign = false;
           if (s.state.status === 'playing') {
-            try { s.socket.send(JSON.stringify({t: 'resign'})); } catch (_) { s.pendingResign = true; }
+            try {
+              s.socket.send(JSON.stringify({t: 'resign'}));
+              s.resignInFlight = true;
+              clearTimeout(s.resignAckTimer);
+              s.resignAckTimer = setTimeout(() => onResignAckTimeout(s), ACTION_ACK_MS);
+            } catch (_) { s.pendingResign = true; }
           }
         }
         if (s.pendingRematch) {
@@ -1387,14 +1446,13 @@
           scheduleSessionReconnect(s);
           return;
         }
+        let authenticated = false;
         s.socket = ws;
         s.timers.connectTimeout = setTimeout(() => {
-          if (s.socket === ws && ws.readyState !== WebSocket.OPEN) ws.close();
+          if (s.socket === ws && !authenticated) ws.close();
         }, CONNECT_TIMEOUT_MS);
         ws.addEventListener('open', () => {
           if (s.socket !== ws) return;
-          clearTimeout(s.timers.connectTimeout);
-          s.timers.connectTimeout = 0;
           s.lastMessageAt = Date.now();
           const hello = { t: 'hello', name: s.name };
           if (s.token) hello.token = s.token;
@@ -1411,6 +1469,11 @@
           s.lastMessageAt = Date.now();
           let message;
           try { message = JSON.parse(event.data); } catch (_) { return; }
+          if (message.t === 'joined') {
+            authenticated = true;
+            clearTimeout(s.timers.connectTimeout);
+            s.timers.connectTimeout = 0;
+          }
           handleSessionMessage(s, message);
         });
         ws.addEventListener('close', event => {
@@ -1470,16 +1533,19 @@
         s.moveAckTimer = 0;
         if (!s || !s.moveInFlight) return;
         s.moveInFlight = false;
-        s.pendingMove = s.moveCol;
+        // The server may have accepted the move and lost only the response.
+        // Reconcile a fresh snapshot; never replay an ambiguous Connect Four move.
+        s.pendingMove = null;
         clearMarker();
-        reconnectNow();
-        if (s === activeSession && mode === 'online') statusText.textContent = 'Reconnecting…';
+        forceSessionReconnect(s);
+        if (s === activeSession && mode === 'online') statusText.textContent = 'Checking move…';
       }
       function onResignAckTimeout(s) {
         s.resignAckTimer = 0;
         if (!s || !s.state || s.state.status !== 'playing') return;
+        s.resignInFlight = false;
         s.pendingResign = true;
-        reconnectNow();
+        forceSessionReconnect(s);
         if (s === activeSession && mode === 'online') statusText.textContent = 'Reconnecting…';
       }
       function clearActionTimers(s) {
@@ -1508,6 +1574,15 @@
           connectSession(s);
         }
         return acted;
+      }
+      function forceSessionReconnect(s) {
+        if (!s || s.dropped || s.superseded) return false;
+        s.connectFailures = 0;
+        s.reconnectAttempt = 0;
+        closeSessionSocket(s, true);
+        s.intentionalClose = false;
+        connectSession(s);
+        return true;
       }
       // Passive safety net: even with the screen on, a silently dead socket in a
       // live game is reaped within ~10s. Never-connected sessions keep the
@@ -1582,6 +1657,7 @@
             from: String(message.from || 'Opponent').slice(0, 24),
             color: message.color | 0,
             data: message.data,
+            mime: String(message.mime || 'audio/webm').slice(0, 80),
             dur: Math.min(60, Math.max(1, message.dur | 0)),
             ts: message.ts || Date.now(),
           });
@@ -1611,7 +1687,21 @@
           mmPendingCode = '';
           closeMmSocket();
         }
-        clearActionTimers(s);
+        // A presence or chat-bearing snapshot is not automatically an action
+        // acknowledgement. Require a board/turn/result change that proves it.
+        if (s.moveInFlight) {
+          const boardChanged = Array.isArray(state.board) && JSON.stringify(state.board) !== s.moveBoardBefore;
+          if (state.status !== 'playing' || state.turn !== s.color || boardChanged) {
+            s.moveInFlight = false;
+            s.pendingMove = null;
+            clearTimeout(s.moveAckTimer); s.moveAckTimer = 0;
+          }
+        }
+        if (s.resignInFlight && state.status !== 'playing') {
+          s.resignInFlight = false;
+          s.pendingResign = false;
+          clearTimeout(s.resignAckTimer); s.resignAckTimer = 0;
+        }
         s.code = cleanCode(state.code || s.code);
         if (prev && prev.status !== 'over' && state.status === 'over') countSeriesResult(s, state);
         if (prev && prev.status === 'playing' && state.status === 'playing' &&
@@ -1755,6 +1845,7 @@
       }
       function switchMode(next) {
         // Sessions keep their sockets alive in the background while in other modes.
+        if (voiceRecorder) stopVoiceRecording(false);
         mode = next; scores = [0,0]; scoreText.textContent = '0—0';
         scoreText.nextElementSibling.textContent = 'wins';
         twoPlayer.classList.toggle('active', mode === 'two');
@@ -1938,14 +2029,15 @@
         let room = null;
         let selectedBase = null;
         let lastFailure = 'network';
+        const createId = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random()}`;
         for (const apiBase of ['', FALLBACK_API_BASE]) {
           const endpoint = apiBase ? `${apiBase}/api/rooms` : '/api/rooms';
           let response;
           try {
-            response = await fetch(endpoint, {
+            response = await fetchWithDeadline(endpoint, {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({name})
+              body: JSON.stringify({name, createId})
             });
           } catch (_) {
             lastFailure = 'network';
@@ -2233,7 +2325,7 @@
           btn.addEventListener('click', () => {
             try {
               if (!audioEl) {
-                audioEl = new Audio('data:audio/webm;base64,' + m.data);
+                audioEl = new Audio('data:' + (m.mime || 'audio/webm') + ';base64,' + m.data);
                 audioEl.addEventListener('play', () => { playing = true; icon.textContent = '⏸'; });
                 const stopped = () => { playing = false; icon.textContent = '▶'; };
                 audioEl.addEventListener('pause', stopped);
@@ -2297,6 +2389,7 @@
         }
         const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
         voiceRecorder = mime ? new MediaRecorder(voiceStream, { mimeType: mime }) : new MediaRecorder(voiceStream);
+        voiceMime = voiceRecorder.mimeType || mime || 'audio/webm';
         voiceChunks = [];
         voiceStart = Date.now();
         voiceSendIt = true;
@@ -2334,7 +2427,8 @@
         const chunks = voiceChunks;
         voiceChunks = [];
         if (!sendIt || !chunks.length || !s || s.dropped) return;
-        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const mime = voiceMime || (chunks[0] && chunks[0].type) || 'audio/webm';
+        const blob = new Blob(chunks, { type: mime });
         const dur = Math.max(1, Math.min(60, Math.round((Date.now() - voiceStart) / 1000)));
         const reader = new FileReader();
         reader.onload = () => {
@@ -2342,15 +2436,15 @@
             const dataUrl = String(reader.result || '');
             const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
             if (!base64 || base64.length > 650000) return;
-            const payload = { data: base64, dur };
+            const payload = { data: base64, dur, mime };
             if (socketHealthy(s)) {
-              try { s.socket.send(JSON.stringify({ t: 'voice', data: base64, dur })); }
+              try { s.socket.send(JSON.stringify({ t: 'voice', data: base64, dur, mime })); }
               catch (_) { queueOfflinePayload(s, 'pendingVoice', payload, 5); reconnectNow(); }
             } else {
               queueOfflinePayload(s, 'pendingVoice', payload, 5);
               reconnectNow();
             }
-            receiveChatMessage(s, { kind: 'voice', from: s.name, color: s.color, data: base64, dur, ts: Date.now() });
+            receiveChatMessage(s, { kind: 'voice', from: s.name, color: s.color, data: base64, mime, dur, ts: Date.now() });
           } catch (_) {}
         };
         try { reader.readAsDataURL(blob); } catch (_) {}
@@ -2392,7 +2486,7 @@
               s.resignAckTimer = setTimeout(() => onResignAckTimeout(s), ACTION_ACK_MS);
             } catch (_) {
               s.pendingResign = true;
-              reconnectNow();
+              forceSessionReconnect(s);
               statusText.textContent = 'Reconnecting…';
             }
           } else {

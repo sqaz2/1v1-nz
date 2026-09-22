@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>StarMuff Tetris 1v1 — vs CPU or Hotseat | 1v1.nz</title>
+<title>StarMuff Tetris 1v1 — vs CPU or Shared Keyboard | 1v1.nz</title>
 <meta name="description" content="Play StarMuff Tetris 1v1 free — dual-board versus with garbage attacks. vs CPU or local 2-player on 1v1.nz."/>
 <link rel="canonical" href="https://1v1.nz/tetris/"/>
 <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="64x64"/>
@@ -49,7 +49,7 @@ h1{font-size:clamp(1.2rem,4vw,1.6rem);letter-spacing:.08em;background:linear-gra
 
 <div id="modeScreen" class="modes">
   <button type="button" data-mode="cpu"><strong>vs CPU</strong><span>You (arrows/WASD) vs AI — garbage attacks</span></button>
-  <button type="button" data-mode="local"><strong>Local 2-player</strong><span>P1: WASD · P2: Arrow keys — same device</span></button>
+  <button type="button" data-mode="local"><strong>Shared keyboard 2-player</strong><span>Keyboard required · P1: WASD · P2: Arrow keys</span></button>
   <button type="button" disabled><strong>Online</strong><span>vs friend — coming soon</span></button>
 </div>
 
@@ -134,25 +134,26 @@ function spawn(p){
 
 function lock(p){
   const {cur,board}=p;
-  cur.b.forEach(([bx,by])=>{const X=cur.x+bx,Y=cur.y+by;if(Y>=0&&Y<ROWS&&X>=0&&X<COLS)board[Y][X]=cur.c});
+  if(!cur||p.over||winner!==null)return;
+  let lockedAbove=false;
+  cur.b.forEach(([bx,by])=>{const X=cur.x+bx,Y=cur.y+by;if(Y<0)lockedAbove=true;else if(Y<ROWS&&X>=0&&X<COLS)board[Y][X]=cur.c});
+  p.cur=null;
+  if(lockedAbove){p.over=true;endMatch(p===players[0]?1:0);return}
   let cleared=0;
   for(let r=ROWS-1;r>=0;r--){
     if(board[r].every(c=>c)){board.splice(r,1);board.unshift(Array(COLS).fill(null));cleared++;r++}
   }
   p.lines+=cleared;
-  const g=GARBAGE_MAP[cleared]||0;
-  if(g){
-    p.sent+=g;
+  const attack=GARBAGE_MAP[cleared]||0;
+  const cancelled=Math.min(p.pendingGarbage,attack);
+  p.pendingGarbage-=cancelled;
+  const outgoing=attack-cancelled;
+  if(outgoing){
     const opp=players[p===players[0]?1:0];
-    // cancel pending against self first
-    if(p.pendingGarbage>0){
-      const use=Math.min(p.pendingGarbage,g);
-      p.pendingGarbage-=use;
-      const rem=g-use;
-      if(rem)opp.pendingGarbage+=rem;
-    }else opp.pendingGarbage+=g;
+    opp.pendingGarbage+=outgoing;
+    p.sent+=outgoing;
   }
-  applyGarbage(p);
+  if(!applyGarbage(p)||p.over||winner!==null){updateMeta();return}
   spawn(p);
   updateMeta();
 }
@@ -160,12 +161,15 @@ function lock(p){
 function applyGarbage(p){
   while(p.pendingGarbage>0){
     p.pendingGarbage--;
+    if(p.board[0].some(Boolean)){
+      p.over=true;endMatch(p===players[0]?1:0);return false;
+    }
     const hole=0|Math.random()*COLS;
     const row=Array(COLS).fill('#334155');row[hole]=null;
     p.board.shift();
     p.board.push(row);
-    if(p.cur&&hit(p.board,p.cur.b,p.cur.x,p.cur.y)){p.cur.y--;if(hit(p.board,p.cur.b,p.cur.x,p.cur.y)){p.over=true;endMatch(p===players[0]?1:0);return}}
   }
+  return true;
 }
 
 function move(p,dx,dy){
