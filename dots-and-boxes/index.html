@@ -130,6 +130,20 @@ footer a { color: var(--muted); }
     <div class="result-banner" id="resultBanner" hidden></div>
     <div class="controls">
       <button type="button" id="newGameBtn">New game</button>
+      <button type="button" id="howBtn" class="secondary">How to play</button>
+    </div>
+    <div id="howModal" hidden style="position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(4,10,24,.6);">
+      <div class="card" style="max-width:420px; width:100%;">
+        <h2 style="margin:0 0 10px; font-family:'Paytone One'; font-size:22px;">How to play</h2>
+        <ol style="margin:0 0 14px; padding-left:20px; line-height:1.65; font-size:15px;">
+          <li><b>Tap between two dots</b> to draw a line.</li>
+          <li><b>Close a box</b> (draw its 4th side) to claim it — it fills with your color.</li>
+          <li><b>Every box you close earns another turn.</b> Keep chaining as long as you keep closing boxes!</li>
+          <li>When the board is full, <b>most boxes wins</b>.</li>
+        </ol>
+        <p style="margin:0 0 14px; font-size:14px; color:var(--muted);"><b style="color:var(--ink);">Strategy:</b> don't just grab single boxes — set up chains where one line closes multiple boxes at once. That's how you sweep the board.</p>
+        <button type="button" id="howClose" style="width:100%;">Got it</button>
+      </div>
     </div>
   </section>
 
@@ -627,6 +641,12 @@ $('copyLinkBtn').addEventListener('click', async () => {
     joinRoom();
   }
 })();
+
+/* ---------- how to play modal ---------- */
+const howModal = $('howModal');
+$('howBtn').addEventListener('click', () => { howModal.hidden = false; });
+$('howClose').addEventListener('click', () => { howModal.hidden = true; });
+howModal.addEventListener('click', (e) => { if (e.target === howModal) howModal.hidden = true; });
 
 /* ---------- init ---------- */
 newGrid(5);
