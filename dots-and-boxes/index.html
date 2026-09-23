@@ -153,7 +153,7 @@ footer a { color: var(--muted); }
   </section>
 
   <section class="card howto">
-    <b>How to play:</b> Tap between two dots to draw a line. Complete the fourth side of a box to claim it and take another turn. When the board is full, the player with the most boxes wins. Chain your boxes — a clever setup can sweep half the board in one turn.
+    <b>How to play:</b> Tap between two dots to draw a line. <b>Close a box to claim it — and you immediately get another turn.</b> Keep chaining boxes as long as you keep closing them. When the board is full, most boxes wins. Strategy tip: set up chains where one move completes multiple boxes.
   </section>
 </main>
 <footer>Free to play · No account needed · <a href="/">1v1.nz</a></footer>
@@ -265,9 +265,11 @@ function nameInitial(slot) {
 
 function playerName(slot) { return $(slot === 1 ? 'nameP1' : 'nameP2').textContent; }
 
+let lastClaimMsg = '';
 function updateTurnNote() {
   const note = $('turnNote');
   if (Game.over) { note.textContent = 'Game over'; return; }
+  if (lastClaimMsg) { note.textContent = lastClaimMsg; lastClaimMsg = ''; return; }
   if (Game.mode === 'online') {
     note.textContent = Game.turn === Game.mySlot ? 'Your turn' : `${playerName(Game.turn)}'s turn…`;
   } else if (Game.mode === 'cpu') {
@@ -320,9 +322,17 @@ function playLine(kind, r, c, local) {
     // send to opponent; apply on ack via event (host authoritative not needed — symmetric)
     Game.online.send({ t: 'move', kind, r, c });
   }
-  const claimed = applyLine(kind, r, c, Game.turn);
+  const mover = Game.turn;
+  const claimed = applyLine(kind, r, c, mover);
   if (claimed < 0) return false;
-  if (claimed === 0) Game.turn = 3 - Game.turn;
+  if (claimed === 0) {
+    Game.turn = 3 - mover;
+  } else {
+    const who = Game.mode === 'cpu' ? (mover === 1 ? 'You' : 'Computer')
+      : Game.mode === 'online' ? (mover === Game.mySlot ? 'You' : playerName(mover))
+      : playerName(mover);
+    lastClaimMsg = `${who} claimed ${claimed === 1 ? 'a box' : claimed + ' boxes'} — go again!`;
+  }
   if (boardFull()) endGame();
   render();
   if (!Game.over && Game.mode === 'cpu' && Game.turn === 2) {
@@ -335,7 +345,12 @@ function applyRemoteMove(kind, r, c) {
   const mover = Game.turn;
   const claimed = applyLine(kind, r, c, mover);
   if (claimed < 0) return;
-  if (claimed === 0) Game.turn = 3 - mover;
+  if (claimed === 0) {
+    Game.turn = 3 - mover;
+  } else {
+    const who = mover === Game.mySlot ? 'You' : playerName(mover);
+    lastClaimMsg = `${who} claimed ${claimed === 1 ? 'a box' : claimed + ' boxes'} — go again!`;
+  }
   if (boardFull()) endGame();
   render();
 }
