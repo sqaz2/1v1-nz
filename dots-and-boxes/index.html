@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#07152c" />
+<title>Play Dots and Boxes 1v1 Online — vs Computer | 1v1.nz</title>
+<meta name="description" content="Play Dots and Boxes 1v1 online free — outsmart your opponent, claim the most boxes. Play vs the computer or a friend on 1v1.nz." />
+<link rel="canonical" href="https://1v1.nz/dots-and-boxes/" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Paytone+One&display=swap');
+:root {
+  color-scheme: light dark;
+  --ink: #12203a; --muted: #60708b; --paper: #f3f6fb;
+  --panel: rgba(255,255,255,.88); --line: rgba(33,63,110,.14);
+  --p1: #f04455; --p1-hi: #ff7682; --p2: #1468df; --p2-hi: #2e86f4;
+  --gold: #ffbf2f; --shadow: 0 24px 70px rgba(31,73,142,.23), 0 6px 18px rgba(15,44,92,.16);
+  --button: #102c5b; --dot: #33415c; --gridline: rgba(51,65,92,.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #edf5ff; --muted: #95a8c4; --paper: #061226;
+    --panel: rgba(8,25,51,.86); --line: rgba(169,201,255,.16);
+    --dot: #b9cdf0; --gridline: rgba(185,205,240,.25); --button: #1d4fa3;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink);
+  min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+}
+header.top {
+  width: 100%; max-width: 720px; padding: 14px 18px 6px; display: flex; align-items: center; gap: 12px;
+}
+.brand { font-family: 'Paytone One', sans-serif; font-size: 22px; text-decoration: none; color: var(--ink); }
+.brand span { color: var(--p2); }
+nav.crumbs { margin-left: auto; font-size: 13px; color: var(--muted); }
+nav.crumbs a { color: var(--muted); text-decoration: none; }
+main { width: 100%; max-width: 720px; padding: 6px 18px 40px; display: flex; flex-direction: column; gap: 14px; }
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: var(--shadow); padding: 18px; backdrop-filter: blur(8px);
+}
+h1 { font-family: 'Paytone One', sans-serif; font-size: clamp(26px, 5vw, 36px); margin: 0 0 4px; }
+.subtitle { color: var(--muted); margin: 0 0 12px; font-size: 15px; }
+.scorebar { display: flex; gap: 10px; align-items: stretch; }
+.score {
+  flex: 1; border-radius: 14px; padding: 10px 14px; border: 2px solid transparent;
+  background: rgba(127,140,160,.12); transition: border-color .2s, background .2s;
+}
+.score .name { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.score .pts { font-family: 'Paytone One', sans-serif; font-size: 28px; line-height: 1.1; }
+.score.p1 .pts { color: var(--p1); } .score.p2 .pts { color: var(--p2); }
+.score.active { border-color: currentColor; background: rgba(127,140,160,.2); }
+.score.p1.active { color: var(--p1); } .score.p2.active { color: var(--p2); }
+.turn-note { text-align: center; font-weight: 600; min-height: 24px; color: var(--muted); }
+.board-wrap { display: flex; justify-content: center; padding: 6px 0; }
+svg#board { width: min(100%, 460px); height: auto; touch-action: manipulation; user-select: none; }
+.dot { fill: var(--dot); }
+.line-spot { stroke: transparent; stroke-width: 22; cursor: pointer; }
+.line-drawn { stroke-linecap: round; pointer-events: none; }
+.line-p1 { stroke: var(--p1); } .line-p2 { stroke: var(--p2); }
+.line-hover { stroke: var(--gridline); stroke-width: 8; stroke-linecap: round; pointer-events: none; opacity: 0; }
+.box-fill { pointer-events: none; }
+.box-p1 { fill: rgba(240,68,85,.22); } .box-p2 { fill: rgba(20,104,223,.20); }
+.box-initial { font-family: 'Paytone One', sans-serif; font-size: 22px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+button {
+  font: 600 15px 'DM Sans', sans-serif; border: 0; border-radius: 12px; padding: 11px 18px;
+  background: var(--button); color: #fff; cursor: pointer; transition: transform .08s, opacity .15s;
+}
+button:active { transform: scale(.97); }
+button.secondary { background: transparent; color: var(--ink); border: 2px solid var(--line); }
+button:disabled { opacity: .45; cursor: default; }
+.mode-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.mode-row button[aria-pressed="true"] { outline: 3px solid var(--gold); }
+.online-panel { display: flex; flex-direction: column; gap: 10px; }
+.online-panel[hidden] { display: none; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+input[type="text"] {
+  font: 500 15px 'DM Sans', sans-serif; padding: 10px 12px; border-radius: 10px;
+  border: 2px solid var(--line); background: transparent; color: var(--ink); min-width: 0;
+}
+.status { font-size: 14px; color: var(--muted); min-height: 20px; }
+.status.error { color: var(--p1); font-weight: 600; }
+.share-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.share-link { font-size: 13px; word-break: break-all; color: var(--p2); }
+.result-banner {
+  text-align: center; font-family: 'Paytone One', sans-serif; font-size: 24px; padding: 14px;
+  border-radius: 14px; background: linear-gradient(135deg, rgba(255,191,47,.25), rgba(255,191,47,.08));
+  border: 2px solid var(--gold);
+}
+.result-banner[hidden] { display: none; }
+.howto { font-size: 14px; color: var(--muted); line-height: 1.55; }
+.howto b { color: var(--ink); }
+footer { padding: 18px; text-align: center; color: var(--muted); font-size: 13px; }
+footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">1v1<span>.nz</span></a>
+  <nav class="crumbs"><a href="/">All games</a> · Dots and Boxes</nav>
+</header>
+<main>
+  <section class="card">
+    <h1>Dots and Boxes</h1>
+    <p class="subtitle">Draw lines, claim boxes. Most boxes wins — and every box you close earns another turn.</p>
+
+    <div class="mode-row" role="group" aria-label="Game mode">
+      <button type="button" id="modeCpu" aria-pressed="true">vs Computer</button>
+      <button type="button" id="modeLocal" aria-pressed="false">2 Players</button>
+      <button type="button" id="modeOnline" aria-pressed="false">Online</button>
+    </div>
+    <div class="row" id="difficultyRow" style="justify-content:center; margin-top:10px;">
+      <button type="button" id="diffEasy" class="secondary" aria-pressed="false">Easy</button>
+      <button type="button" id="diffHard" class="secondary" aria-pressed="true">Hard</button>
+      <button type="button" id="sizeBtn" class="secondary" title="Toggle board size">5×5</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="scorebar">
+      <div class="score p1" id="scoreP1"><div class="name" id="nameP1">You</div><div class="pts" id="ptsP1">0</div></div>
+      <div class="score p2" id="scoreP2"><div class="name" id="nameP2">Computer</div><div class="pts" id="ptsP2">0</div></div>
+    </div>
+    <p class="turn-note" id="turnNote">Your turn</p>
+    <div class="board-wrap"><svg id="board" role="img" aria-label="Dots and boxes board"></svg></div>
+    <div class="result-banner" id="resultBanner" hidden></div>
+    <div class="controls">
+      <button type="button" id="newGameBtn">New game</button>
+    </div>
+  </section>
+
+  <section class="card online-panel" id="onlinePanel" hidden>
+    <h2 style="margin:0; font-family:'Paytone One'; font-size:20px;">Online multiplayer</h2>
+    <div class="row">
+      <input type="text" id="guestName" placeholder="Your name" maxlength="16" autocomplete="off" />
+    </div>
+    <div class="row">
+      <button type="button" id="createRoomBtn">Create room</button>
+      <input type="text" id="joinCode" placeholder="Room code" maxlength="6" autocomplete="off" style="width:130px; text-transform:uppercase;" />
+      <button type="button" id="joinRoomBtn" class="secondary">Join</button>
+    </div>
+    <div class="share-row" id="shareRow" hidden>
+      <span class="status">Share this link:</span>
+      <a class="share-link" id="shareLink" href="#"></a>
+      <button type="button" id="copyLinkBtn" class="secondary">Copy</button>
+    </div>
+    <p class="status" id="onlineStatus">Create a room or join with a code.</p>
+    <div class="row"><button type="button" id="leaveRoomBtn" class="secondary" hidden>Leave room</button></div>
+  </section>
+
+  <section class="card howto">
+    <b>How to play:</b> Tap between two dots to draw a line. Complete the fourth side of a box to claim it and take another turn. When the board is full, the player with the most boxes wins. Chain your boxes — a clever setup can sweep half the board in one turn.
+  </section>
+</main>
+<footer>Free to play · No account needed · <a href="/">1v1.nz</a></footer>
+
+<script>
+'use strict';
+/* ================= Dots and Boxes — 1v1.nz ================= */
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const $ = id => document.getElementById(id);
+const board = $('board');
+
+const Game = {
+  boxes: 5,                 // boxes per side
+  h: [],                    // h[r][c]: horizontal line at row r, col c  (boxes+1) x boxes
+  v: [],                    // v[r][c]: vertical line at row r, col c    boxes x (boxes+1)
+  claimed: [],              // claimed[r][c]: 0 | 1 | 2
+  turn: 1, scores: [0, 0, 0],
+  over: false, mode: 'cpu', difficulty: 'hard',
+  mySlot: 1,                // online: which player I am
+  online: null,             // session or null
+};
+
+function newGrid(n) {
+  Game.boxes = n;
+  Game.h = Array.from({length: n + 1}, () => Array(n).fill(0));
+  Game.v = Array.from({length: n}, () => Array(n + 1).fill(0));
+  Game.claimed = Array.from({length: n}, () => Array(n).fill(0));
+  Game.turn = 1; Game.scores = [0, 0, 0]; Game.over = false;
+}
+
+const CELL = 64, PAD = 34;
+function boardSize() { return PAD * 2 + Game.boxes * CELL; }
+
+/* ---------- rendering ---------- */
+function render() {
+  const n = Game.boxes, S = boardSize();
+  board.setAttribute('viewBox', `0 0 ${S} ${S}`);
+  board.innerHTML = '';
+  const dot = (x, y) => {
+    const c = document.createElementNS(SVG_NS, 'circle');
+    c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 7);
+    c.setAttribute('class', 'dot'); board.appendChild(c);
+  };
+  // box fills + initials
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    const owner = Game.claimed[r][c];
+    if (!owner) continue;
+    const x = PAD + c * CELL, y = PAD + r * CELL;
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('x', x + 5); rect.setAttribute('y', y + 5);
+    rect.setAttribute('width', CELL - 10); rect.setAttribute('height', CELL - 10);
+    rect.setAttribute('rx', 8); rect.setAttribute('class', 'box-fill ' + (owner === 1 ? 'box-p1' : 'box-p2'));
+    board.appendChild(rect);
+    const t = document.createElementNS(SVG_NS, 'text');
+    t.setAttribute('x', x + CELL / 2); t.setAttribute('y', y + CELL / 2);
+    t.setAttribute('class', 'box-initial');
+    t.setAttribute('fill', owner === 1 ? 'var(--p1)' : 'var(--p2)');
+    t.textContent = owner === 1 ? nameInitial(1) : nameInitial(2);
+    board.appendChild(t);
+  }
+  const interactive = canPlay();
+  const mkLine = (x1, y1, x2, y2, kind, r, c) => {
+    const drawn = kind === 'h' ? Game.h[r][c] : Game.v[r][c];
+    if (drawn) {
+      const l = document.createElementNS(SVG_NS, 'line');
+      l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+      l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+      l.setAttribute('stroke-width', 8);
+      l.setAttribute('class', 'line-drawn ' + (drawn === 1 ? 'line-p1' : 'line-p2'));
+      board.appendChild(l);
+      return;
+    }
+    if (!interactive || Game.over) return;
+    // hover ghost
+    const g = document.createElementNS(SVG_NS, 'line');
+    g.setAttribute('x1', x1); g.setAttribute('y1', y1);
+    g.setAttribute('x2', x2); g.setAttribute('y2', y2);
+    g.setAttribute('class', 'line-hover'); g.dataset.k = kind; g.dataset.r = r; g.dataset.c = c;
+    board.appendChild(g);
+    const hit = document.createElementNS(SVG_NS, 'line');
+    hit.setAttribute('x1', x1); hit.setAttribute('y1', y1);
+    hit.setAttribute('x2', x2); hit.setAttribute('y2', y2);
+    hit.setAttribute('class', 'line-spot');
+    hit.addEventListener('pointerenter', () => { g.style.opacity = 1; });
+    hit.addEventListener('pointerleave', () => { g.style.opacity = 0; });
+    hit.addEventListener('click', () => playLine(kind, r, c, true));
+    board.appendChild(hit);
+  };
+  for (let r = 0; r <= n; r++) for (let c = 0; c < n; c++)
+    mkLine(PAD + c * CELL, PAD + r * CELL, PAD + (c + 1) * CELL, PAD + r * CELL, 'h', r, c);
+  for (let r = 0; r < n; r++) for (let c = 0; c <= n; c++)
+    mkLine(PAD + c * CELL, PAD + r * CELL, PAD + c * CELL, PAD + (r + 1) * CELL, 'v', r, c);
+  for (let r = 0; r <= n; r++) for (let c = 0; c <= n; c++)
+    dot(PAD + c * CELL, PAD + r * CELL);
+  // scores
+  $('ptsP1').textContent = Game.scores[1];
+  $('ptsP2').textContent = Game.scores[2];
+  $('scoreP1').classList.toggle('active', Game.turn === 1 && !Game.over);
+  $('scoreP2').classList.toggle('active', Game.turn === 2 && !Game.over);
+  updateTurnNote();
+}
+
+function nameInitial(slot) {
+  const el = slot === 1 ? $('nameP1') : $('nameP2');
+  return (el.textContent || '?').trim().charAt(0).toUpperCase() || '?';
+}
+
+function playerName(slot) { return $(slot === 1 ? 'nameP1' : 'nameP2').textContent; }
+
+function updateTurnNote() {
+  const note = $('turnNote');
+  if (Game.over) { note.textContent = 'Game over'; return; }
+  if (Game.mode === 'online') {
+    note.textContent = Game.turn === Game.mySlot ? 'Your turn' : `${playerName(Game.turn)}'s turn…`;
+  } else if (Game.mode === 'cpu') {
+    note.textContent = Game.turn === 1 ? 'Your turn' : 'Computer is thinking…';
+  } else {
+    note.textContent = `${playerName(Game.turn)}'s turn`;
+  }
+}
+
+function canPlay() {
+  if (Game.over) return false;
+  if (Game.mode === 'cpu') return Game.turn === 1;
+  if (Game.mode === 'local') return true;
+  if (Game.mode === 'online') return Game.online && Game.online.phase === 'active' && Game.turn === Game.mySlot;
+  return false;
+}
+
+/* ---------- rules ---------- */
+function boxSides(r, c) {
+  return (Game.h[r][c] ? 1 : 0) + (Game.h[r + 1][c] ? 1 : 0) +
+         (Game.v[r][c] ? 1 : 0) + (Game.v[r][c + 1] ? 1 : 0);
+}
+
+function applyLine(kind, r, c, player) {
+  if (kind === 'h') { if (Game.h[r][c]) return -1; Game.h[r][c] = player; }
+  else { if (Game.v[r][c]) return -1; Game.v[r][c] = player; }
+  let claimed = 0;
+  const n = Game.boxes;
+  const check = (br, bc) => {
+    if (br < 0 || bc < 0 || br >= n || bc >= n || Game.claimed[br][bc]) return;
+    if (boxSides(br, bc) === 4) { Game.claimed[br][bc] = player; Game.scores[player]++; claimed++; }
+  };
+  if (kind === 'h') { check(r - 1, c); check(r, c); }
+  else { check(r, c - 1); check(r, c); }
+  return claimed;
+}
+
+function boardFull() {
+  const n = Game.boxes;
+  for (let r = 0; r <= n; r++) for (let c = 0; c < n; c++) if (!Game.h[r][c]) return false;
+  for (let r = 0; r < n; r++) for (let c = 0; c <= n; c++) if (!Game.v[r][c]) return false;
+  return true;
+}
+
+function playLine(kind, r, c, local) {
+  if (!canPlay() || Game.over) return false;
+  if (local && Game.mode === 'online') {
+    // send to opponent; apply on ack via event (host authoritative not needed — symmetric)
+    Game.online.send({ t: 'move', kind, r, c });
+  }
+  const claimed = applyLine(kind, r, c, Game.turn);
+  if (claimed < 0) return false;
+  if (claimed === 0) Game.turn = 3 - Game.turn;
+  if (boardFull()) endGame();
+  render();
+  if (!Game.over && Game.mode === 'cpu' && Game.turn === 2) {
+    setTimeout(cpuMove, 450 + Math.random() * 400);
+  }
+  return true;
+}
+
+function applyRemoteMove(kind, r, c) {
+  const mover = Game.turn;
+  const claimed = applyLine(kind, r, c, mover);
+  if (claimed < 0) return;
+  if (claimed === 0) Game.turn = 3 - mover;
+  if (boardFull()) endGame();
+  render();
+}
+
+function endGame() {
+  Game.over = true;
+  const [a, b] = [Game.scores[1], Game.scores[2]];
+  const banner = $('resultBanner');
+  banner.hidden = false;
+  let msg;
+  if (a === b) msg = `Draw! ${a}–${b}`;
+  else {
+    const w = a > b ? 1 : 2;
+    if (Game.mode === 'cpu') msg = w === 1 ? `You win ${a}–${b}!` : `Computer wins ${b}–${a}`;
+    else if (Game.mode === 'online') msg = w === Game.mySlot ? `You win ${Math.max(a,b)}–${Math.min(a,b)}!` : `${playerName(w)} wins`;
+    else msg = `${playerName(w)} wins ${Math.max(a,b)}–${Math.min(a,b)}!`;
+  }
+  banner.textContent = msg;
+  render();
+}
+
+/* ---------- computer AI ---------- */
+function allMoves() {
+  const n = Game.boxes, moves = [];
+  for (let r = 0; r <= n; r++) for (let c = 0; c < n; c++) if (!Game.h[r][c]) moves.push({kind:'h', r, c});
+  for (let r = 0; r < n; r++) for (let c = 0; c <= n; c++) if (!Game.v[r][c]) moves.push({kind:'v', r, c});
+  return moves;
+}
+// how many boxes would this move complete?
+function moveClaims(kind, r, c) {
+  const n = Game.boxes; let count = 0;
+  const sides = (br, bc) => {
+    if (br < 0 || bc < 0 || br >= n || bc >= n || Game.claimed[br][bc]) return -1;
+    let s = (Game.h[br][bc] ? 1 : 0) + (Game.h[br+1][bc] ? 1 : 0) + (Game.v[br][bc] ? 1 : 0) + (Game.v[br][bc+1] ? 1 : 0);
+    return s;
+  };
+  if (kind === 'h') { if (sides(r-1,c) === 3) count++; if (sides(r,c) === 3) count++; }
+  else { if (sides(r,c-1) === 3) count++; if (sides(r,c) === 3) count++; }
+  return count;
+}
+// would this move give the opponent an immediate box? (creates a 3-sided box)
+function moveGivesAway(kind, r, c) {
+  const n = Game.boxes;
+  const sidesAfter = (br, bc) => {
+    if (br < 0 || bc < 0 || br >= n || bc >= n || Game.claimed[br][bc]) return -1;
+    let s = (Game.h[br][bc] ? 1 : 0) + (Game.h[br+1][bc] ? 1 : 0) + (Game.v[br][bc] ? 1 : 0) + (Game.v[br][bc+1] ? 1 : 0);
+    // pretend the move is drawn
+    if (kind === 'h') { if (br === r && bc === c) s++; if (br === r-1 && bc === c) s++; }
+    else { if (br === r && bc === c) s++; if (br === r && bc === c-1) s++; }
+    return s;
+  };
+  if (kind === 'h') { if (sidesAfter(r-1,c) === 3 || sidesAfter(r,c) === 3) return true; }
+  else { if (sidesAfter(r,c-1) === 3 || sidesAfter(r,c) === 3) return true; }
+  return false;
+}
+
+function cpuMove() {
+  if (Game.over || Game.turn !== 2 || Game.mode !== 'cpu') return;
+  const moves = allMoves();
+  if (!moves.length) return;
+  let pick;
+  if (Game.difficulty === 'easy') {
+    pick = moves[Math.floor(Math.random() * moves.length)];
+  } else {
+    const takers = moves.filter(m => moveClaims(m.kind, m.r, m.c) > 0);
+    if (takers.length) {
+      takers.sort((a, b) => moveClaims(b.kind, b.r, b.c) - moveClaims(a.kind, a.r, a.c));
+      pick = takers[0];
+    } else {
+      const safe = moves.filter(m => !moveGivesAway(m.kind, m.r, m.c));
+      const pool = safe.length ? safe : moves;
+      pick = pool[Math.floor(Math.random() * pool.length)];
+    }
+  }
+  playLine(pick.kind, pick.r, pick.c, false);
+}
+
+/* ---------- mode / setup ---------- */
+function setMode(mode) {
+  Game.mode = mode;
+  for (const [id, m] of [['modeCpu','cpu'],['modeLocal','local'],['modeOnline','online']])
+    $(id).setAttribute('aria-pressed', String(m === mode));
+  $('onlinePanel').hidden = mode !== 'online';
+  $('difficultyRow').style.display = mode === 'cpu' ? '' : 'none';
+  if (mode === 'cpu') { $('nameP1').textContent = 'You'; $('nameP2').textContent = 'Computer'; }
+  if (mode === 'local') { $('nameP1').textContent = 'Player 1'; $('nameP2').textContent = 'Player 2'; }
+  if (mode === 'online' && !Game.online) { $('nameP1').textContent = 'You'; $('nameP2').textContent = 'Opponent'; }
+  startNew();
+}
+
+function startNew() {
+  newGrid(Game.boxes);
+  // Alternate who starts in local/online rematches for fairness
+  if ((Game.mode === 'local' || Game.mode === 'online') && Game._starterFlip) Game.turn = 2;
+  Game._starterFlip = !Game._starterFlip;
+  $('resultBanner').hidden = true;
+  render();
+}
+
+$('modeCpu').addEventListener('click', () => setMode('cpu'));
+$('modeLocal').addEventListener('click', () => setMode('local'));
+$('modeOnline').addEventListener('click', () => setMode('online'));
+$('diffEasy').addEventListener('click', () => { Game.difficulty = 'easy'; $('diffEasy').setAttribute('aria-pressed','true'); $('diffHard').setAttribute('aria-pressed','false'); });
+$('diffHard').addEventListener('click', () => { Game.difficulty = 'hard'; $('diffHard').setAttribute('aria-pressed','true'); $('diffEasy').setAttribute('aria-pressed','false'); });
+$('sizeBtn').addEventListener('click', () => {
+  const n = Game.boxes === 5 ? 4 : Game.boxes === 4 ? 6 : 5;
+  $('sizeBtn').textContent = n + '×' + n;
+  newGrid(n); $('resultBanner').hidden = true; render();
+});
+$('newGameBtn').addEventListener('click', () => {
+  if (Game.mode === 'online' && Game.online) Game.online.send({ t: 'rematch' });
+  startNew();
+});
+
+/* ================= online multiplayer ================= */
+const API = location.host === '1v1.nz' ? 'https://1v1.nz' : '';
+const WS_BASE = API ? 'wss://1v1.nz' : (location.protocol === 'https:' ? 'wss://' + location.host : 'ws://' + location.host);
+const onlineStatus = $('onlineStatus');
+function setOnlineStatus(msg, isErr) {
+  onlineStatus.textContent = msg;
+  onlineStatus.classList.toggle('error', !!isErr);
+}
+
+function createSession(code, token, slot) {
+  const s = {
+    code, token, slot, socket: null, phase: 'lobby', connected: false,
+    name: ($('guestName').value || 'Player').slice(0, 16),
+    send(obj) {
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        this.socket.send(JSON.stringify(obj));
+      }
+    },
+    close() { try { this.socket && this.socket.close(); } catch (_) {} },
+  };
+  Game.online = s;
+  Game.mySlot = slot + 1;
+  $('nameP1').textContent = s.name;
+  connectSocket(s);
+  return s;
+}
+
+function connectSocket(s) {
+  setOnlineStatus('Connecting…');
+  let ws;
+  try { ws = new WebSocket(`${WS_BASE}/api/rooms/${encodeURIComponent(s.code)}/ws`); }
+  catch (_) { setOnlineStatus('Could not connect.', true); return; }
+  s.socket = ws;
+  const timeout = setTimeout(() => { try { ws.close(); } catch (_) {} }, 15000);
+  ws.addEventListener('open', () => {
+    const hello = { t: 'hello', name: s.name };
+    if (s.token) hello.token = s.token;
+    ws.send(JSON.stringify(hello));
+  });
+  ws.addEventListener('message', ev => {
+    let m; try { m = JSON.parse(ev.data); } catch (_) { return; }
+    if (m.t === 'joined') {
+      clearTimeout(timeout);
+      s.connected = true; s.slot = m.slot !== undefined ? m.slot : s.slot;
+      Game.mySlot = s.slot + 1;
+      setOnlineStatus(`Room ${s.code} — waiting for opponent…`);
+      if (m.state) applyServerState(m.state);
+    } else if (m.t === 'state' && m.state) {
+      applyServerState(m.state);
+    } else if (m.t === 'move' && m.kind) {
+      // opponent move
+      if (Game.mode === 'online' && !Game.over) applyRemoteMove(m.kind, m.r, m.c);
+    } else if (m.t === 'rematch') {
+      startNew();
+      setOnlineStatus('New game started.');
+    } else if (m.t === 'presence' || m.t === 'players') {
+      if (m.names) {
+        if (m.names[0]) $('nameP1').textContent = m.names[0];
+        if (m.names[1]) $('nameP2').textContent = m.names[1] || 'Opponent';
+      }
+    } else if (m.t === 'start') {
+      s.phase = 'active';
+      setOnlineStatus('Game on!');
+      startNew();
+    } else if (m.t === 'error') {
+      setOnlineStatus(m.msg || 'Room error.', true);
+    } else if (m.t === 'closed') {
+      setOnlineStatus('Opponent left the room.', true);
+      s.phase = 'lobby';
+    }
+  });
+  ws.addEventListener('close', () => {
+    if (Game.online !== s) return;
+    s.connected = false;
+    setOnlineStatus('Disconnected. Reconnecting…', true);
+    setTimeout(() => { if (Game.online === s) connectSocket(s); }, 2500);
+  });
+  ws.addEventListener('error', () => {});
+}
+
+function applyServerState(state) {
+  // generic: update names/phase if provided
+  if (state.players) {
+    state.players.forEach((p, i) => {
+      if (p && p.name) $(i === 0 ? 'nameP1' : 'nameP2').textContent = p.name;
+    });
+  }
+  if (state.phase === 'active' && Game.online && Game.online.phase !== 'active') {
+    Game.online.phase = 'active';
+    setOnlineStatus('Game on!');
+    startNew();
+  }
+}
+
+async function createRoom() {
+  const name = ($('guestName').value || 'Player').slice(0, 16);
+  setOnlineStatus('Creating room…');
+  try {
+    const res = await fetch(`${API}/api/rooms`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ game: 'dots-and-boxes', name }),
+    });
+    if (!res.ok) throw new Error('create failed');
+    const room = await res.json();
+    onRoomReady(room, 0);
+  } catch (_) { setOnlineStatus('Could not create a room. Try again.', true); }
+}
+
+async function joinRoom() {
+  const code = $('joinCode').value.trim().toUpperCase();
+  const name = ($('guestName').value || 'Player').slice(0, 16);
+  if (!code) { setOnlineStatus('Enter a room code.', true); return; }
+  setOnlineStatus('Joining…');
+  try {
+    const res = await fetch(`${API}/api/rooms/${encodeURIComponent(code)}/join`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error('join failed');
+    const room = await res.json();
+    onRoomReady(room, 1);
+  } catch (_) { setOnlineStatus('Could not join that room. It may be full or expired.', true); }
+}
+
+function onRoomReady(room, slot) {
+  createSession(room.code, room.token, slot);
+  const url = new URL(location.href);
+  url.searchParams.set('room', room.code);
+  $('shareLink').href = url.href;
+  $('shareLink').textContent = url.href;
+  $('shareRow').hidden = false;
+  $('leaveRoomBtn').hidden = false;
+  setOnlineStatus(`Room ${room.code} — share the link, then both press New game when ready.`);
+}
+
+$('createRoomBtn').addEventListener('click', createRoom);
+$('joinRoomBtn').addEventListener('click', joinRoom);
+$('leaveRoomBtn').addEventListener('click', () => {
+  if (Game.online) { Game.online.close(); Game.online = null; }
+  $('shareRow').hidden = true;
+  $('leaveRoomBtn').hidden = true;
+  setOnlineStatus('Left the room.');
+  setMode('cpu');
+});
+$('copyLinkBtn').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('shareLink').href); $('copyLinkBtn').textContent = 'Copied!'; }
+  catch (_) {
+    if (navigator.share) navigator.share({ title: 'Dots and Boxes 1v1', url: $('shareLink').href }).catch(() => {});
+  }
+  setTimeout(() => { $('copyLinkBtn').textContent = 'Copy'; }, 1500);
+});
+
+// join via ?room=CODE
+(function () {
+  const code = new URLSearchParams(location.search).get('room');
+  if (code) {
+    setMode('online');
+    $('joinCode').value = code.toUpperCase();
+    setOnlineStatus(`Joining room ${code.toUpperCase()}…`);
+    joinRoom();
+  }
+})();
+
+/* ---------- init ---------- */
+newGrid(5);
+render();
+</script>
+</body>
+</html>
