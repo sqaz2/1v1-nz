@@ -56,9 +56,9 @@ h1 { font-family: 'Paytone One', sans-serif; font-size: clamp(26px, 5vw, 36px); 
 .score.p1.active { color: var(--p1); } .score.p2.active { color: var(--p2); }
 .turn-note { text-align: center; font-weight: 600; min-height: 24px; color: var(--muted); }
 .board-wrap { display: flex; justify-content: center; padding: 6px 0; }
-svg#board { width: min(100%, 460px); height: auto; touch-action: manipulation; user-select: none; }
+svg#board { width: min(100%, 460px); height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
 .dot { fill: var(--dot); }
-.line-spot { stroke: transparent; stroke-width: 22; cursor: pointer; }
+.line-spot { stroke: transparent; stroke-width: 30; cursor: pointer; }
 .line-drawn { stroke-linecap: round; pointer-events: none; }
 .line-p1 { stroke: var(--p1); } .line-p2 { stroke: var(--p2); }
 .line-hover { stroke: var(--gridline); stroke-width: 8; stroke-linecap: round; pointer-events: none; opacity: 0; }
@@ -239,7 +239,9 @@ function render() {
     hit.setAttribute('class', 'line-spot');
     hit.addEventListener('pointerenter', () => { g.style.opacity = 1; });
     hit.addEventListener('pointerleave', () => { g.style.opacity = 0; });
-    hit.addEventListener('click', () => playLine(kind, r, c, true));
+    const doPlay = (e) => { if (e) e.preventDefault(); g.style.opacity = 1; playLine(kind, r, c, true); };
+    hit.addEventListener('click', doPlay);
+    hit.addEventListener('touchstart', doPlay, { passive: false });
     board.appendChild(hit);
   };
   for (let r = 0; r <= n; r++) for (let c = 0; c < n; c++)
@@ -311,7 +313,9 @@ function boardFull() {
 }
 
 function playLine(kind, r, c, local) {
-  if (!canPlay() || Game.over) return false;
+  if (Game.over) return false;
+  const isCpuTurn = Game.mode === 'cpu' && Game.turn === 2 && !local;
+  if (!isCpuTurn && !canPlay()) return false;
   if (local && Game.mode === 'online') {
     // send to opponent; apply on ack via event (host authoritative not needed — symmetric)
     Game.online.send({ t: 'move', kind, r, c });
@@ -322,7 +326,7 @@ function playLine(kind, r, c, local) {
   if (boardFull()) endGame();
   render();
   if (!Game.over && Game.mode === 'cpu' && Game.turn === 2) {
-    setTimeout(cpuMove, 450 + Math.random() * 400);
+    setTimeout(cpuMove, 250 + Math.random() * 250);
   }
   return true;
 }
