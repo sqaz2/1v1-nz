@@ -77,6 +77,7 @@ button:disabled { opacity: .45; cursor: default; }
 .mode-row button[aria-pressed="true"] { outline: 3px solid var(--gold); }
 .online-panel { display: flex; flex-direction: column; gap: 10px; }
 .online-panel[hidden] { display: none; }
+[hidden]#howModal { display: none; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 input[type="text"] {
   font: 500 15px 'DM Sans', sans-serif; padding: 10px 12px; border-radius: 10px;
@@ -647,6 +648,7 @@ const howModal = $('howModal');
 $('howBtn').addEventListener('click', () => { howModal.hidden = false; });
 $('howClose').addEventListener('click', () => { howModal.hidden = true; });
 howModal.addEventListener('click', (e) => { if (e.target === howModal) howModal.hidden = true; });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') howModal.hidden = true; });
 
 /* ---------- init ---------- */
 newGrid(5);
