@@ -59,8 +59,8 @@ h1 { font-family: 'Paytone One', sans-serif; font-size: clamp(26px, 5vw, 36px); 
 .board-wrap { display: flex; justify-content: center; padding: 6px 0; }
 svg#board { width: min(100%, 460px); height: auto; touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-select: none; }
 .dot { fill: var(--dot); pointer-events: none; }
-.line-spot { stroke: transparent; stroke-width: 30; cursor: pointer; }
-.line-spot:focus-visible { outline: none; stroke: var(--gold); stroke-opacity: .55; }
+.line-spot { fill: transparent; cursor: pointer; }
+.line-spot:focus-visible { outline: none; fill: var(--gold); fill-opacity: .4; }
 .line-drawn { stroke-linecap: round; pointer-events: none; }
 .line-p1 { stroke: var(--p1); } .line-p2 { stroke: var(--p2); }
 .line-hover { stroke: var(--gridline); stroke-width: 8; stroke-linecap: round; pointer-events: none; opacity: 0; }
@@ -253,9 +253,13 @@ function render() {
     g.setAttribute('x2', x2); g.setAttribute('y2', y2);
     g.setAttribute('class', 'line-hover'); g.dataset.k = kind; g.dataset.r = r; g.dataset.c = c;
     board.appendChild(g);
-    const hit = document.createElementNS(SVG_NS, 'line');
-    hit.setAttribute('x1', x1); hit.setAttribute('y1', y1);
-    hit.setAttribute('x2', x2); hit.setAttribute('y2', y2);
+    // Give every edge a real two-dimensional focus and pointer target.
+    const hit = document.createElementNS(SVG_NS, 'rect');
+    hit.setAttribute('x', kind === 'h' ? x1 + 8 : x1 - 16);
+    hit.setAttribute('y', kind === 'h' ? y1 - 16 : y1 + 8);
+    hit.setAttribute('width', kind === 'h' ? CELL - 16 : 32);
+    hit.setAttribute('height', kind === 'h' ? 32 : CELL - 16);
+    hit.setAttribute('rx', 6);
     hit.setAttribute('class', 'line-spot');
     hit.setAttribute('role', 'button');
     hit.setAttribute('tabindex', '0');
