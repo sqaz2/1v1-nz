@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="light dark" />
 <meta name="theme-color" content="#07152c" />
-<title>Play Dots and Boxes 1v1 Online — vs Computer | 1v1.nz</title>
-<meta name="description" content="Play Dots and Boxes 1v1 online free — outsmart your opponent, claim the most boxes. Play vs the computer or a friend on 1v1.nz." />
+<title>Play Dots and Boxes — vs Computer or 2 Players | 1v1.nz</title>
+<meta name="description" content="Play Dots and Boxes free against the computer or a friend on the same device. Draw lines, claim boxes and keep your turn on 1v1.nz." />
 <link rel="canonical" href="https://1v1.nz/dots-and-boxes/" />
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Paytone+One&display=swap');
@@ -26,6 +26,7 @@
   }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
 body {
   margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink);
   min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
@@ -56,9 +57,10 @@ h1 { font-family: 'Paytone One', sans-serif; font-size: clamp(26px, 5vw, 36px); 
 .score.p1.active { color: var(--p1); } .score.p2.active { color: var(--p2); }
 .turn-note { text-align: center; font-weight: 600; min-height: 24px; color: var(--muted); }
 .board-wrap { display: flex; justify-content: center; padding: 6px 0; }
-svg#board { width: min(100%, 460px); height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
-.dot { fill: var(--dot); }
+svg#board { width: min(100%, 460px); height: auto; touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-select: none; }
+.dot { fill: var(--dot); pointer-events: none; }
 .line-spot { stroke: transparent; stroke-width: 30; cursor: pointer; }
+.line-spot:focus-visible { outline: none; stroke: var(--gold); stroke-opacity: .55; }
 .line-drawn { stroke-linecap: round; pointer-events: none; }
 .line-p1 { stroke: var(--p1); } .line-p2 { stroke: var(--p2); }
 .line-hover { stroke: var(--gridline); stroke-width: 8; stroke-linecap: round; pointer-events: none; opacity: 0; }
@@ -74,11 +76,21 @@ button:active { transform: scale(.97); }
 button.secondary { background: transparent; color: var(--ink); border: 2px solid var(--line); }
 button:disabled { opacity: .45; cursor: default; }
 .mode-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.mode-row button[aria-pressed="true"] { outline: 3px solid var(--gold); }
+.mode-row button[aria-pressed="true"], #difficultyRow button[aria-pressed="true"] { outline: 3px solid var(--gold); }
 .online-panel { display: flex; flex-direction: column; gap: 10px; }
-.online-panel[hidden] { display: none; }
-#howModal { display: flex; }
-[hidden]#howModal { display: none; }
+.help-dialog {
+  width: min(420px, calc(100% - 28px)); max-height: calc(100vh - 28px); max-height: calc(100dvh - 28px);
+  margin: auto; padding: 20px; overflow-y: auto; overscroll-behavior: contain;
+  color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+.help-dialog::backdrop { background: rgba(4,10,24,.72); }
+.help-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.help-heading h2 { margin: 0; font-family: 'Paytone One', sans-serif; font-size: 22px; }
+.help-dismiss { margin-left: auto; flex: 0 0 44px; height: 44px; padding: 0; font-size: 24px; }
+.help-dialog ol { margin: 0 0 14px; padding-left: 22px; line-height: 1.65; font-size: 16px; }
+.help-dialog p { font-size: 15px; color: var(--muted); line-height: 1.5; }
+body.help-open { overflow: hidden; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 input[type="text"] {
   font: 500 15px 'DM Sans', sans-serif; padding: 10px 12px; border-radius: 10px;
@@ -113,13 +125,20 @@ footer a { color: var(--muted); }
     <div class="mode-row" role="group" aria-label="Game mode">
       <button type="button" id="modeCpu" aria-pressed="true">vs Computer</button>
       <button type="button" id="modeLocal" aria-pressed="false">2 Players</button>
-      <button type="button" id="modeOnline" aria-pressed="false">Online</button>
+      <button type="button" id="modeOnline" aria-controls="onlinePanel" aria-expanded="false">Online</button>
     </div>
-    <div class="row" id="difficultyRow" style="justify-content:center; margin-top:10px;">
+    <div class="row" style="justify-content:center; margin-top:12px;">
+      <div class="row" id="difficultyRow" role="group" aria-label="Computer difficulty">
       <button type="button" id="diffEasy" class="secondary" aria-pressed="false">Easy</button>
       <button type="button" id="diffHard" class="secondary" aria-pressed="true">Hard</button>
-      <button type="button" id="sizeBtn" class="secondary" title="Toggle board size">5×5</button>
+      </div>
+      <button type="button" id="sizeBtn" class="secondary" title="Change board size and start a new game" aria-label="Board size: 5 by 5 boxes. Change size and start a new game.">5×5</button>
     </div>
+  </section>
+
+  <section class="card online-panel" id="onlinePanel" hidden>
+    <h2 style="margin:0; font-family:'Paytone One'; font-size:20px;">Online play</h2>
+    <p class="status" id="onlineStatus" role="status" style="margin:0;">Online play isn't connected for Dots and Boxes yet. Choose vs Computer or 2 Players to play on this device.</p>
   </section>
 
   <section class="card">
@@ -127,51 +146,33 @@ footer a { color: var(--muted); }
       <div class="score p1" id="scoreP1"><div class="name" id="nameP1">You</div><div class="pts" id="ptsP1">0</div></div>
       <div class="score p2" id="scoreP2"><div class="name" id="nameP2">Computer</div><div class="pts" id="ptsP2">0</div></div>
     </div>
-    <p class="turn-note" id="turnNote">Your turn</p>
-    <div class="board-wrap"><svg id="board" role="img" aria-label="Dots and boxes board"></svg></div>
-    <div class="result-banner" id="resultBanner" hidden></div>
+    <p class="turn-note" id="turnNote" role="status" aria-live="polite">Your turn</p>
+    <div class="board-wrap"><svg id="board" role="group" aria-label="Dots and boxes board"></svg></div>
+    <div class="result-banner" id="resultBanner" role="status" hidden></div>
     <div class="controls">
       <button type="button" id="newGameBtn">New game</button>
-      <button type="button" id="howBtn" class="secondary">How to play</button>
+      <button type="button" id="howBtn" class="secondary" aria-haspopup="dialog" aria-controls="howModal">How to play</button>
     </div>
-    <div id="howModal" hidden style="position:fixed; inset:0; z-index:50; align-items:center; justify-content:center; padding:20px; background:rgba(4,10,24,.6);">
-      <div class="card" style="max-width:420px; width:100%;">
-        <h2 style="margin:0 0 10px; font-family:'Paytone One'; font-size:22px;">How to play</h2>
-        <ol style="margin:0 0 14px; padding-left:20px; line-height:1.65; font-size:15px;">
-          <li><b>Tap between two dots</b> to draw a line.</li>
-          <li><b>Close a box</b> (draw its 4th side) to claim it — it fills with your color.</li>
-          <li><b>Every box you close earns another turn.</b> Keep chaining as long as you keep closing boxes!</li>
-          <li>When the board is full, <b>most boxes wins</b>.</li>
-        </ol>
-        <p style="margin:0 0 14px; font-size:14px; color:var(--muted);"><b style="color:var(--ink);">Strategy:</b> don't just grab single boxes — set up chains where one line closes multiple boxes at once. That's how you sweep the board.</p>
-        <button type="button" id="howClose" style="width:100%;">Got it</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="card online-panel" id="onlinePanel" hidden>
-    <h2 style="margin:0; font-family:'Paytone One'; font-size:20px;">Online multiplayer</h2>
-    <div class="row">
-      <input type="text" id="guestName" placeholder="Your name" maxlength="16" autocomplete="off" />
-    </div>
-    <div class="row">
-      <button type="button" id="createRoomBtn">Create room</button>
-      <input type="text" id="joinCode" placeholder="Room code" maxlength="6" autocomplete="off" style="width:130px; text-transform:uppercase;" />
-      <button type="button" id="joinRoomBtn" class="secondary">Join</button>
-    </div>
-    <div class="share-row" id="shareRow" hidden>
-      <span class="status">Share this link:</span>
-      <a class="share-link" id="shareLink" href="#"></a>
-      <button type="button" id="copyLinkBtn" class="secondary">Copy</button>
-    </div>
-    <p class="status" id="onlineStatus">Create a room or join with a code.</p>
-    <div class="row"><button type="button" id="leaveRoomBtn" class="secondary" hidden>Leave room</button></div>
   </section>
 
   <section class="card howto">
-    <b>How to play:</b> Tap between two dots to draw a line. <b>Close a box to claim it — and you immediately get another turn.</b> Keep chaining boxes as long as you keep closing them. When the board is full, most boxes wins. Strategy tip: set up chains where one move completes multiple boxes.
+    <b>How to play:</b> Tap between two dots to draw a line. <b>Close a box to claim it — and you immediately get another turn.</b> A single line can close two boxes. A chain lets you claim more over several turns. When the board is full, most boxes wins.
   </section>
 </main>
+<dialog id="howModal" class="help-dialog" aria-labelledby="helpTitle">
+  <div class="help-heading">
+    <h2 id="helpTitle">How to play</h2>
+    <button type="button" id="howDismiss" class="secondary help-dismiss" aria-label="Close help">×</button>
+  </div>
+  <ol>
+    <li><b>Tap between two dots</b> to draw a line.</li>
+    <li><b>Close a box</b> (draw its 4th side) to claim it — it fills with your color.</li>
+    <li><b>Every box you close earns another turn.</b> Keep chaining as long as you keep closing boxes!</li>
+    <li>When the board is full, <b>most boxes wins</b>.</li>
+  </ol>
+  <p><b>Strategy:</b> Avoid giving away long chains. Sometimes a small sacrifice lets you take more boxes later.</p>
+  <button type="button" id="howClose" style="width:100%;" autofocus>Got it</button>
+</dialog>
 <footer>Free to play · No account needed · <a href="/">1v1.nz</a></footer>
 
 <script>
@@ -188,11 +189,14 @@ const Game = {
   claimed: [],              // claimed[r][c]: 0 | 1 | 2
   turn: 1, scores: [0, 0, 0],
   over: false, mode: 'cpu', difficulty: 'hard',
-  mySlot: 1,                // online: which player I am
-  online: null,             // session or null
+  generation: 0, cpuTimer: null, localStarter: 1,
 };
 
 function newGrid(n) {
+  clearTimeout(Game.cpuTimer);
+  Game.cpuTimer = null;
+  Game.generation++;
+  lastClaimMsg = '';
   Game.boxes = n;
   Game.h = Array.from({length: n + 1}, () => Array(n).fill(0));
   Game.v = Array.from({length: n}, () => Array(n + 1).fill(0));
@@ -253,11 +257,16 @@ function render() {
     hit.setAttribute('x1', x1); hit.setAttribute('y1', y1);
     hit.setAttribute('x2', x2); hit.setAttribute('y2', y2);
     hit.setAttribute('class', 'line-spot');
+    hit.setAttribute('role', 'button');
+    hit.setAttribute('tabindex', '0');
+    hit.setAttribute('aria-label', `${kind === 'h' ? 'Horizontal' : 'Vertical'} line, row ${r + 1}, column ${c + 1}`);
     hit.addEventListener('pointerenter', () => { g.style.opacity = 1; });
     hit.addEventListener('pointerleave', () => { g.style.opacity = 0; });
     const doPlay = (e) => { if (e) e.preventDefault(); g.style.opacity = 1; playLine(kind, r, c, true); };
     hit.addEventListener('click', doPlay);
-    hit.addEventListener('touchstart', doPlay, { passive: false });
+    hit.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') doPlay(e);
+    });
     board.appendChild(hit);
   };
   for (let r = 0; r <= n; r++) for (let c = 0; c < n; c++)
@@ -286,9 +295,7 @@ function updateTurnNote() {
   const note = $('turnNote');
   if (Game.over) { note.textContent = 'Game over'; return; }
   if (lastClaimMsg) { note.textContent = lastClaimMsg; lastClaimMsg = ''; return; }
-  if (Game.mode === 'online') {
-    note.textContent = Game.turn === Game.mySlot ? 'Your turn' : `${playerName(Game.turn)}'s turn…`;
-  } else if (Game.mode === 'cpu') {
+  if (Game.mode === 'cpu') {
     note.textContent = Game.turn === 1 ? 'Your turn' : 'Computer is thinking…';
   } else {
     note.textContent = `${playerName(Game.turn)}'s turn`;
@@ -299,7 +306,6 @@ function canPlay() {
   if (Game.over) return false;
   if (Game.mode === 'cpu') return Game.turn === 1;
   if (Game.mode === 'local') return true;
-  if (Game.mode === 'online') return Game.online && Game.online.phase === 'active' && Game.turn === Game.mySlot;
   return false;
 }
 
@@ -310,10 +316,13 @@ function boxSides(r, c) {
 }
 
 function applyLine(kind, r, c, player) {
+  const n = Game.boxes;
+  if (!['h', 'v'].includes(kind) || ![1, 2].includes(player) ||
+      !Number.isInteger(r) || !Number.isInteger(c) || r < 0 || c < 0 ||
+      r >= (kind === 'h' ? n + 1 : n) || c >= (kind === 'h' ? n : n + 1)) return -1;
   if (kind === 'h') { if (Game.h[r][c]) return -1; Game.h[r][c] = player; }
   else { if (Game.v[r][c]) return -1; Game.v[r][c] = player; }
   let claimed = 0;
-  const n = Game.boxes;
   const check = (br, bc) => {
     if (br < 0 || bc < 0 || br >= n || bc >= n || Game.claimed[br][bc]) return;
     if (boxSides(br, bc) === 4) { Game.claimed[br][bc] = player; Game.scores[player]++; claimed++; }
@@ -334,10 +343,6 @@ function playLine(kind, r, c, local) {
   if (Game.over) return false;
   const isCpuTurn = Game.mode === 'cpu' && Game.turn === 2 && !local;
   if (!isCpuTurn && !canPlay()) return false;
-  if (local && Game.mode === 'online') {
-    // send to opponent; apply on ack via event (host authoritative not needed — symmetric)
-    Game.online.send({ t: 'move', kind, r, c });
-  }
   const mover = Game.turn;
   const claimed = applyLine(kind, r, c, mover);
   if (claimed < 0) return false;
@@ -345,30 +350,21 @@ function playLine(kind, r, c, local) {
     Game.turn = 3 - mover;
   } else {
     const who = Game.mode === 'cpu' ? (mover === 1 ? 'You' : 'Computer')
-      : Game.mode === 'online' ? (mover === Game.mySlot ? 'You' : playerName(mover))
       : playerName(mover);
     lastClaimMsg = `${who} claimed ${claimed === 1 ? 'a box' : claimed + ' boxes'} — go again!`;
   }
   if (boardFull()) endGame();
   render();
   if (!Game.over && Game.mode === 'cpu' && Game.turn === 2) {
-    setTimeout(cpuMove, 250 + Math.random() * 250);
+    const generation = Game.generation;
+    clearTimeout(Game.cpuTimer);
+    Game.cpuTimer = setTimeout(() => {
+      if (generation !== Game.generation) return;
+      Game.cpuTimer = null;
+      cpuMove();
+    }, 300);
   }
   return true;
-}
-
-function applyRemoteMove(kind, r, c) {
-  const mover = Game.turn;
-  const claimed = applyLine(kind, r, c, mover);
-  if (claimed < 0) return;
-  if (claimed === 0) {
-    Game.turn = 3 - mover;
-  } else {
-    const who = mover === Game.mySlot ? 'You' : playerName(mover);
-    lastClaimMsg = `${who} claimed ${claimed === 1 ? 'a box' : claimed + ' boxes'} — go again!`;
-  }
-  if (boardFull()) endGame();
-  render();
 }
 
 function endGame() {
@@ -381,11 +377,9 @@ function endGame() {
   else {
     const w = a > b ? 1 : 2;
     if (Game.mode === 'cpu') msg = w === 1 ? `You win ${a}–${b}!` : `Computer wins ${b}–${a}`;
-    else if (Game.mode === 'online') msg = w === Game.mySlot ? `You win ${Math.max(a,b)}–${Math.min(a,b)}!` : `${playerName(w)} wins`;
     else msg = `${playerName(w)} wins ${Math.max(a,b)}–${Math.min(a,b)}!`;
   }
   banner.textContent = msg;
-  render();
 }
 
 /* ---------- computer AI ---------- */
@@ -431,229 +425,154 @@ function cpuMove() {
   if (Game.difficulty === 'easy') {
     pick = moves[Math.floor(Math.random() * moves.length)];
   } else {
-    const takers = moves.filter(m => moveClaims(m.kind, m.r, m.c) > 0);
-    if (takers.length) {
-      takers.sort((a, b) => moveClaims(b.kind, b.r, b.c) - moveClaims(a.kind, a.r, a.c));
-      pick = takers[0];
-    } else {
-      const safe = moves.filter(m => !moveGivesAway(m.kind, m.r, m.c));
-      const pool = safe.length ? safe : moves;
-      pick = pool[Math.floor(Math.random() * pool.length)];
-    }
+    pick = chooseHardMove(moves);
   }
   playLine(pick.kind, pick.r, pick.c, false);
 }
 
-/* ---------- mode / setup ---------- */
-function setMode(mode) {
-  Game.mode = mode;
-  for (const [id, m] of [['modeCpu','cpu'],['modeLocal','local'],['modeOnline','online']])
-    $(id).setAttribute('aria-pressed', String(m === mode));
-  $('onlinePanel').hidden = mode !== 'online';
-  $('difficultyRow').style.display = mode === 'cpu' ? '' : 'none';
-  if (mode === 'cpu') { $('nameP1').textContent = 'You'; $('nameP2').textContent = 'Computer'; }
-  if (mode === 'local') { $('nameP1').textContent = 'Player 1'; $('nameP2').textContent = 'Player 2'; }
-  if (mode === 'online' && !Game.online) { $('nameP1').textContent = 'You'; $('nameP2').textContent = 'Opponent'; }
-  startNew();
+function chooseHardMove(moves) {
+  if (!moves.length) return null;
+  const n = Game.boxes;
+  const sides = Array.from({length: n * n}, (_, b) => boxSides(Math.floor(b / n), b % n));
+  const adjacent = m => {
+    const boxes = [];
+    const add = (r, c) => { if (r >= 0 && r < n && c >= 0 && c < n) boxes.push(r * n + c); };
+    if (m.kind === 'h') { add(m.r - 1, m.c); add(m.r, m.c); }
+    else { add(m.r, m.c - 1); add(m.r, m.c); }
+    return boxes;
+  };
+  const edges = moves.map(adjacent);
+
+  // Solve the small endgame exactly, including another turn after scoring.
+  // At most 4096 states, so this stays bounded on a phone.
+  if (moves.length <= 12) {
+    const full = (1 << moves.length) - 1;
+    const boxMasks = new Array(n * n).fill(0);
+    edges.forEach((boxes, i) => boxes.forEach(b => { boxMasks[b] |= 1 << i; }));
+    const memo = new Map([[full, 0]]);
+    const gainFor = (next, i) => edges[i].filter(b => (next & boxMasks[b]) === boxMasks[b]).length;
+    const solve = mask => {
+      if (memo.has(mask)) return memo.get(mask);
+      let best = -Infinity;
+      for (let i = 0; i < moves.length; i++) {
+        if (mask & (1 << i)) continue;
+        const next = mask | (1 << i), gain = gainFor(next, i);
+        best = Math.max(best, gain ? gain + solve(next) : -solve(next));
+      }
+      memo.set(mask, best);
+      return best;
+    };
+    let best = -Infinity, pick = moves[0];
+    for (let i = 0; i < moves.length; i++) {
+      const next = 1 << i, gain = gainFor(next, i);
+      const value = gain ? gain + solve(next) : -solve(next);
+      if (value > best) { best = value; pick = moves[i]; }
+    }
+    return pick;
+  }
+
+  const takers = moves.filter(m => moveClaims(m.kind, m.r, m.c) > 0);
+  if (takers.length) return takers.sort((a, b) => moveClaims(b.kind, b.r, b.c) - moveClaims(a.kind, a.r, a.c))[0];
+  const safe = moves.filter(m => !moveGivesAway(m.kind, m.r, m.c));
+  if (safe.length) return safe[Math.floor(Math.random() * safe.length)];
+
+  // When a sacrifice is forced, estimate the entire chain given away.
+  const concession = first => {
+    const counts = sides.slice(), played = new Set([first]);
+    edges[first].forEach(b => counts[b]++);
+    let loss = 0;
+    for (;;) {
+      let pick = -1, gain = 0;
+      for (let i = 0; i < edges.length; i++) {
+        if (played.has(i)) continue;
+        const points = edges[i].filter(b => counts[b] === 3).length;
+        if (points > gain) { pick = i; gain = points; }
+      }
+      if (pick < 0) return loss;
+      played.add(pick); loss += gain;
+      edges[pick].forEach(b => counts[b]++);
+    }
+  };
+  let best = Infinity, pick = moves[0];
+  moves.forEach((move, i) => {
+    const loss = concession(i);
+    if (loss < best) { best = loss; pick = move; }
+  });
+  return pick;
 }
 
-function startNew() {
+/* ---------- mode / setup ---------- */
+function setMode(mode) {
+  if (!['cpu', 'local'].includes(mode)) return;
+  const changed = Game.mode !== mode;
+  Game.mode = mode;
+  for (const [id, m] of [['modeCpu','cpu'],['modeLocal','local']])
+    $(id).setAttribute('aria-pressed', String(m === mode));
+  $('onlinePanel').hidden = true;
+  $('modeOnline').setAttribute('aria-expanded', 'false');
+  $('difficultyRow').hidden = mode !== 'cpu';
+  if (mode === 'cpu') { $('nameP1').textContent = 'You'; $('nameP2').textContent = 'Computer'; }
+  if (mode === 'local') { $('nameP1').textContent = 'Player 1'; $('nameP2').textContent = 'Player 2'; }
+  if (!changed) return;
+  Game.localStarter = 1;
+  startNew(false);
+}
+
+function startNew(alternate = true) {
   newGrid(Game.boxes);
-  // Alternate who starts in local/online rematches for fairness
-  if ((Game.mode === 'local' || Game.mode === 'online') && Game._starterFlip) Game.turn = 2;
-  Game._starterFlip = !Game._starterFlip;
+  if (Game.mode === 'local') {
+    if (alternate) Game.localStarter = 3 - Game.localStarter;
+    Game.turn = Game.localStarter;
+  }
   $('resultBanner').hidden = true;
   render();
 }
 
 $('modeCpu').addEventListener('click', () => setMode('cpu'));
 $('modeLocal').addEventListener('click', () => setMode('local'));
-$('modeOnline').addEventListener('click', () => setMode('online'));
 $('diffEasy').addEventListener('click', () => { Game.difficulty = 'easy'; $('diffEasy').setAttribute('aria-pressed','true'); $('diffHard').setAttribute('aria-pressed','false'); });
 $('diffHard').addEventListener('click', () => { Game.difficulty = 'hard'; $('diffHard').setAttribute('aria-pressed','true'); $('diffEasy').setAttribute('aria-pressed','false'); });
 $('sizeBtn').addEventListener('click', () => {
   const n = Game.boxes === 5 ? 4 : Game.boxes === 4 ? 6 : 5;
   $('sizeBtn').textContent = n + '×' + n;
-  newGrid(n); $('resultBanner').hidden = true; render();
+  $('sizeBtn').setAttribute('aria-label', `Board size: ${n} by ${n} boxes. Change size and start a new game.`);
+  Game.boxes = n;
+  startNew(false);
 });
 $('newGameBtn').addEventListener('click', () => {
-  if (Game.mode === 'online' && Game.online) Game.online.send({ t: 'rematch' });
   startNew();
 });
 
-/* ================= online multiplayer ================= */
-const API = location.host === '1v1.nz' ? 'https://1v1.nz' : '';
-const WS_BASE = API ? 'wss://1v1.nz' : (location.protocol === 'https:' ? 'wss://' + location.host : 'ws://' + location.host);
-const onlineStatus = $('onlineStatus');
-function setOnlineStatus(msg, isErr) {
-  onlineStatus.textContent = msg;
-  onlineStatus.classList.toggle('error', !!isErr);
+/* Online requires a Dots rules adapter and a backend deployment. Do not
+   create Connect Four rooms or pretend the old invite links can join. */
+function showOnlineNotice() {
+  $('onlinePanel').hidden = false;
+  $('modeOnline').setAttribute('aria-expanded', 'true');
 }
+$('modeOnline').addEventListener('click', showOnlineNotice);
 
-function createSession(code, token, slot) {
-  const s = {
-    code, token, slot, socket: null, phase: 'lobby', connected: false,
-    name: ($('guestName').value || 'Player').slice(0, 16),
-    send(obj) {
-      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        this.socket.send(JSON.stringify(obj));
-      }
-    },
-    close() { try { this.socket && this.socket.close(); } catch (_) {} },
-  };
-  Game.online = s;
-  Game.mySlot = slot + 1;
-  $('nameP1').textContent = s.name;
-  connectSocket(s);
-  return s;
-}
-
-function connectSocket(s) {
-  setOnlineStatus('Connecting…');
-  let ws;
-  try { ws = new WebSocket(`${WS_BASE}/api/rooms/${encodeURIComponent(s.code)}/ws`); }
-  catch (_) { setOnlineStatus('Could not connect.', true); return; }
-  s.socket = ws;
-  const timeout = setTimeout(() => { try { ws.close(); } catch (_) {} }, 15000);
-  ws.addEventListener('open', () => {
-    const hello = { t: 'hello', name: s.name };
-    if (s.token) hello.token = s.token;
-    ws.send(JSON.stringify(hello));
-  });
-  ws.addEventListener('message', ev => {
-    let m; try { m = JSON.parse(ev.data); } catch (_) { return; }
-    if (m.t === 'joined') {
-      clearTimeout(timeout);
-      s.connected = true; s.slot = m.slot !== undefined ? m.slot : s.slot;
-      Game.mySlot = s.slot + 1;
-      setOnlineStatus(`Room ${s.code} — waiting for opponent…`);
-      if (m.state) applyServerState(m.state);
-    } else if (m.t === 'state' && m.state) {
-      applyServerState(m.state);
-    } else if (m.t === 'move' && m.kind) {
-      // opponent move
-      if (Game.mode === 'online' && !Game.over) applyRemoteMove(m.kind, m.r, m.c);
-    } else if (m.t === 'rematch') {
-      startNew();
-      setOnlineStatus('New game started.');
-    } else if (m.t === 'presence' || m.t === 'players') {
-      if (m.names) {
-        if (m.names[0]) $('nameP1').textContent = m.names[0];
-        if (m.names[1]) $('nameP2').textContent = m.names[1] || 'Opponent';
-      }
-    } else if (m.t === 'start') {
-      s.phase = 'active';
-      setOnlineStatus('Game on!');
-      startNew();
-    } else if (m.t === 'error') {
-      setOnlineStatus(m.msg || 'Room error.', true);
-    } else if (m.t === 'closed') {
-      setOnlineStatus('Opponent left the room.', true);
-      s.phase = 'lobby';
-    }
-  });
-  ws.addEventListener('close', () => {
-    if (Game.online !== s) return;
-    s.connected = false;
-    setOnlineStatus('Disconnected. Reconnecting…', true);
-    setTimeout(() => { if (Game.online === s) connectSocket(s); }, 2500);
-  });
-  ws.addEventListener('error', () => {});
-}
-
-function applyServerState(state) {
-  // generic: update names/phase if provided
-  if (state.players) {
-    state.players.forEach((p, i) => {
-      if (p && p.name) $(i === 0 ? 'nameP1' : 'nameP2').textContent = p.name;
-    });
-  }
-  if (state.phase === 'active' && Game.online && Game.online.phase !== 'active') {
-    Game.online.phase = 'active';
-    setOnlineStatus('Game on!');
-    startNew();
-  }
-}
-
-async function createRoom() {
-  const name = ($('guestName').value || 'Player').slice(0, 16);
-  setOnlineStatus('Creating room…');
-  try {
-    const res = await fetch(`${API}/api/rooms`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ game: 'dots-and-boxes', name }),
-    });
-    if (!res.ok) throw new Error('create failed');
-    const room = await res.json();
-    onRoomReady(room, 0);
-  } catch (_) { setOnlineStatus('Could not create a room. Try again.', true); }
-}
-
-async function joinRoom() {
-  const code = $('joinCode').value.trim().toUpperCase();
-  const name = ($('guestName').value || 'Player').slice(0, 16);
-  if (!code) { setOnlineStatus('Enter a room code.', true); return; }
-  setOnlineStatus('Joining…');
-  try {
-    const res = await fetch(`${API}/api/rooms/${encodeURIComponent(code)}/join`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) throw new Error('join failed');
-    const room = await res.json();
-    onRoomReady(room, 1);
-  } catch (_) { setOnlineStatus('Could not join that room. It may be full or expired.', true); }
-}
-
-function onRoomReady(room, slot) {
-  createSession(room.code, room.token, slot);
-  const url = new URL(location.href);
-  url.searchParams.set('room', room.code);
-  $('shareLink').href = url.href;
-  $('shareLink').textContent = url.href;
-  $('shareRow').hidden = false;
-  $('leaveRoomBtn').hidden = false;
-  setOnlineStatus(`Room ${room.code} — share the link, then both press New game when ready.`);
-}
-
-$('createRoomBtn').addEventListener('click', createRoom);
-$('joinRoomBtn').addEventListener('click', joinRoom);
-$('leaveRoomBtn').addEventListener('click', () => {
-  if (Game.online) { Game.online.close(); Game.online = null; }
-  $('shareRow').hidden = true;
-  $('leaveRoomBtn').hidden = true;
-  setOnlineStatus('Left the room.');
-  setMode('cpu');
-});
-$('copyLinkBtn').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText($('shareLink').href); $('copyLinkBtn').textContent = 'Copied!'; }
-  catch (_) {
-    if (navigator.share) navigator.share({ title: 'Dots and Boxes 1v1', url: $('shareLink').href }).catch(() => {});
-  }
-  setTimeout(() => { $('copyLinkBtn').textContent = 'Copy'; }, 1500);
-});
-
-// join via ?room=CODE
-(function () {
-  const code = new URLSearchParams(location.search).get('room');
-  if (code) {
-    setMode('online');
-    $('joinCode').value = code.toUpperCase();
-    setOnlineStatus(`Joining room ${code.toUpperCase()}…`);
-    joinRoom();
-  }
-})();
-
-/* ---------- how to play modal ---------- */
+/* ---------- how to play dialog ---------- */
 const howModal = $('howModal');
-$('howBtn').addEventListener('click', () => { howModal.hidden = false; });
-$('howClose').addEventListener('click', () => { howModal.hidden = true; });
-howModal.addEventListener('click', (e) => { if (e.target === howModal) howModal.hidden = true; });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') howModal.hidden = true; });
+$('howBtn').addEventListener('click', () => {
+  if (!howModal.open) howModal.showModal();
+  document.body.classList.add('help-open');
+});
+$('howClose').addEventListener('click', () => howModal.close());
+$('howDismiss').addEventListener('click', () => howModal.close());
+howModal.addEventListener('close', () => {
+  document.body.classList.remove('help-open');
+  $('howBtn').focus({ preventScroll: true });
+});
+howModal.addEventListener('click', (e) => {
+  if (e.target !== howModal) return;
+  const box = howModal.getBoundingClientRect();
+  if (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom) howModal.close();
+});
 
 /* ---------- init ---------- */
 newGrid(5);
 render();
+if (new URLSearchParams(location.search).has('room')) showOnlineNotice();
 </script>
 </body>
 </html>
