@@ -1,0 +1,238 @@
+name: Cloudflare DNS access audit (read only)
+
+on:
+  push:
+    branches: [codex/cloudflare-dns]
+    paths: [.github/workflows/cloudflare-dns.yml]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check selected DNS records without making changes
+        env:
+          CLOUDFLARE_AUDIT_TOKEN: ${{ secrets.CLOUDFLARE_DNS_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+          PYTHONDONTWRITEBYTECODE: '1'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          # Fixed scope: the two main addresses plus the 14 requested shortcuts.
+          ZONES = {
+              "built.bid": ["built.bid", "get.built.bid", "well.built.bid", "william.built.bid"],
+              "frigging.link": ["your.frigging.link", "one.frigging.link", "another.frigging.link", "hire.frigging.link"],
+              "fricking.link": ["your.fricking.link"],
+              "wwwdot.wtf": ["wwwdot.wtf", "fixmy.wwwdot.wtf"],
+              "https.fyi": ["hire.https.fyi"],
+              "dontblinkai.com": ["studio.dontblinkai.com"],
+              "vault9x.com": ["studio.vault9x.com"],
+              "omgimareplyguy.com": ["hire.omgimareplyguy.com"],
+              "definitelynotavirus.link": ["business.definitelynotavirus.link"],
+          }
+          API_BASE = "https://api.cloudflare.com/client/v4"
+          MAX_CALLS = 40
+          MAX_RESPONSE_BYTES = 2_000_000
+          REQUEST_TIMEOUT_SECONDS = 10
+          calls = 0
+          failures = 0
+          summary = [
+              "# Cloudflare DNS access audit",
+              "",
+              "Read only: this workflow makes GET requests only. No DNS or redirect rules are changed.",
+              "A successful read audit does not prove DNS edit permission.",
+              "Only the listed hostnames are inspected; wildcard DNS and other routing systems are not audited.",
+              "",
+          ]
+
+          def finish(exit_code):
+              report = "\n".join(summary) + "\n"
+              print(report)
+              destination = os.environ.get("GITHUB_STEP_SUMMARY")
+              if destination:
+                  with open(destination, "a", encoding="utf-8") as handle:
+                      handle.write(report)
+              raise SystemExit(exit_code)
+
+          token = os.environ.get("CLOUDFLARE_AUDIT_TOKEN", "").strip()
+          if not token:
+              summary.append("**Missing secret:** add CLOUDFLARE_DNS_API_TOKEN (preferred) or CLOUDFLARE_API_TOKEN as a repository Actions secret.")
+              finish(1)
+
+          class NoRedirects(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+                  return None
+
+          opener = urllib.request.build_opener(NoRedirects())
+
+          def numeric_codes(payload):
+              if not isinstance(payload, dict) or not isinstance(payload.get("errors"), list):
+                  return []
+              return [
+                  str(item["code"])
+                  for item in payload["errors"][:8]
+                  if isinstance(item, dict)
+                  and isinstance(item.get("code"), int)
+                  and not isinstance(item["code"], bool)
+                  and 0 <= item["code"] <= 99999999
+              ]
+
+          def error_label(status, payload=None):
+              codes = numeric_codes(payload)
+              if status == 401:
+                  label = "unauthorized"
+              elif status == 403:
+                  label = "permission denied"
+              elif status == 404:
+                  label = "not found"
+              elif status == 429:
+                  label = "rate limited"
+              else:
+                  label = "API error"
+              detail = ", codes " + "/".join(codes) if codes else ""
+              return f"{label} (HTTP {status}{detail})"
+
+          def get(path, query=None, allow_missing=False):
+              global calls
+              calls += 1
+              if calls > MAX_CALLS:
+                  return None, "request limit reached"
+              url = API_BASE + path
+              if query:
+                  url += "?" + urllib.parse.urlencode(query)
+              request = urllib.request.Request(
+                  url,
+                  headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
+                  method="GET",
+              )
+              try:
+                  with opener.open(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+                      body = response.read(MAX_RESPONSE_BYTES + 1)
+                      status = response.status
+              except urllib.error.HTTPError as error:
+                  # Never log server messages, full responses, request headers, or tokens.
+                  status = error.code
+                  if status == 404 and allow_missing:
+                      return None, "missing"
+                  try:
+                      body = error.read(MAX_RESPONSE_BYTES + 1)
+                      payload = json.loads(body) if len(body) <= MAX_RESPONSE_BYTES else None
+                  except (ValueError, OSError):
+                      payload = None
+                  return None, error_label(status, payload)
+              except (urllib.error.URLError, OSError, ValueError):
+                  return None, "network or request error"
+              if len(body) > MAX_RESPONSE_BYTES:
+                  return None, "response exceeded size limit"
+              try:
+                  payload = json.loads(body)
+              except (ValueError, UnicodeError):
+                  return None, "invalid JSON response"
+              if not isinstance(payload, dict) or payload.get("success") is not True:
+                  return None, error_label(status, payload)
+              return payload, None
+
+          def full_list(payload):
+              result = payload.get("result")
+              if not isinstance(result, list):
+                  return None
+              info = payload.get("result_info", {})
+              if not isinstance(info, dict):
+                  return None
+              total = info.get("total_count", len(result))
+              if not isinstance(total, int) or isinstance(total, bool) or total != len(result):
+                  return None
+              return result
+
+          for zone, hostnames in ZONES.items():
+              summary.extend([f"## {zone}", ""])
+              payload, error = get("/zones", {"name": zone, "per_page": 50})
+              if error:
+                  summary.extend([f"Zone accessible: **no** — {error}.", ""])
+                  failures += 1
+                  continue
+              zones = full_list(payload)
+              if zones is None:
+                  summary.extend(["Zone accessible: **no** — incomplete or invalid zone response.", ""])
+                  failures += 1
+                  continue
+              matches = [item for item in zones if isinstance(item, dict) and item.get("name") == zone]
+              if len(matches) != 1:
+                  summary.extend(["Zone accessible: **no** — zone missing from token scope or ambiguous zone result.", ""])
+                  failures += 1
+                  continue
+              zone_id = matches[0].get("id")
+              if not isinstance(zone_id, str) or not re.fullmatch(r"[0-9a-f]{32}", zone_id):
+                  summary.extend(["Zone accessible: **no** — invalid zone identifier.", ""])
+                  failures += 1
+                  continue
+              summary.extend([
+                  "Zone accessible: **yes**.",
+                  "",
+                  "| Selected hostname | A | AAAA | CNAME | Other records | Routing record proxy state |",
+                  "| --- | ---: | ---: | ---: | ---: | --- |",
+              ])
+              for hostname in hostnames:
+                  payload, error = get(f"/zones/{zone_id}/dns_records", {"name": hostname, "per_page": 100})
+                  records = full_list(payload) if payload else None
+                  if not error and records is None:
+                      error = "incomplete or invalid DNS response"
+                  if not error and any(
+                      not isinstance(item, dict)
+                      or item.get("name") != hostname
+                      or not isinstance(item.get("type"), str)
+                      for item in records
+                  ):
+                      error = "unexpected DNS record response"
+                  if error:
+                      summary.append(f"| {hostname} | — | — | — | — | {error} |")
+                      failures += 1
+                      continue
+                  counts = {kind: sum(item["type"] == kind for item in records) for kind in ("A", "AAAA", "CNAME")}
+                  routing = [item for item in records if item["type"] in counts]
+                  proxy_values = [item.get("proxied") for item in routing]
+                  if not routing:
+                      proxy_state = "no routing records"
+                  elif any(type(value) is not bool for value in proxy_values):
+                      proxy_state = "unknown"
+                      failures += 1
+                  elif all(proxy_values):
+                      proxy_state = "proxied"
+                  elif any(proxy_values):
+                      proxy_state = "mixed"
+                  else:
+                      proxy_state = "DNS only"
+                  other = len(records) - len(routing)
+                  summary.append(f"| {hostname} | {counts['A']} | {counts['AAAA']} | {counts['CNAME']} | {other} | {proxy_state} |")
+              payload, error = get(f"/zones/{zone_id}/rulesets/phases/http_request_dynamic_redirect/entrypoint", allow_missing=True)
+              if error == "missing":
+                  summary.append("\nSingle Redirect entrypoint: not present (0 rules).")
+              elif error:
+                  summary.append(f"\nSingle Redirect access: **no** — {error}.")
+                  failures += 1
+              else:
+                  result = payload.get("result")
+                  rules = result.get("rules", []) if isinstance(result, dict) else None
+                  if not isinstance(rules, list):
+                      summary.append("\nSingle Redirect access: **no** — invalid ruleset response.")
+                      failures += 1
+                  else:
+                      summary.append(f"\nSingle Redirect access: **yes** — {len(rules)} existing rules.")
+              summary.append("")
+
+          summary.extend([
+              f"Requests made: {calls}. Failed or incomplete checks: {failures}.",
+              "No DNS writes were made. Successful reads do not prove DNS edit permission.",
+          ])
+          finish(1 if failures else 0)
+          PY
