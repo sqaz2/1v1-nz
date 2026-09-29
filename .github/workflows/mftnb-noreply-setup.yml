@@ -162,8 +162,12 @@ jobs:
               if not isinstance(settings, dict) or not isinstance(catch_all, dict):
                   raise Stop('Routing settings could not be verified.')
               if settings.get('enabled') is not True:
-                  other_enabled = [r for r in before_rules if r.get('enabled') and not is_target(r)]
+                  other_enabled = [r for r in before_rules if r.get('enabled') and not is_target(r) and
+                                   any(a.get('type') != 'drop' for a in r.get('actions', []))]
                   catch_forwards = catch_all.get('enabled') and any(a.get('type') != 'drop' for a in catch_all.get('actions', []))
+                  note('Preflight: rule count=' + str(len(before_rules)) + '; other enabled delivery rules=' + str(len(other_enabled)) +
+                       '; catch-all enabled=' + str(catch_all.get('enabled')) + '; catch-all action types=' +
+                       ','.join(a.get('type', '') for a in catch_all.get('actions', [])))
                   if other_enabled or catch_forwards:
                       raise Stop('Enabling routing would activate other rules; review needed.')
               mx = records(DOMAIN, 'MX')
