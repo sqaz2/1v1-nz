@@ -1,0 +1,250 @@
+name: Set up MFTNB noreply routing
+
+on:
+  push:
+    branches: [codex/mftnb-email-access]
+    paths: [.github/workflows/mftnb-noreply-setup.yml]
+  workflow_dispatch:
+
+permissions: {}
+concurrency:
+  group: mftnb-noreply-setup
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Install the reviewed MFTNB email handler and exact recipient rule
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, re, sys, urllib.error, urllib.parse, urllib.request, uuid
+          from email import policy
+          from email.parser import BytesParser
+
+          ACCOUNT = 'abce61c81cf7faa4208a903972257175'
+          ZONE = '5c8526d37e62e7cf29f6aeb62326646c'
+          DOMAIN = 'mftnb.com'
+          ADDRESS = 'noreply@mftnb.com'
+          WORKER = 'mftnb-noreply'
+          SOURCE = '09a400be497cc09ccbd44afed95829122076ce57'
+          EXPECTED = {
+              'worker.mjs': 'fc511c6cc43e4815f1b0bb9e473d25aad134fdc3d0736aa58c404c8b85f4aa55',
+              'auto-reply.mjs': 'f0a8e51e41442e6670dd16f3e403b78f64c51ff2b1b2891d36312bc29f3786fc',
+          }
+          BASE = 'https://api.cloudflare.com/client/v4'
+          WP = '/accounts/' + ACCOUNT + '/workers/scripts/' + WORKER
+          ZP = '/zones/' + ZONE
+          TOKEN = os.environ.get('CLOUDFLARE_API_TOKEN', '').strip()
+          REPORT = ['# MFTNB noreply setup', 'Source: sqaz2/mftnb@' + SOURCE]
+
+          class Stop(Exception):
+              pass
+
+          class NoRedirects(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, request, fp, code, msg, headers, url):
+                  return None
+
+          opener = urllib.request.build_opener(NoRedirects())
+
+          def note(message):
+              REPORT.append(message)
+              print(message, flush=True)
+
+          def request(method, path, data=None, content_type='application/json', missing=False, raw=False):
+              # The saved credential is sent only to Cloudflare's API and never logged/exported.
+              if not path.startswith('/') or path.startswith('//'):
+                  raise Stop('Invalid API path.')
+              allowed_writes = {('PUT', WP), ('POST', WP + '/subdomain'),
+                                ('POST', ZP + '/email/routing/dns'), ('POST', ZP + '/email/routing/rules')}
+              if method != 'GET' and (method, path) not in allowed_writes:
+                  raise Stop('Write outside the approved MFTNB resources refused.')
+              headers = {'Authorization': 'Bearer ' + TOKEN, 'Accept': '*/*' if raw else 'application/json'}
+              if data is not None:
+                  headers['Content-Type'] = content_type
+                  if not isinstance(data, bytes):
+                      data = json.dumps(data).encode()
+              req = urllib.request.Request(BASE + path, headers=headers, data=data, method=method)
+              try:
+                  with opener.open(req, timeout=20) as response:
+                      body = response.read(1_000_001)
+                      response_type = response.headers.get('Content-Type', '')
+              except urllib.error.HTTPError as error:
+                  if missing and error.code == 404:
+                      return None
+                  codes = []
+                  try:
+                      payload = json.loads(error.read(16384))
+                      codes = [str(e['code']) for e in payload.get('errors', []) if isinstance(e.get('code'), int)]
+                  except (ValueError, TypeError, AttributeError):
+                      pass
+                  raise Stop(method + ' ' + path + ': HTTP ' + str(error.code) + '; error codes=' + ','.join(codes)) from None
+              except (OSError, ValueError):
+                  raise Stop(method + ' ' + path + ': network error; inspect state before retry.') from None
+              if len(body) > 1_000_000:
+                  raise Stop('API response exceeded the size limit.')
+              if raw:
+                  return response_type, body
+              try:
+                  payload = json.loads(body)
+              except (ValueError, UnicodeError):
+                  raise Stop('API did not return valid JSON.') from None
+              if not isinstance(payload, dict) or payload.get('success') is not True:
+                  raise Stop(method + ' ' + path + ': API did not confirm success.')
+              return payload
+
+          def result(path, **kwargs):
+              payload = request('GET', path, **kwargs)
+              return payload.get('result') if payload is not None else None
+
+          def records(hostname, kind):
+              query = urllib.parse.urlencode({'name': hostname, 'type': kind, 'per_page': 100})
+              payload = request('GET', ZP + '/dns_records?' + query)
+              found = payload.get('result', [])
+              if not isinstance(found, list) or payload.get('result_info', {}).get('total_pages', 1) > 1:
+                  raise Stop('Unexpected DNS inventory; manual review needed.')
+              return found
+
+          def rules():
+              found = []
+              for page in range(1, 21):
+                  payload = request('GET', ZP + '/email/routing/rules?per_page=50&page=' + str(page))
+                  batch = payload.get('result', [])
+                  if not isinstance(batch, list):
+                      raise Stop('Invalid routing rule inventory.')
+                  found.extend(batch)
+                  if page >= payload.get('result_info', {}).get('total_pages', 1):
+                      return found
+              raise Stop('Routing inventory too large; manual review needed.')
+
+          MATCHERS = [{'type': 'literal', 'field': 'to', 'value': ADDRESS}]
+          ACTIONS = [{'type': 'worker', 'value': [WORKER]}]
+
+          def is_target(rule):
+              return any(m.get('field') == 'to' and m.get('value', '').lower() == ADDRESS for m in rule.get('matchers', []))
+
+          def check_rule(found):
+              if len(found) > 1:
+                  raise Stop('Multiple noreply rules exist; no rules changed.')
+              if found and not (found[0].get('enabled') is True and found[0].get('matchers') == MATCHERS and found[0].get('actions') == ACTIONS):
+                  raise Stop('Existing noreply rule differs; it was not overwritten.')
+
+          def verify_script(download):
+              response_type, body = download
+              parsed = BytesParser(policy=policy.default).parsebytes(('Content-Type: ' + response_type + '\r\nMIME-Version: 1.0\r\n\r\n').encode() + body)
+              if not parsed.is_multipart():
+                  raise Stop('Worker is not the expected multi-module script; it was not overwritten.')
+              actual = {}
+              for part in parsed.iter_parts():
+                  name = part.get_filename() or part.get_param('name', header='content-disposition')
+                  if name in EXPECTED:
+                      actual[name] = hashlib.sha256(part.get_payload(decode=True)).hexdigest()
+                  elif name != 'metadata':
+                      raise Stop('Unexpected module in existing Worker; it was not overwritten.')
+              if actual != EXPECTED:
+                  raise Stop('Worker module hashes differ from the reviewed source; it was not overwritten.')
+
+          def main():
+              if not TOKEN:
+                  raise Stop('Saved Cloudflare credential is missing.')
+              zones = result('/zones?name=mftnb.com&per_page=50')
+              if not isinstance(zones, list) or len(zones) != 1 or zones[0].get('id') != ZONE or zones[0].get('account', {}).get('id') != ACCOUNT:
+                  raise Stop('Account/zone identity did not match; stopped.')
+              settings = result(ZP + '/email/routing')
+              before_rules = rules()
+              target = [r for r in before_rules if is_target(r)]
+              check_rule(target)
+              catch_all = result(ZP + '/email/routing/rules/catch_all')
+              if not isinstance(settings, dict) or not isinstance(catch_all, dict):
+                  raise Stop('Routing settings could not be verified.')
+              if settings.get('enabled') is not True:
+                  other_enabled = [r for r in before_rules if r.get('enabled') and not is_target(r)]
+                  catch_forwards = catch_all.get('enabled') and any(a.get('type') != 'drop' for a in catch_all.get('actions', []))
+                  if other_enabled or catch_forwards:
+                      raise Stop('Enabling routing would activate other rules; review needed.')
+              mx = records(DOMAIN, 'MX')
+              spf = [r for r in records(DOMAIN, 'TXT') if r.get('content', '').strip('"').lower().startswith('v=spf1')]
+              if any(not re.fullmatch(r'route[123]\.mx\.cloudflare\.net\.?', r.get('content', '')) for r in mx):
+                  raise Stop('Existing MX records belong to another mail service; no DNS changed.')
+              if len(spf) > 1 or any(r.get('content', '').strip('"') != 'v=spf1 include:_spf.mx.cloudflare.net ~all' for r in spf):
+                  raise Stop('Existing SPF requires review; no DNS changed.')
+              existing = request('GET', WP, missing=True, raw=True)
+              if existing:
+                  verify_script(existing)
+                  note('Existing Worker matches reviewed module hashes; preserved.')
+              else:
+                  files = {}
+                  for name, expected in EXPECTED.items():
+                      url = 'https://raw.githubusercontent.com/sqaz2/mftnb/' + SOURCE + '/email-worker/' + name
+                      # This public-source request has no Authorization header.
+                      try:
+                          with opener.open(url, timeout=20) as response:
+                              files[name] = response.read(100001)
+                      except (OSError, ValueError):
+                          raise Stop('Pinned Worker source could not be downloaded.') from None
+                      if hashlib.sha256(files[name]).hexdigest() != expected:
+                          raise Stop('Pinned Worker source hash mismatch.')
+                  boundary = 'mftnb-' + uuid.uuid4().hex
+                  metadata = {'main_module': 'worker.mjs', 'compatibility_date': '2026-09-29', 'bindings': [],
+                              'tags': ['mftnb-noreply', 'source-' + SOURCE], 'logpush': False}
+                  parts = []
+                  parts.append(('--' + boundary + '\r\nContent-Disposition: form-data; name="metadata"\r\nContent-Type: application/json\r\n\r\n').encode() + json.dumps(metadata).encode() + b'\r\n')
+                  for name, source in files.items():
+                      parts.append(('--' + boundary + '\r\nContent-Disposition: form-data; name="' + name + '"; filename="' + name + '"\r\nContent-Type: application/javascript+module\r\n\r\n').encode() + source + b'\r\n')
+                  parts.append(('--' + boundary + '--\r\n').encode())
+                  request('PUT', WP, b''.join(parts), 'multipart/form-data; boundary=' + boundary)
+                  note('Created only Worker mftnb-noreply from pinned MFTNB source.')
+              request('POST', WP + '/subdomain', {'enabled': False, 'previews_enabled': False})
+              subdomain = result(WP + '/subdomain')
+              if subdomain.get('enabled') is not False or subdomain.get('previews_enabled') is not False:
+                  raise Stop('Worker public URLs could not be verified as disabled.')
+              verify_script(request('GET', WP, raw=True))
+              note('Worker source verified; workers.dev and preview URLs disabled.')
+              if settings.get('enabled') is not True or settings.get('status') != 'ready':
+                  request('POST', ZP + '/email/routing/dns', {'name': DOMAIN})
+                  note('Requested Cloudflare-managed inbound routing DNS for mftnb.com.')
+              fresh_target = [r for r in rules() if is_target(r)]
+              check_rule(fresh_target)
+              if not fresh_target:
+                  request('POST', ZP + '/email/routing/rules', {
+                      'actions': ACTIONS, 'matchers': MATCHERS, 'enabled': True,
+                      'name': 'MFTNB noreply automatic response',
+                  })
+                  note('Created exact noreply@mftnb.com -> mftnb-noreply rule.')
+              after_rules = rules()
+              after_target = [r for r in after_rules if is_target(r)]
+              check_rule(after_target)
+              if len(after_target) != 1:
+                  raise Stop('Exact recipient rule was not confirmed.')
+              before_other = {r.get('id') or r.get('tag'): r for r in before_rules if not is_target(r)}
+              after_other = {r.get('id') or r.get('tag'): r for r in after_rules if not is_target(r)}
+              if before_other != after_other or result(ZP + '/email/routing/rules/catch_all') != catch_all:
+                  raise Stop('Unrelated routing state changed concurrently; inspect before continuing.')
+              final = result(ZP + '/email/routing')
+              note('Routing enabled=' + str(final.get('enabled')) + '; status=' + str(final.get('status')))
+              note('Exact noreply rule verified; existing rules and catch-all preserved.')
+              for host, kind in [(DOMAIN, 'MX'), (DOMAIN, 'TXT'), ('cf2024-1._domainkey.' + DOMAIN, 'TXT'),
+                                 ('cf-bounce.' + DOMAIN, 'MX'), ('cf-bounce._domainkey.' + DOMAIN, 'TXT'), ('_dmarc.' + DOMAIN, 'TXT')]:
+                  note(host + ' ' + kind + ' record count=' + str(len(records(host, kind))))
+              if final.get('enabled') is not True or final.get('status') != 'ready':
+                  raise Stop('Routing is not ready yet; recheck DNS propagation before customer use.')
+              note('Inbound configuration complete. No emails sent; outbound sending and form activation are separate.')
+
+          exit_code = 0
+          try:
+              main()
+          except Stop as error:
+              note('STOP: ' + str(error))
+              exit_code = 1
+          except Exception as error:
+              note('STOP: unexpected ' + type(error).__name__ + '; details withheld to protect credentials.')
+              exit_code = 1
+          finally:
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as handle:
+                  handle.write('\n\n'.join(REPORT) + '\n')
+          sys.exit(exit_code)
+          PY
