@@ -216,7 +216,8 @@ jobs:
               verify_script(request('GET', WP, raw=True))
               note('Worker source verified; workers.dev and preview URLs disabled.')
               if settings.get('enabled') is not True or settings.get('status') != 'ready':
-                  request('POST', ZP + '/email/routing/dns', {'name': DOMAIN})
+                  # Root-zone activation has no payload; name is only for subdomains.
+                  request('POST', ZP + '/email/routing/dns')
                   note('Requested Cloudflare-managed inbound routing DNS for mftnb.com.')
               fresh_target = [r for r in rules() if is_target(r)]
               check_rule(fresh_target)
