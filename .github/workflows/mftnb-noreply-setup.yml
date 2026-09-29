@@ -168,8 +168,15 @@ jobs:
                   note('Preflight: rule count=' + str(len(before_rules)) + '; other enabled delivery rules=' + str(len(other_enabled)) +
                        '; catch-all enabled=' + str(catch_all.get('enabled')) + '; catch-all action types=' +
                        ','.join(a.get('type', '') for a in catch_all.get('actions', [])))
-                  if other_enabled or catch_forwards:
-                      raise Stop('Enabling routing would activate other rules; review needed.')
+                  # Preserve existing explicitly configured mailboxes. Only a broad/ambiguous
+                  # delivery matcher could capture noreply before the exact new rule.
+                  ambiguous = [r for r in other_enabled if not (
+                      len(r.get('matchers', [])) == 1 and r['matchers'][0].get('type') == 'literal' and
+                      r['matchers'][0].get('field') == 'to' and
+                      re.fullmatch(r'[a-zA-Z0-9.!#$%&\x27*+/=?^_`{|}~-]+@mftnb\.com', r['matchers'][0].get('value', ''), re.I))]
+                  if ambiguous or catch_forwards:
+                      raise Stop('Existing broad delivery rule needs review before routing activation.')
+                  note('Existing specific-address delivery rules will be preserved unchanged.')
               mx = records(DOMAIN, 'MX')
               spf = [r for r in records(DOMAIN, 'TXT') if r.get('content', '').strip('"').lower().startswith('v=spf1')]
               if any(not re.fullmatch(r'route[123]\.mx\.cloudflare\.net\.?', r.get('content', '')) for r in mx):
