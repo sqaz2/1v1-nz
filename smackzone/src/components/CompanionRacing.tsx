@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CREATURE_DEFINITIONS, type CreatureDefinition } from '@/lib/creatures';
+import {
+  drawFinishTimes,
+  raceOdds,
+  raceWinProbabilityPct,
+} from '@/lib/racing-math';
 
 interface Racer {
   id: string;
@@ -12,6 +17,8 @@ interface Racer {
   boosted: boolean;
   finished: boolean;
   finishTime: number | null;
+  /** Predetermined finish time (ms) drawn at race start. The argmin wins. */
+  targetTime: number;
 }
 
 interface CompanionRacingProps {
@@ -26,14 +33,13 @@ interface CompanionRacingProps {
 type GamePhase = 'betting' | 'racing' | 'results';
 
 const TRACK_LENGTH = 100;
-const RACE_DURATION_MS = 15000;
 const UPDATE_INTERVAL_MS = 50;
 
 const HOUSE_RACERS: Racer[] = [
-  { id: 'nebula_runner', name: 'Nebula Runner', emoji: '🌀', position: 0, speed: 0, baseSpeed: 1.2, lane: 0, boosted: false, finished: false, finishTime: null },
-  { id: 'cosmic_dash', name: 'Cosmic Dash', emoji: '💫', position: 0, speed: 0, baseSpeed: 1.1, lane: 1, boosted: false, finished: false, finishTime: null },
-  { id: 'void_streak', name: 'Void Streak', emoji: '🕳️', position: 0, speed: 0, baseSpeed: 1.3, lane: 2, boosted: false, finished: false, finishTime: null },
-  { id: 'star_bolt', name: 'Star Bolt', emoji: '⚡', position: 0, speed: 0, baseSpeed: 1.0, lane: 3, boosted: false, finished: false, finishTime: null },
+  { id: 'nebula_runner', name: 'Nebula Runner', emoji: '🌀', position: 0, speed: 0, baseSpeed: 1.2, lane: 0, boosted: false, finished: false, finishTime: null, targetTime: 0 },
+  { id: 'cosmic_dash', name: 'Cosmic Dash', emoji: '💫', position: 0, speed: 0, baseSpeed: 1.1, lane: 1, boosted: false, finished: false, finishTime: null, targetTime: 0 },
+  { id: 'void_streak', name: 'Void Streak', emoji: '🕳️', position: 0, speed: 0, baseSpeed: 1.3, lane: 2, boosted: false, finished: false, finishTime: null, targetTime: 0 },
+  { id: 'star_bolt', name: 'Star Bolt', emoji: '⚡', position: 0, speed: 0, baseSpeed: 1.0, lane: 3, boosted: false, finished: false, finishTime: null, targetTime: 0 },
 ];
 
 const ARIA_HISTORY_LESSONS = [
@@ -66,7 +72,7 @@ const ARIA_MATH_LESSONS = [
   },
   {
     title: "📈 Variance in Racing",
-    content: "Unlike Keno where outcomes are fixed, racing adds random speed variance each tick. This means even slow racers can win with lucky boosts - that's why underdogs sometimes pull ahead!"
+    content: "Every race draws random finish times weighted by base speed, so no two races play out the same. This means even slow racers sometimes win - that's why underdogs sometimes pull ahead!"
   },
   {
     title: "💰 Payout Calculation",
@@ -87,25 +93,8 @@ function creatureToRacer(creature: CreatureDefinition, lane: number): Racer {
     boosted: false,
     finished: false,
     finishTime: null,
+    targetTime: 0,
   };
-}
-
-function calculateOdds(racers: Racer[]): Map<string, number> {
-  const totalSpeed = racers.reduce((sum, r) => sum + r.baseSpeed, 0);
-  const odds = new Map<string, number>();
-  
-  racers.forEach(racer => {
-    const winProbability = racer.baseSpeed / totalSpeed;
-    const calculatedOdds = Math.max(1.2, (1 / winProbability) * 0.9);
-    odds.set(racer.id, Math.round(calculatedOdds * 10) / 10);
-  });
-  
-  return odds;
-}
-
-function calculateWinProbability(racer: Racer, allRacers: Racer[]): number {
-  const totalSpeed = allRacers.reduce((sum, r) => sum + r.baseSpeed, 0);
-  return (racer.baseSpeed / totalSpeed) * 100;
 }
 
 export default function CompanionRacing({ disabled = false, saveNotice, playerShards, capturedCreatures, onUpdateShards, onExit }: CompanionRacingProps) {
@@ -149,30 +138,40 @@ export default function CompanionRacing({ disabled = false, saveNotice, playerSh
     
     const allRacers = [...playerRacers, ...houseSelection];
     setRacers(allRacers);
-    setOdds(calculateOdds(allRacers));
+    setOdds(raceOdds(allRacers));
   }, [capturedCreatures]);
 
   const startRace = useCallback(() => {
     if (disabled || !selectedRacer || bet > playerShards || bet < 1) return;
-    
+
     onUpdateShards(playerShards - bet);
-    
-    setRacers(prev => prev.map(r => ({
-      ...r,
-      position: 0,
-      speed: r.baseSpeed * (0.8 + Math.random() * 0.4),
-      boosted: false,
-      finished: false,
-      finishTime: null,
-    })));
+
+    // Draw the outcome up front: each racer gets a finish time drawn from
+    // competing exponentials, so P(i wins) = baseSpeed_i / totalSpeed
+    // exactly. The animation below then plays out those predetermined
+    // times, so the posted odds are exactly honest.
+    setRacers(prev => {
+      const reset = prev.map(r => ({
+        ...r,
+        position: 0,
+        speed: r.baseSpeed,
+        boosted: false,
+        finished: false,
+        finishTime: null,
+        targetTime: 0,
+      }));
+      const times = drawFinishTimes(reset);
+      return reset.map(r => ({ ...r, targetTime: times.get(r.id) ?? 15000 }));
+    });
     setFinishOrder([]);
     setRaceTime(0);
     setPhase('racing');
-    
+
+    // Boosts are pure visual flair: they no longer change the outcome.
     boostTimeoutRef.current = window.setTimeout(() => {
       setRacers(prev => prev.map(r => {
         if (Math.random() < 0.3) {
-          return { ...r, boosted: true, speed: r.speed * 1.3 };
+          return { ...r, boosted: true };
         }
         return r;
       }));
@@ -192,22 +191,22 @@ export default function CompanionRacing({ disabled = false, saveNotice, playerSh
       setRacers(prev => {
         const updated = prev.map(racer => {
           if (racer.finished) return racer;
-          
-          const variance = (Math.random() - 0.5) * 0.3;
-          const newSpeed = racer.speed + variance;
-          const actualSpeed = Math.max(0.5, Math.min(2.5, newSpeed));
-          
-          const moveAmount = actualSpeed * (UPDATE_INTERVAL_MS / 1000) * (TRACK_LENGTH / (RACE_DURATION_MS / 1000));
-          const newPosition = Math.min(TRACK_LENGTH, racer.position + moveAmount);
-          
+
+          // Deterministic progress toward the drawn finish time. A small
+          // wobble that fades to zero at the finish keeps the bars lively
+          // without ever changing the drawn finishing order.
+          const target = racer.targetTime > 0 ? racer.targetTime : 15000;
+          const t = Math.min(1, elapsed / target);
+          const wobble = 0.02 * Math.sin(elapsed / 700 + racer.lane * 2.1) * (1 - t);
+          const newPosition = Math.min(TRACK_LENGTH, TRACK_LENGTH * Math.max(0, t + wobble));
+
           const justFinished = newPosition >= TRACK_LENGTH && !racer.finished;
-          
+
           return {
             ...racer,
-            speed: newSpeed,
             position: newPosition,
             finished: newPosition >= TRACK_LENGTH,
-            finishTime: justFinished ? elapsed : racer.finishTime,
+            finishTime: justFinished ? target : racer.finishTime,
           };
         });
         
@@ -270,6 +269,7 @@ export default function CompanionRacing({ disabled = false, saveNotice, playerSh
       boosted: false,
       finished: false,
       finishTime: null,
+      targetTime: 0,
     })));
   }, []);
 
@@ -379,7 +379,7 @@ export default function CompanionRacing({ disabled = false, saveNotice, playerSh
             <div className="space-y-2 mb-4">
               {racers.map(racer => {
                 const racerOdds = odds.get(racer.id) || 1;
-                const winProb = calculateWinProbability(racer, racers);
+                const winProb = raceWinProbabilityPct(racer, racers);
                 const isSelected = racer.id === selectedRacer;
                 
                 return (

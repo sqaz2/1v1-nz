@@ -1,4 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  KENO_GRID_SIZE,
+  KENO_MAX_PICKS,
+  KENO_MIN_PICKS,
+  KENO_PAYOUT_TABLE,
+  kenoPayoutChips,
+  kenoMinMatchesToWin,
+  kenoCellOdds,
+} from '@/lib/keno-math';
 
 interface AsteroidKenoProps {
   playerShards: number;
@@ -19,23 +28,6 @@ interface GameHistoryEntry {
   timestamp: number;
 }
 
-const GRID_SIZE = 40;
-const MAX_PICKS = 10;
-const MIN_PICKS = 1;
-
-const PAYOUT_TABLE: Record<number, Record<number, number>> = {
-  1: { 0: 0, 1: 3 },
-  2: { 0: 0, 1: 1, 2: 9 },
-  3: { 0: 0, 1: 0, 2: 2, 3: 25 },
-  4: { 0: 0, 1: 0, 2: 1, 3: 5, 4: 75 },
-  5: { 0: 0, 1: 0, 2: 0, 3: 3, 4: 15, 5: 200 },
-  6: { 0: 0, 1: 0, 2: 0, 3: 2, 4: 8, 5: 50, 6: 500 },
-  7: { 0: 0, 1: 0, 2: 0, 3: 1, 4: 4, 5: 20, 6: 100, 7: 1000 },
-  8: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 2, 5: 10, 6: 50, 7: 300, 8: 2000 },
-  9: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 1, 5: 5, 6: 25, 7: 100, 8: 800, 9: 4000 },
-  10: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 3, 6: 15, 7: 50, 8: 250, 9: 1500, 10: 10000 },
-};
-
 const ARIA_HISTORY_LESSONS = [
   {
     title: "📜 Ancient Origins",
@@ -54,11 +46,11 @@ const ARIA_HISTORY_LESSONS = [
 const ARIA_MATH_LESSONS = [
   {
     title: "🎲 The Probability Math",
-    content: "With 20 draws from 40 numbers, each spot has a 50% chance of being hit. But matching multiple picks is harder! The odds of hitting 5/5 are about 1 in 1,550 - that's why it pays 200x."
+    content: "With 20 draws from 40 numbers, each spot has a 50% chance of being hit. But matching multiple picks is harder! The odds of hitting 5/5 are about 1 in 42 - that's why it pays 12x."
   },
   {
     title: "📊 Expected Value Explained",
-    content: "Expected Value (EV) = (Win Amount × Win Probability) - Bet. If you bet 10 chips on 5 picks: your EV is about -2.5 chips per game. The house always has an edge, but entertainment has value too!"
+    content: "Expected Value (EV) = (Win Amount × Win Probability) - Bet. If you bet 10 chips on 5 picks: your EV is about -0.9 chips per game. The house always has an edge, but entertainment has value too!"
   },
   {
     title: "🧮 Combination Formula",
@@ -70,7 +62,7 @@ const ARIA_MATH_LESSONS = [
   },
   {
     title: "🎯 Optimal Strategy?",
-    content: "Mathematically, all pick counts have similar house edges (~25-30%). There's no 'best' strategy - but picking 4-6 numbers balances win frequency with payout size for most players."
+    content: "Mathematically, all pick counts have similar house edges (~10%). There's no 'best' strategy - but picking 4-6 numbers balances win frequency with payout size for most players."
   },
 ];
 
@@ -79,44 +71,6 @@ const ARIA_QUICK_TIPS = [
   "💡 Green = match, Orange = asteroid hit (no match), Blue = your pick (missed)",
   "⚡ Quick Pick randomly selects 3-8 numbers if you want to play fast!",
 ];
-
-function getMinMatchesToWin(pickCount: number): number {
-  const payouts = PAYOUT_TABLE[pickCount];
-  if (!payouts) return 1;
-  for (let i = 0; i <= pickCount; i++) {
-    if (payouts[i] > 0) return i;
-  }
-  return pickCount;
-}
-
-function calculateOdds(picks: number, matches: number): string {
-  if (picks === 0 || matches > picks) return "-";
-  
-  const factorial = (n: number): number => {
-    if (n <= 1) return 1;
-    let result = 1;
-    for (let i = 2; i <= n; i++) result *= i;
-    return result;
-  };
-  
-  const combination = (n: number, k: number): number => {
-    if (k > n || k < 0) return 0;
-    if (k === 0 || k === n) return 1;
-    return factorial(n) / (factorial(k) * factorial(n - k));
-  };
-  
-  const waysToMatchK = combination(picks, matches);
-  const waysToMissRest = combination(40 - picks, 20 - matches);
-  const totalWays = combination(40, 20);
-  
-  const probability = (waysToMatchK * waysToMissRest) / totalWays;
-  
-  if (probability === 0) return "0%";
-  if (probability >= 0.01) return `${(probability * 100).toFixed(1)}%`;
-  
-  const oneIn = Math.round(1 / probability);
-  return `1 in ${oneIn.toLocaleString()}`;
-}
 
 export default function AsteroidKeno({ disabled = false, saveNotice, playerShards, onUpdateShards, onExit }: AsteroidKenoProps) {
   const [phase, setPhase] = useState<GamePhase>('picking');
@@ -145,7 +99,7 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
     setPicks(prev => {
       if (prev.includes(num)) {
         return prev.filter(n => n !== num);
-      } else if (prev.length < MAX_PICKS) {
+      } else if (prev.length < KENO_MAX_PICKS) {
         return [...prev, num];
       }
       return prev;
@@ -153,13 +107,13 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
   }, [phase]);
 
   const startDraw = useCallback(() => {
-    if (disabled || bet > playerShards || bet < 1 || picks.length < MIN_PICKS) return;
+    if (disabled || bet > playerShards || bet < 1 || picks.length < KENO_MIN_PICKS) return;
     
     onUpdateShards(playerShards - bet);
     
     const drawn: number[] = [];
     while (drawn.length < 20) {
-      const num = Math.floor(Math.random() * GRID_SIZE) + 1;
+      const num = Math.floor(Math.random() * KENO_GRID_SIZE) + 1;
       if (!drawn.includes(num)) {
         drawn.push(num);
       }
@@ -195,8 +149,7 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
       const hitCount = picks.filter(p => drawnNumbers.includes(p)).length;
       setMatches(hitCount);
       
-      const payoutMultiplier = PAYOUT_TABLE[picks.length]?.[hitCount] || 0;
-      const payout = bet * payoutMultiplier;
+      const payout = kenoPayoutChips(bet, picks.length, hitCount);
       setWinnings(payout);
       
       if (payout > 0) {
@@ -229,7 +182,7 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
     const count = Math.floor(Math.random() * 6) + 3;
     const newPicks: number[] = [];
     while (newPicks.length < count) {
-      const num = Math.floor(Math.random() * GRID_SIZE) + 1;
+      const num = Math.floor(Math.random() * KENO_GRID_SIZE) + 1;
       if (!newPicks.includes(num)) {
         newPicks.push(num);
       }
@@ -257,7 +210,7 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
     }
   };
 
-  const minToWin = picks.length > 0 ? getMinMatchesToWin(picks.length) : 0;
+  const minToWin = picks.length > 0 ? kenoMinMatchesToWin(picks.length) : 0;
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-slate-900 via-purple-900/20 to-slate-900 p-4 overflow-y-auto">
@@ -404,12 +357,12 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(pickCount => (
                     <tr key={pickCount} className={`text-slate-300 ${picks.length === pickCount ? 'bg-cyan-900/30' : ''}`}>
                       <td className="p-1 text-cyan-400 font-bold">{pickCount}</td>
-                      <td className="p-1 text-center text-yellow-400">{getMinMatchesToWin(pickCount)}+</td>
+                      <td className="p-1 text-center text-yellow-400">{kenoMinMatchesToWin(pickCount)}+</td>
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(matchCount => (
                         <td key={matchCount} className="p-1 text-center">
                           {matchCount <= pickCount ? (
-                            <span className={PAYOUT_TABLE[pickCount]?.[matchCount] > 0 ? 'text-green-400' : 'text-slate-600'}>
-                              {PAYOUT_TABLE[pickCount]?.[matchCount] || 0}x
+                            <span className={KENO_PAYOUT_TABLE[pickCount]?.[matchCount] > 0 ? 'text-green-400' : 'text-slate-600'}>
+                              {KENO_PAYOUT_TABLE[pickCount]?.[matchCount] || 0}x
                             </span>
                           ) : (
                             <span className="text-slate-700">-</span>
@@ -431,8 +384,8 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
                   {Array.from({ length: picks.length + 1 }, (_, i) => i).map(m => (
                     <div key={m} className="flex justify-between">
                       <span className="text-slate-400">{m} match{m !== 1 ? 'es' : ''}:</span>
-                      <span className={PAYOUT_TABLE[picks.length]?.[m] > 0 ? 'text-green-400' : 'text-slate-500'}>
-                        {calculateOdds(picks.length, m)} → {PAYOUT_TABLE[picks.length]?.[m] || 0}x
+                      <span className={KENO_PAYOUT_TABLE[picks.length]?.[m] > 0 ? 'text-green-400' : 'text-slate-500'}>
+                        {kenoCellOdds(picks.length, m)} → {KENO_PAYOUT_TABLE[picks.length]?.[m] || 0}x
                       </span>
                     </div>
                   ))}
@@ -441,7 +394,7 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
             )}
             
             <p className="text-slate-500 text-xs text-center mt-3">
-              20 asteroids drawn from 40 coordinates • House edge ~25-30%
+              20 asteroids drawn from 40 coordinates • House edge ~10%
             </p>
           </div>
         )}
@@ -450,7 +403,7 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
           <div className="bg-slate-800/80 rounded-xl p-4 mb-4">
             <div className="flex justify-between items-center mb-3">
               <div className="text-slate-400 text-sm">
-                Picks: <span className="text-cyan-400 font-bold">{picks.length}/{MAX_PICKS}</span>
+                Picks: <span className="text-cyan-400 font-bold">{picks.length}/{KENO_MAX_PICKS}</span>
                 {picks.length > 0 && (
                   <span className="text-yellow-400 ml-2">(need {minToWin}+ to win)</span>
                 )}
@@ -493,7 +446,7 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
         )}
 
         <div className="grid grid-cols-8 gap-1 mb-4">
-          {Array.from({ length: GRID_SIZE }, (_, i) => i + 1).map(num => (
+          {Array.from({ length: KENO_GRID_SIZE }, (_, i) => i + 1).map(num => (
             <button
               key={num}
               onClick={() => toggleNumber(num)}
@@ -506,7 +459,7 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
           ))}
         </div>
 
-        {phase === 'picking' && picks.length >= MIN_PICKS && (
+        {phase === 'picking' && picks.length >= KENO_MIN_PICKS && (
           <div className="bg-slate-800/80 rounded-xl p-4 mb-4">
             <div className="flex items-center justify-center gap-4 mb-4">
               <button
@@ -600,7 +553,7 @@ export default function AsteroidKeno({ disabled = false, saveNotice, playerShard
                     🎉 You won 💎{winnings}!
                   </div>
                   <div className="text-slate-400 text-sm mb-4">
-                    {bet} × {PAYOUT_TABLE[picks.length]?.[matches] || 0}x = {winnings}
+                    {bet} × {KENO_PAYOUT_TABLE[picks.length]?.[matches] || 0}x = {winnings}
                   </div>
                 </>
               ) : (
