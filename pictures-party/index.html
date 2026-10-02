@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1526">
+<title>Play Pictures Party 1v1 - Photo Jigsaw Race vs a Friend | 1v1.nz</title>
+<meta name="description" content="Pictures Party: upload a photo and race a friend to solve the jigsaw first. Free 1v1 multiplayer jigsaw racing in your browser - no download, no account.">
+<link rel="canonical" href="https://1v1.nz/pictures-party/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="1v1.nz">
+<meta property="og:title" content="Pictures Party - 1v1 Photo Jigsaw Race">
+<meta property="og:description" content="Upload a photo, race a friend to solve the jigsaw first. Free, no download, no account.">
+<meta property="og:url" content="https://1v1.nz/pictures-party/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Pictures Party - 1v1 Photo Jigsaw Race">
+<meta name="twitter:description" content="Upload a photo, race a friend to solve the jigsaw first. Free on 1v1.nz.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoGame","name":"Pictures Party","url":"https://1v1.nz/pictures-party/","description":"Free 1v1 photo jigsaw racing in the browser.","genre":["Puzzle","Party Game"],"gamePlatform":"Web Browser","playMode":["MultiPlayer"],"isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"publisher":{"@type":"Organization","name":"1v1.nz","url":"https://1v1.nz/"}}
+</script>
+<style>
+:root{
+  --bg:#0b1526; --panel:#111f36; --panel2:#0e1a30; --line:#22345a;
+  --ink:#e8f1ff; --muted:#9db4d8; --dim:#5f7396;
+  --accent:#38bdf8; --accent2:#f472b6; --good:#34d399; --warn:#fbbf24; --bad:#f87171;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 800px at 50% -10%, #14294d 0%, var(--bg) 55%) fixed, var(--bg);
+  color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; align-items:center;
+}
+#app{width:100%; max-width:560px; padding:16px 14px 32px;}
+h1{font-size:30px; margin:6px 0 2px; letter-spacing:.5px}
+h1 .vs{color:var(--accent2)}
+.tag{color:var(--muted); margin:0 0 14px; font-size:14px}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin:12px 0;}
+.muted{color:var(--muted); font-size:13px}
+.big-code{font-size:34px; letter-spacing:8px; font-weight:800; text-align:center; margin:8px 0; font-variant-numeric:tabular-nums;}
+.btn{display:inline-block; border:0; border-radius:12px; padding:13px 18px; font-size:16px; font-weight:700; cursor:pointer; color:#04121f; background:linear-gradient(180deg,#7dd3fc,#38bdf8); width:100%; margin:6px 0;}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent; color:var(--ink); border:1px solid var(--line)}
+.btn.pink{background:linear-gradient(180deg,#f9a8d4,#f472b6); color:#1f0a14}
+.btn.small{width:auto; padding:9px 14px; font-size:14px}
+.btn:disabled{opacity:.45; cursor:default}
+.row{display:flex; gap:8px}
+.row .btn{flex:1}
+input[type=text]{width:100%; padding:12px 14px; font-size:16px; border-radius:12px; border:1px solid var(--line); background:#0a1322; color:var(--ink); margin:6px 0;}
+input[type=file]{display:none}
+label.filebtn{display:block; text-align:center; border:2px dashed var(--line); border-radius:12px; padding:22px 12px; margin:10px 0; cursor:pointer; color:var(--muted); font-weight:600}
+label.filebtn:active{border-color:var(--accent)}
+#uploadPreviewImg{width:100%; border-radius:10px; display:block; margin:8px 0}
+#previewImg{width:100%; max-height:52vh; object-fit:contain; border-radius:12px; background:#000}
+.count-big{font-size:64px; font-weight:800; text-align:center; margin:10px 0; font-variant-numeric:tabular-nums}
+#raceWrap{position:relative; width:100%;}
+#board{touch-action:none; display:block; width:100%; border-radius:12px; background:#081020; border:1px solid var(--line);}
+.hud{display:flex; align-items:center; gap:8px; margin:8px 0}
+.pbar{flex:1}
+.pbar .lbl{font-size:11px; color:var(--muted); display:flex; justify-content:space-between; margin-bottom:3px}
+.track{height:8px; border-radius:99px; background:#0a1322; border:1px solid var(--line); overflow:hidden}
+.fill{height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#38bdf8,#818cf8); transition:width .25s}
+.fill.opp{background:linear-gradient(90deg,#f472b6,#fb923c)}
+#raceTimer{font-variant-numeric:tabular-nums; font-weight:800; font-size:15px; min-width:64px; text-align:center}
+#toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#1c2b4d; border:1px solid var(--line); color:var(--ink); padding:10px 16px; border-radius:99px; font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90vw; text-align:center; z-index:50}
+#toast.show{opacity:1}
+.result-big{font-size:26px; font-weight:800; text-align:center; margin:6px 0}
+.series-line{text-align:center; color:var(--muted); font-size:14px; margin:4px 0 10px}
+ol.howto{margin:8px 0 4px; padding-left:20px; color:var(--muted); font-size:14px}
+ol.howto li{margin:6px 0}
+.home-link{display:block; text-align:center; margin-top:18px; color:var(--dim); font-size:13px; text-decoration:none}
+.status-line{text-align:center; color:var(--muted); font-size:14px; margin:8px 0}
+.spin{display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:sp 0.8s linear infinite; vertical-align:-2px; margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Pictures <span class="vs">Party</span></h1>
+  <p class="tag">1v1 photo jigsaw race - free, no account</p>
+
+  <section id="screen-home" class="card">
+    <label class="muted" for="nameInput">Your name</label>
+    <input type="text" id="nameInput" maxlength="24" placeholder="e.g. William" autocomplete="off">
+    <button class="btn pink" id="createBtn">Create a race</button>
+    <div class="row">
+      <input type="text" id="codeInput" maxlength="8" placeholder="Invite code" autocomplete="off" style="text-transform:uppercase">
+      <button class="btn ghost" id="joinBtn" style="flex:0 0 auto">Join</button>
+    </div>
+    <p class="muted" id="homeError" style="min-height:18px"></p>
+    <ol class="howto">
+      <li>One player picks a photo - both see it for 10 seconds.</li>
+      <li>3-2-1... race to solve the jigsaw first. Watch your opponent's progress live.</li>
+      <li>Rematch to keep the series going - the photo picker alternates.</li>
+    </ol>
+  </section>
+
+  <section id="screen-lobby" class="card" hidden>
+    <p class="muted" style="text-align:center;margin:0">Invite code</p>
+    <p class="big-code" id="inviteCode">······</p>
+    <button class="btn" id="shareBtn">Share invite</button>
+    <p class="status-line" id="lobbyStatus"><span class="spin"></span>Waiting...</p>
+    <div id="uploadBox" hidden>
+      <p class="muted" style="margin:6px 0">You're picking the photo this race:</p>
+      <label class="filebtn" for="photoInput">Choose a photo</label>
+      <input type="file" id="photoInput" accept="image/*">
+      <img id="uploadPreviewImg" hidden alt="Chosen photo preview">
+      <button class="btn pink" id="uploadBtn" hidden>Upload &amp; get ready</button>
+      <p class="muted" id="uploadError" style="min-height:18px"></p>
+    </div>
+    <div class="row">
+      <button class="btn ghost small" id="lobbyLeaveBtn">Leave</button>
+    </div>
+  </section>
+
+  <section id="screen-preview" class="card" hidden>
+    <p class="muted" id="previewLabel" style="text-align:center;margin:0 0 8px">Memorize it...</p>
+    <img id="previewImg" alt="Race photo preview">
+    <p class="count-big" id="previewCount">10</p>
+  </section>
+
+  <section id="screen-race" hidden>
+    <div class="hud">
+      <div class="pbar"><div class="lbl"><span id="youLbl">You</span><span id="youProg">0/0</span></div><div class="track"><div class="fill" id="youFill"></div></div></div>
+      <div id="raceTimer">0:00</div>
+      <div class="pbar"><div class="lbl"><span id="oppLbl">Opponent</span><span id="oppProg">0/0</span></div><div class="track"><div class="fill opp" id="oppFill"></div></div></div>
+    </div>
+    <div id="raceWrap"><canvas id="board"></canvas></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn ghost small" id="resignBtn">Resign</button>
+      <button class="btn ghost small" id="raceLeaveBtn">Leave</button>
+    </div>
+    <p class="muted" id="raceNote" style="text-align:center;min-height:18px"></p>
+  </section>
+
+  <section id="screen-result" class="card" hidden>
+    <p class="result-big" id="resultTitle">You win!</p>
+    <p class="muted" id="resultDetail" style="text-align:center"></p>
+    <p class="series-line">Series <span id="seriesText">0-0</span></p>
+    <button class="btn pink" id="rematchBtn">Rematch</button>
+    <p class="muted" id="rematchNote" style="text-align:center;min-height:18px"></p>
+    <button class="btn ghost" id="newRaceBtn">New race</button>
+  </section>
+
+  <a class="home-link" href="https://1v1.nz/">all games on 1v1.nz</a>
+</div>
+<div id="toast"></div>
+<script type="module">
+import { mulberry32, gridDims, generateEdges, scatterOrder, scatterPositions, pieceHome } from './engine.mjs';
+
+// ============================== utils ==============================
+const $ = id => document.getElementById(id);
+const FALLBACK_API_BASE = 'https://1v1.nz';
+const SESSIONS_KEY = 'pp_sessions_v1';
+const NAME_KEY = 'pp_name';
+const PREVIEW_MS = 13000;      // must match server PP_PREVIEW_MS
+const COUNTDOWN_MS = 3000;
+const MAX_UPLOAD_DIM = 1280;
+const UPLOAD_JPEG_Q = 0.82;
+const PROG_KEY = (code, seed) => `pp_prog_${code}_${seed}`;
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+function cleanCode(v) { return String(v || '').toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 6); }
+function validName(v) { return String(v || '').trim().slice(0, 24); }
+function fmtTime(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+function storeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function storeSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
+function storeDel(k) { try { localStorage.removeItem(k); } catch {} }
+
+// ============================== screens ==============================
+const SCREENS = ['screen-home', 'screen-lobby', 'screen-preview', 'screen-race', 'screen-result'];
+function show(id) { for (const s of SCREENS) $(s).hidden = s !== id; }
+
+// ============================== sessions ==============================
+let sessions = [];
+let active = null; // {code,token,name,color,series,socket,state,photoBlob,photoUrl,puzzle,...}
+
+function makeSession(record) {
+  const series = (record && record.series) || {};
+  return {
+    code: cleanCode(record && record.code), token: (record && record['token']) || '',
+    name: (record && record.name) || 'You', color: (record && record.color) || 0,
+    apiBase: record && 'apiBase' in record ? record.apiBase : null,
+    series: { w: Math.max(0, series.w | 0), l: Math.max(0, series.l | 0) },
+    socket: null, state: null, lastStatus: '', intentionalClose: false,
+    reconnectTimer: 0, reconnectDelay: 2000,
+    photoBlob: null, photoUrl: '', builtForSeed: null, puzzle: null,
+    solved: 0, total: 0, finishSent: false, lastProgressSent: 0,
+    previewTimer: 0, raf: 0, drag: null,
+  };
+}
+function persistSessions() {
+  try {
+    const records = sessions.map(s => ({
+      code: s.code, token: s['token'], name: s.name, color: s.color,
+      apiBase: s.apiBase, series: { w: s.series.w, l: s.series.l },
+    }));
+    storeSet(SESSIONS_KEY, JSON.stringify(records));
+  } catch {}
+}
+function loadStoredSessions() {
+  let records = [];
+  try { records = JSON.parse(storeGet(SESSIONS_KEY) || '[]'); } catch { records = []; }
+  sessions = (Array.isArray(records) ? records : [])
+    .filter(r => r && cleanCode(r.code).length === 6)
+    .map(makeSession);
+}
+function sessionByCode(code) {
+  const clean = cleanCode(code);
+  return sessions.find(s => s.code === clean) || null;
+}
+
+// ============================== net ==============================
+function apiBases() { return ['', FALLBACK_API_BASE]; }
+async function apiFetch(path, opts) {
+  let lastErr = null;
+  for (const base of apiBases()) {
+    try {
+      const res = await fetch(base + path, opts);
+      return { res, base };
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('network');
+}
+function send(s, msg) {
+  if (s.socket && s.socket.readyState === WebSocket.OPEN) {
+    try { s.socket.send(JSON.stringify(msg)); return true; } catch {}
+  }
+  return false;
+}
+function socketUrl(s) {
+  const base = s.apiBase === FALLBACK_API_BASE ? 'wss://1v1.nz'
+    : `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
+  return `${base}/api/pictures/rooms/${encodeURIComponent(s.code)}/ws`;
+}
+function closeSocket(s, intentional) {
+  if (intentional) s.intentionalClose = true;
+  clearTimeout(s.reconnectTimer); s.reconnectTimer = 0;
+  const ws = s.socket; s.socket = null;
+  if (ws && ws.readyState < WebSocket.CLOSING) { try { ws.close(); } catch {} }
+}
+function connectSession(s) {
+  if (!s || s.intentionalClose) return;
+  if (s.socket && (s.socket.readyState === WebSocket.OPEN || s.socket.readyState === WebSocket.CONNECTING)) return;
+  s.intentionalClose = false;
+  let ws;
+  try { ws = new WebSocket(socketUrl(s)); } catch { scheduleReconnect(s); return; }
+  s.socket = ws;
+  const openTimer = setTimeout(() => { try { ws.close(); } catch {} }, 8000);
+  ws.onopen = () => {
+    clearTimeout(openTimer);
+    s.reconnectDelay = 2000;
+    send(s, { t: 'hello', token: s['token'], name: s.name });
+  };
+  ws.onmessage = ev => {
+    let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+    onMessage(s, msg);
+  };
+  ws.onclose = () => { clearTimeout(openTimer); if (s.socket === ws) { s.socket = null; scheduleReconnect(s); } };
+  ws.onerror = () => { try { ws.close(); } catch {} };
+}
+function scheduleReconnect(s) {
+  if (s.intentionalClose) return;
+  clearTimeout(s.reconnectTimer);
+  if (s === active) $('raceNote').textContent = 'Reconnecting...';
+  s.reconnectTimer = setTimeout(() => {
+    s.reconnectDelay = Math.min(s.reconnectDelay * 1.6, 15000);
+    connectSession(s);
+  }, s.reconnectDelay);
+}
+function onMessage(s, msg) {
+  if (msg.t === 'joined') {
+    s['token'] = msg['token'] || s['token'];
+    if (msg.color) s.color = msg.color;
+    persistSessions();
+    // The server does not broadcast a separate state to the joiner, so the
+    // state riding on 'joined' is our first (and maybe only) snapshot.
+    if (msg.state) { s.state = msg.state; onState(s); }
+  } else if (msg.t === 'state') {
+    s.state = msg.state;
+    onState(s);
+  } else if (msg.t === 'progress') {
+    if (s.puzzle && msg.color && msg.color !== s.color) {
+      s.puzzle.oppSolved = msg.solved | 0;
+      s.puzzle.oppTotal = msg.total | 0;
+      updateHud(s);
+    }
+  } else if (msg.t === 'error') {
+    toast(msg.msg || 'Something went wrong');
+  } else if (msg.t === 'pong') {
+    // keepalive; nothing needed
+  }
+}
+// Keep the socket alive through NAT timeouts; the server auto-responds.
+setInterval(() => { for (const s of sessions) send(s, { t: 'ping' }); }, 25000);
+
+// ============================== state dispatcher ==============================
+function myColor(s) { return s.color || 0; }
+function oppColor(s) { return myColor(s) === 1 ? 2 : 1; }
+function oppName(s) {
+  const p = (s.state && s.state.players || []).find(p => p.color === oppColor(s));
+  return (p && p.name) || 'Opponent';
+}
+function iAmUploader(s) { return s.state && s.state.uploader === myColor(s); }
+
+function onState(s) {
+  if (s !== active) return;
+  const st = s.state;
+  if (!st) return;
+  const prev = s.lastStatus;
+  // Series counting on the transition into "over".
+  if (st.status === 'over' && prev !== 'over' && st.winner) {
+    if (st.winner === myColor(s)) s.series.w++;
+    else s.series.l++;
+    persistSessions();
+    storeDel(PROG_KEY(s.code, st.seed));
+  }
+  s.lastStatus = st.status;
+  if (st.status === 'waiting') {
+    // A rematch reset (or a fresh cycle) drops all local race state so the
+    // new photo picker starts clean.
+    if (prev === 'over' || prev === 'playing') resetRaceLocals(s);
+    stopRaceLoop(s);
+    showLobby(s);
+  } else if (st.status === 'playing') {
+    ensurePhoto(s).then(ok => {
+      if (!ok || s !== active || !s.state || s.state.status !== 'playing') return;
+      const now = Date.now();
+      if (now < s.state.raceStartsAt - COUNTDOWN_MS) showPreview(s);
+      else showRace(s);
+    });
+  } else if (st.status === 'over') {
+    stopRaceLoop(s);
+    showResult(s);
+  }
+}
+
+// ============================== lobby ==============================
+function inviteLink(s) { return `https://1v1.nz/pictures-party/?code=${encodeURIComponent(s.code)}`; }
+
+function showLobby(s) {
+  show('screen-lobby');
+  $('inviteCode').textContent = s.code;
+  const st = s.state || {};
+  const players = st.players || [];
+  const hasOpp = players.some(p => p.color === oppColor(s));
+  const isUp = st.uploader === myColor(s) || !myColor(s);
+  const upName = (players.find(p => p.color === st.uploader) || {}).name;
+  $('uploadBox').hidden = !isUp || !!st.photo;
+  if (!hasOpp) {
+    $('lobbyStatus').innerHTML = '<span class="spin"></span>Waiting for opponent to join...';
+  } else if (!st.photo) {
+    $('lobbyStatus').textContent = isUp
+      ? 'Opponent joined! Pick a photo to start.'
+      : `Waiting for ${upName || 'opponent'} to pick a photo...`;
+  } else {
+    $('lobbyStatus').innerHTML = '<span class="spin"></span>Photo set - get ready...';
+  }
+}
+
+async function shareInvite(s) {
+  const url = inviteLink(s);
+  const title = 'Race me in Pictures Party';
+  if (navigator.share) {
+    try { await navigator.share({ title, text: 'Solve this photo jigsaw faster than me:', url }); return; }
+    catch {}
+  }
+  try { await navigator.clipboard.writeText(url); toast('Invite link copied'); }
+  catch { prompt('Copy your invite link:', url); }
+}
+
+// ============================== photo ==============================
+let pendingPhoto = null; // { blob, width, height } chosen by the uploader, not yet uploaded
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function preparePhoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const scale = Math.min(1, MAX_UPLOAD_DIM / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', UPLOAD_JPEG_Q));
+    if (!blob) throw new Error('encode');
+    return { blob, width: w, height: h, previewUrl: URL.createObjectURL(blob) };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function uploadPhoto(s) {
+  if (!pendingPhoto) return;
+  const btn = $('uploadBtn');
+  btn.disabled = true;
+  $('uploadError').textContent = '';
+  try {
+    const { res, base } = await apiFetch(`/api/pictures/rooms/${encodeURIComponent(s.code)}/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'x-player-token': s.token,
+        'x-photo-width': String(pendingPhoto.width),
+        'x-photo-height': String(pendingPhoto.height),
+      },
+      body: pendingPhoto.blob,
+    });
+    if (s.apiBase == null && base) { s.apiBase = base; persistSessions(); }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || `Upload failed (${res.status})`);
+    }
+    s.photoBlob = pendingPhoto.blob;
+    pendingPhoto = null;
+    $('uploadPreviewImg').hidden = true;
+    $('uploadBtn').hidden = true;
+    toast('Photo uploaded!');
+  } catch (e) {
+    $('uploadError').textContent = e.message || 'Upload failed. Check your connection.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Ensure we have the photo bytes locally (uploader keeps its blob; the
+// joiner downloads from the room). Resolves true when ready.
+async function ensurePhoto(s) {
+  if (s.photoBlob) return true;
+  const st = s.state;
+  if (!st || !st.photo) return false;
+  try {
+    const { res } = await apiFetch(`/api/pictures/rooms/${encodeURIComponent(s.code)}/photo`);
+    if (!res.ok) throw new Error('photo fetch failed');
+    s.photoBlob = await res.blob();
+    return true;
+  } catch {
+    toast('Could not load the race photo');
+    return false;
+  }
+}
+
+// ============================== preview ==============================
+function showPreview(s) {
+  show('screen-preview');
+  const st = s.state;
+  const upName = ((st.players || []).find(p => p.color === st.uploader) || {}).name;
+  $('previewLabel').textContent = iAmUploader(s) ? 'Memorize your photo...' : `Memorize ${upName || 'the'} photo...`;
+  if (!s.photoUrl && s.photoBlob) s.photoUrl = URL.createObjectURL(s.photoBlob);
+  if (s.photoUrl) $('previewImg').src = s.photoUrl;
+  clearInterval(s.previewTimer);
+  const tick = () => {
+    if (s !== active || !s.state || s.state.status !== 'playing') { clearInterval(s.previewTimer); return; }
+    const msLeft = s.state.raceStartsAt - COUNTDOWN_MS - Date.now();
+    if (msLeft <= 0) { clearInterval(s.previewTimer); showRace(s); return; }
+    $('previewCount').textContent = Math.ceil(msLeft / 1000);
+  };
+  tick();
+  s.previewTimer = setInterval(tick, 250);
+}
+
+// ============================== puzzle ==============================
+// One edge of a piece path. (x0,y0)->(x1,y1), outward normal (nx,ny),
+// k: 0 straight, 1 knob out, -1 indent in. Knob depth 0.2 * edge length.
+function edgePath(x, x0, y0, x1, y1, nx, ny, k) {
+  if (k === 0) { x.lineTo(x1, y1); return; }
+  const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len, s = k;
+  const P = (u, v) => [x0 + ux * u * len + nx * v * s, y0 + uy * u * len + ny * v * s];
+  let p = P(0.38, 0); x.lineTo(p[0], p[1]);
+  let c1 = P(0.38, 0.12), c2 = P(0.40, 0.20), e1 = P(0.5, 0.20);
+  x.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], e1[0], e1[1]);
+  c1 = P(0.60, 0.20); c2 = P(0.62, 0.12); p = P(0.62, 0);
+  x.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], p[0], p[1]);
+  x.lineTo(x1, y1);
+}
+function tracePiece(x, px, py, w, h, e) {
+  x.beginPath();
+  x.moveTo(px, py);
+  edgePath(x, px, py, px + w, py, 0, -1, e.t);
+  edgePath(x, px + w, py, px + w, py + h, 1, 0, e.r);
+  edgePath(x, px + w, py + h, px, py + h, 0, 1, e.b);
+  edgePath(x, px, py + h, px, py, -1, 0, e.l);
+  x.closePath();
+}
+
+function sizeCanvas(s) {
+  const canvas = $('board');
+  const wrap = $('raceWrap');
+  const w = Math.max(280, wrap.clientWidth || 320);
+  const h = Math.round(Math.min(window.innerHeight * 0.62, Math.max(340, w * 1.05)));
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  s.cw = w; s.ch = h; s.dpr = dpr;
+  const photo = s.state.photo;
+  const aspect = photo.width / photo.height;
+  const margin = 14;
+  let bw = w - margin * 2, bh = bw / aspect;
+  if (bh > h - margin * 2) { bh = h - margin * 2; bw = bh * aspect; }
+  s.board = { x: (w - bw) / 2, y: (h - bh) / 2, w: bw, h: bh };
+}
+
+function homeNorm(s, c, r) {
+  const pz = s.puzzle, b = s.board;
+  return { x: (b.x + c * pz.cellW) / s.cw, y: (b.y + r * pz.cellH) / s.ch };
+}
+
+function decodePhoto(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = e => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+}
+
+async function buildPuzzle(s) {
+  const st = s.state;
+  if (!st || !st.photo || st.seed == null || !s.photoBlob) return false;
+  if (s.builtForSeed === st.seed && s.puzzle) return true;
+  const img = await decodePhoto(s.photoBlob);
+  const { cols, rows } = gridDims(st.photo.width, st.photo.height, 30);
+  const edges = generateEdges(st.seed, cols, rows);
+  const total = cols * rows;
+  const scale = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+  const work = document.createElement('canvas');
+  work.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  work.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  work.getContext('2d').drawImage(img, 0, 0, work.width, work.height);
+
+  const b = s.board;
+  const cellW = b.w / cols, cellH = b.h / rows;
+  const K = 0.24 * Math.min(cellW, cellH);
+  const dpr = s.dpr;
+  const pieces = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const i = r * cols + c;
+      const pc = document.createElement('canvas');
+      pc.width = Math.max(1, Math.ceil((cellW + 2 * K) * dpr));
+      pc.height = Math.max(1, Math.ceil((cellH + 2 * K) * dpr));
+      const x = pc.getContext('2d');
+      x.scale(dpr, dpr);
+      tracePiece(x, K, K, cellW, cellH, edges[r][c]);
+      x.save(); x.clip();
+      const sx = (c * cellW - K) / b.w * work.width;
+      const sy = (r * cellH - K) / b.h * work.height;
+      const sw = (cellW + 2 * K) / b.w * work.width;
+      const sh = (cellH + 2 * K) / b.h * work.height;
+      x.drawImage(work, sx, sy, sw, sh, 0, 0, cellW + 2 * K, cellH + 2 * K);
+      x.restore();
+      tracePiece(x, K, K, cellW, cellH, edges[r][c]);
+      x.strokeStyle = 'rgba(4,10,20,0.4)'; x.lineWidth = 1.2; x.stroke();
+      pieces.push({ i, r, c, nx: 0, ny: 0, solved: false, canvas: pc });
+    }
+  }
+  // Deterministic initial scatter (normalized coords).
+  const pos = scatterPositions(st.seed, total);
+  const cwN = cellW / s.cw, chN = cellH / s.ch;
+  for (const p of pieces) {
+    const q = pos[p.i];
+    p.nx = 0.02 + q.x * Math.max(0.05, 0.96 - cwN);
+    p.ny = 0.02 + q.y * Math.max(0.05, 0.96 - chN);
+  }
+  s.puzzle = {
+    cols, rows, edges, total, work, pieces,
+    zorder: scatterOrder(st.seed, total),
+    cellW, cellH, K, oppSolved: 0, oppTotal: total,
+  };
+  s.builtForSeed = st.seed;
+  s.solved = 0; s.total = total; s.finishSent = false;
+  restoreProgress(s);
+  const op = (st.progress || {})[oppColor(s)];
+  if (op && op.total) { s.puzzle.oppSolved = op.solved | 0; s.puzzle.oppTotal = op.total | 0; }
+  return true;
+}
+
+function draw(s) {
+  const pz = s.puzzle;
+  if (!pz) return;
+  const canvas = $('board');
+  const ctx = canvas.getContext('2d');
+  const W = s.cw, H = s.ch, b = s.board;
+  ctx.clearRect(0, 0, W, H);
+  // faint photo ghost as the assembly guide
+  ctx.save();
+  ctx.globalAlpha = 0.13;
+  ctx.drawImage(pz.work, b.x, b.y, b.w, b.h);
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(120,160,220,0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(b.x, b.y, b.w, b.h);
+  // pieces back-to-front
+  const K = pz.K;
+  for (const idx of pz.zorder) {
+    const p = pz.pieces[idx];
+    const dx = p.nx * W - K, dy = p.ny * H - K;
+    ctx.drawImage(p.canvas, dx, dy, pz.cellW + 2 * K, pz.cellH + 2 * K);
+    if (p.solved) {
+      ctx.strokeStyle = 'rgba(52,211,153,0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(dx + 1, dy + 1, pz.cellW + 2 * K - 2, pz.cellH + 2 * K - 2);
+    }
+  }
+  // reference thumbnail
+  const tw = 84, th = tw / (pz.work.width / pz.work.height);
+  const tx = W - tw - 8, ty = H - th - 8;
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = 'rgba(4,10,20,0.75)';
+  ctx.fillRect(tx - 3, ty - 3, tw + 6, th + 6);
+  ctx.drawImage(pz.work, tx, ty, tw, th);
+  ctx.restore();
+  // countdown / get-ready overlay
+  const st = s.state;
+  if (st && st.status === 'playing') {
+    const msLeft = st.raceStartsAt - Date.now();
+    if (msLeft > 0) {
+      ctx.fillStyle = 'rgba(4,10,20,0.62)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (msLeft > COUNTDOWN_MS) {
+        ctx.font = '700 22px system-ui,sans-serif';
+        ctx.fillText('Get ready...', W / 2, H / 2 - 30);
+        ctx.font = '800 54px system-ui,sans-serif';
+        ctx.fillText(String(Math.ceil((msLeft - COUNTDOWN_MS) / 1000)), W / 2, H / 2 + 24);
+      } else {
+        ctx.font = '800 84px system-ui,sans-serif';
+        ctx.fillText(String(Math.ceil(msLeft / 1000)), W / 2, H / 2);
+      }
+    }
+  }
+}
+
+function raceLoop(s) {
+  if (s !== active || !s.puzzle) return;
+  draw(s);
+  updateHud(s);
+  s.raf = requestAnimationFrame(() => raceLoop(s));
+}
+function stopRaceLoop(s) {
+  if (s.raf) cancelAnimationFrame(s.raf);
+  s.raf = 0;
+}
+
+// ============================== interaction ==============================
+function canvasPos(s, e) {
+  const rect = $('board').getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) * (s.cw / rect.width),
+    y: (e.clientY - rect.top) * (s.ch / rect.height),
+  };
+}
+function canPlay(s) {
+  return s.state && s.state.status === 'playing' && Date.now() >= s.state.raceStartsAt;
+}
+function wireCanvas(s) {
+  const canvas = $('board');
+  const pz = () => s.puzzle;
+  canvas.onpointerdown = e => {
+    if (s !== active || !canPlay(s) || !pz()) return;
+    e.preventDefault();
+    const p = canvasPos(s, e);
+    const z = pz().zorder;
+    for (let zi = z.length - 1; zi >= 0; zi--) {
+      const pc = pz().pieces[z[zi]];
+      if (pc.solved) continue;
+      const K = pz().K, cw = pz().cellW, ch = pz().cellH;
+      const px = pc.nx * s.cw, py = pc.ny * s.ch;
+      if (p.x >= px - K && p.x <= px + cw + K && p.y >= py - K && p.y <= py + ch + K) {
+        z.splice(zi, 1); z.push(pc.i);
+        s.drag = { pc, dx: p.x - px, dy: p.y - py, id: e.pointerId };
+        try { canvas.setPointerCapture(e.pointerId); } catch {}
+        break;
+      }
+    }
+  };
+  canvas.onpointermove = e => {
+    const d = s.drag;
+    if (!d || e.pointerId !== d.id || s !== active || !pz()) return;
+    e.preventDefault();
+    const p = canvasPos(s, e);
+    const cw = pz().cellW / s.cw, ch = pz().cellH / s.ch;
+    d.pc.nx = Math.min(1 - cw, Math.max(-0.05, p.x / s.cw - d.dx / s.cw));
+    d.pc.ny = Math.min(1 - ch, Math.max(-0.05, p.y / s.ch - d.dy / s.ch));
+  };
+  const drop = e => {
+    const d = s.drag;
+    if (!d || (e.pointerId !== undefined && e.pointerId !== d.id)) return;
+    s.drag = null;
+    const pz2 = pz(); if (!pz2) return;
+    const pc = d.pc;
+    const h = homeNorm(s, pc.c, pc.r);
+    const snapD = 0.38 * Math.min(pz2.cellW, pz2.cellH);
+    const dx = (pc.nx - h.x) * s.cw, dy = (pc.ny - h.y) * s.ch;
+    if (Math.hypot(dx, dy) <= snapD) {
+      pc.nx = h.x; pc.ny = h.y; pc.solved = true;
+      s.solved++;
+      sendProgress(s, true);
+      persistProgress(s);
+      if (s.solved >= s.total && !s.finishSent) {
+        s.finishSent = true;
+        send(s, { t: 'finish' });
+      }
+    } else {
+      persistProgress(s);
+    }
+  };
+  canvas.onpointerup = drop;
+  canvas.onpointercancel = drop;
+}
+
+// ============================== hud & progress ==============================
+function updateHud(s) {
+  const pz = s.puzzle; if (!pz) return;
+  $('youProg').textContent = `${s.solved}/${s.total}`;
+  $('youFill').style.width = (s.total ? (s.solved / s.total * 100) : 0) + '%';
+  $('oppProg').textContent = `${pz.oppSolved}/${pz.oppTotal}`;
+  $('oppFill').style.width = (pz.oppTotal ? (pz.oppSolved / pz.oppTotal * 100) : 0) + '%';
+  const st = s.state;
+  if (st && st.raceStartsAt) $('raceTimer').textContent = fmtTime(Math.max(0, Date.now() - st.raceStartsAt));
+}
+function sendProgress(s, force) {
+  const now = Date.now();
+  if (!force && now - s.lastProgressSent < 600) return;
+  s.lastProgressSent = now;
+  send(s, { t: 'progress', solved: s.solved, total: s.total });
+}
+function persistProgress(s) {
+  const pz = s.puzzle;
+  if (!pz || !s.state || s.state.seed == null) return;
+  try {
+    const solvedIdx = pz.pieces.filter(p => p.solved).map(p => p.i);
+    const pos = {};
+    for (const p of pz.pieces) if (!p.solved) pos[p.i] = [p.nx, p.ny];
+    storeSet(PROG_KEY(s.code, s.state.seed), JSON.stringify({ solvedIdx, pos }));
+  } catch {}
+}
+function restoreProgress(s) {
+  const pz = s.puzzle;
+  if (!pz || !s.state || s.state.seed == null) return;
+  let saved = null;
+  try { saved = JSON.parse(storeGet(PROG_KEY(s.code, s.state.seed)) || 'null'); } catch {}
+  if (!saved) return;
+  const solvedSet = new Set(saved.solvedIdx || []);
+  for (const p of pz.pieces) {
+    if (solvedSet.has(p.i)) {
+      const h = homeNorm(s, p.c, p.r);
+      p.nx = h.x; p.ny = h.y; p.solved = true; s.solved++;
+    } else if (saved.pos && saved.pos[p.i]) {
+      p.nx = Math.min(1, Math.max(0, saved.pos[p.i][0]));
+      p.ny = Math.min(1, Math.max(0, saved.pos[p.i][1]));
+    }
+  }
+}
+
+// ============================== race screen ==============================
+async function showRace(s) {
+  show('screen-race');
+  clearInterval(s.previewTimer);
+  sizeCanvas(s);
+  const ok = await buildPuzzle(s);
+  if (!ok || s !== active || !s.state || s.state.status !== 'playing') return;
+  wireCanvas(s);
+  $('youLbl').textContent = `${s.name} (you)`;
+  $('oppLbl').textContent = oppName(s);
+  $('raceNote').textContent = '';
+  updateHud(s);
+  stopRaceLoop(s);
+  s.raf = requestAnimationFrame(() => raceLoop(s));
+}
+
+// ============================== result ==============================
+function showResult(s) {
+  show('screen-result');
+  stopRaceLoop(s);
+  clearInterval(s.previewTimer);
+  const st = s.state;
+  const won = st.winner === myColor(s);
+  $('resultTitle').textContent = won ? 'You win!' : `${oppName(s)} wins`;
+  const myT = st.finishTimes[myColor(s)], opT = st.finishTimes[oppColor(s)];
+  let detail = '';
+  if (myT) detail += `Your time: ${fmtTime(myT - st.raceStartsAt)}`;
+  if (opT) detail += (detail ? '  ·  ' : '') + `${oppName(s)}: ${fmtTime(opT - st.raceStartsAt)}`;
+  if (!detail) detail = won ? 'Opponent left the race.' : 'Better luck next race!';
+  $('resultDetail').textContent = detail;
+  $('seriesText').textContent = `${s.series.w}-${s.series.l}`;
+  const voted = (st.rematch || []).includes(myColor(s));
+  $('rematchBtn').disabled = voted;
+  $('rematchNote').textContent = voted ? `Waiting for ${oppName(s)}...` : '';
+}
+
+function resetRaceLocals(s) {
+  if (s.photoUrl) { try { URL.revokeObjectURL(s.photoUrl); } catch {} }
+  s.photoBlob = null; s.photoUrl = '';
+  s.puzzle = null; s.builtForSeed = null;
+  s.solved = 0; s.total = 0; s.finishSent = false; s.lastProgressSent = 0;
+  s.drag = null;
+  pendingPhoto = null;
+  const pi = $('previewImg'); pi.removeAttribute('src');
+  $('uploadPreviewImg').hidden = true;
+  $('uploadBtn').hidden = true;
+  $('uploadError').textContent = '';
+}
+
+// ============================== actions ==============================
+async function createRace() {
+  const name = validName($('nameInput').value) || 'Player';
+  storeSet(NAME_KEY, name);
+  $('homeError').textContent = '';
+  const btn = $('createBtn'); btn.disabled = true;
+  try {
+    const { res, base } = await apiFetch('/api/pictures/rooms', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error('create failed');
+    const data = await res.json();
+    if (!data.code || !data.token) throw new Error('bad response');
+    const s = makeSession({ code: data.code, token: data['token'], name, color: data.color, apiBase: base });
+    sessions.unshift(s); persistSessions();
+    openSession(s);
+  } catch {
+    $('homeError').textContent = 'Could not reach the game server. Check your connection.';
+  } finally { btn.disabled = false; }
+}
+function joinRace(code) {
+  code = cleanCode(code !== undefined ? code : $('codeInput').value);
+  if (code.length !== 6) { $('homeError').textContent = 'Enter the 6-character invite code.'; return; }
+  const name = validName($('nameInput').value) || 'Player';
+  storeSet(NAME_KEY, name);
+  $('homeError').textContent = '';
+  let s = sessionByCode(code);
+  if (!s) { s = makeSession({ code, token: '', name }); sessions.unshift(s); persistSessions(); }
+  else { s.name = name; persistSessions(); }
+  openSession(s);
+}
+function openSession(s) {
+  active = s;
+  try { history.replaceState(null, '', `?code=${encodeURIComponent(s.code)}`); } catch {}
+  s.state = s.state || { status: 'waiting', players: [], uploader: 1, photo: null };
+  connectSession(s);
+  showLobby(s);
+}
+async function leaveRace(s, ask) {
+  if (!s) return;
+  const playing = s.state && s.state.status === 'playing';
+  if (ask && playing && !confirm('Leave this race? Leaving mid-race counts as a loss.')) return;
+  send(s, { t: 'leave' });
+  closeSocket(s, true);
+  sessions = sessions.filter(x => x !== s);
+  persistSessions();
+  if (active === s) active = null;
+  try { history.replaceState(null, '', location.pathname); } catch {}
+  show('screen-home');
+}
+
+// ============================== boot ==============================
+function wire() {
+  $('createBtn').onclick = createRace;
+  $('joinBtn').onclick = () => joinRace();
+  $('codeInput').addEventListener('keydown', e => { if (e.key === 'Enter') joinRace(); });
+  $('shareBtn').onclick = () => { if (active) shareInvite(active); };
+  $('lobbyLeaveBtn').onclick = () => leaveRace(active, true);
+  $('raceLeaveBtn').onclick = () => leaveRace(active, true);
+  $('newRaceBtn').onclick = () => leaveRace(active, false);
+  $('resignBtn').onclick = () => {
+    if (!active || !canPlay(active)) return;
+    if (confirm('Resign this race?')) send(active, { t: 'resign' });
+  };
+  $('rematchBtn').onclick = () => {
+    if (!active) return;
+    if (send(active, { t: 'rematch' })) {
+      $('rematchBtn').disabled = true;
+      $('rematchNote').textContent = `Waiting for ${oppName(active)}...`;
+    }
+  };
+  $('photoInput').addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file || !active) return;
+    $('uploadError').textContent = '';
+    try {
+      const photo = await preparePhoto(file);
+      pendingPhoto = photo;
+      const img = $('uploadPreviewImg');
+      img.src = photo.previewUrl;
+      img.hidden = false;
+      $('uploadBtn').hidden = false;
+    } catch {
+      $('uploadError').textContent = 'Could not read that photo. Try another image.';
+    }
+  });
+  $('uploadBtn').onclick = () => { if (active) uploadPhoto(active); };
+  document.addEventListener('visibilitychange', () => {
+    // Never kill the session on tab switch: the socket reconnects on return.
+    if (!document.hidden && active && !active.intentionalClose &&
+        (!active.socket || active.socket.readyState > WebSocket.OPEN)) {
+      connectSession(active);
+    }
+  });
+}
+loadStoredSessions();
+wire();
+(function boot() {
+  const savedName = storeGet(NAME_KEY);
+  if (savedName) $('nameInput').value = savedName;
+  const qcode = cleanCode(new URLSearchParams(location.search).get('code'));
+  show('screen-home');
+  if (qcode.length === 6) {
+    $('codeInput').value = qcode;
+    if (savedName) joinRace(qcode);
+  }
+})();
+</script>
+</body>
+</html>
