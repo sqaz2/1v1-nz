@@ -936,7 +936,9 @@ wire();
   show('screen-home');
   if (qcode.length === 6) {
     $('codeInput').value = qcode;
-    if (savedName) joinRace(qcode);
+    // Auto-join invite links even with no saved name (e.g. incognito/first
+    // visit): joinRace falls back to a default name so the link is one-tap.
+    joinRace(qcode);
   }
 })();
 </script>
