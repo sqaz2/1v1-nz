@@ -82,3 +82,39 @@ test('pieceHome maps grid cells to board pixels', () => {
   assert.deepEqual(pieceHome(2, 3, 100, 80, 10, 20), { x: 210, y: 260 });
   assert.deepEqual(pieceHome(0, 0, 50, 50, 0, 0), { x: 0, y: 0 });
 });
+
+test('tracePiece knobs extend ~0.2 * edge length (regression: 2026-10-05 squares bug)', async () => {
+  // The piece path code lives in pictures-party/index.html. Extract it verbatim
+  // and drive it with a recording stub: a knobbed edge must push the path
+  // ~0.2 * edge length out from the edge. (Once shipped with the v term
+  // unscaled, producing 0.2px nubs — plain squares on screen.)
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, join } = await import('node:path');
+  const root = dirname(fileURLToPath(import.meta.url));
+  const html = readFileSync(join(root, '..', 'pictures-party', 'index.html'), 'utf8');
+  const edgeSrc = html.match(/function edgePath\(x, x0, y0, x1, y1, nx, ny, k\) \{[\s\S]*?\n\}/)[0];
+  const edgePath = eval(edgeSrc + '\nedgePath;');
+  const measure = (x0, y0, x1, y1, nx, ny, k) => {
+    const pts = [];
+    const stub = {
+      lineTo(x, y) { pts.push([x, y]); },
+      bezierCurveTo(a, b, c, d, e, f) { pts.push([a, b], [c, d], [e, f]); },
+    };
+    edgePath(stub, x0, y0, x1, y1, nx, ny, k);
+    return pts;
+  };
+  const cellW = 134, cellH = 120;
+  // Top edge, knob out (k=1): must rise ~0.2*cellW above the edge.
+  let pts = measure(0, 0, cellW, 0, 0, -1, 1);
+  let depth = 0 - Math.min(...pts.map(p => p[1]));
+  assert.ok(depth > 0.15 * cellW && depth < 0.25 * cellW, `top knob depth ${depth.toFixed(1)} ~ 0.2*${cellW}`);
+  // Left edge, indent in (k=-1): must dip ~0.2*cellH into the piece (+x).
+  pts = measure(0, cellH, 0, 0, -1, 0, -1);
+  depth = Math.max(...pts.map(p => p[0])) - 0;
+  assert.ok(depth > 0.15 * cellH && depth < 0.25 * cellH, `left indent depth ${depth.toFixed(1)} ~ 0.2*${cellH}`);
+  // Straight edge (k=0): no excursion at all.
+  pts = measure(0, 0, cellW, 0, 0, -1, 0);
+  depth = 0 - Math.min(...pts.map(p => p[1]));
+  assert.equal(depth, 0, 'straight edge has no knob');
+});

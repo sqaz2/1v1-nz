@@ -487,7 +487,7 @@ function edgePath(x, x0, y0, x1, y1, nx, ny, k) {
   if (k === 0) { x.lineTo(x1, y1); return; }
   const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1;
   const ux = dx / len, uy = dy / len, s = k;
-  const P = (u, v) => [x0 + ux * u * len + nx * v * s, y0 + uy * u * len + ny * v * s];
+  const P = (u, v) => [x0 + ux * u * len + nx * v * s * len, y0 + uy * u * len + ny * v * s * len];
   let p = P(0.38, 0); x.lineTo(p[0], p[1]);
   let c1 = P(0.38, 0.12), c2 = P(0.40, 0.20), e1 = P(0.5, 0.20);
   x.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], e1[0], e1[1]);
@@ -556,7 +556,7 @@ async function buildPuzzle(s) {
 
   const b = s.board;
   const cellW = b.w / cols, cellH = b.h / rows;
-  const K = 0.24 * Math.min(cellW, cellH);
+  const K = 0.24 * Math.max(cellW, cellH);
   const dpr = s.dpr;
   const pieces = [];
   for (let r = 0; r < rows; r++) {
