@@ -81,6 +81,13 @@ export function simulateShot(hole, shot, { record = true } = {}) {
           ball.setTranslation({ x: o[0], y: o[1] + BALL_R, z: o[2] }, true);
           events.push({ tick, type: 'portal', strength: 6 }); portalCd = 45; portalArmed = false; p = ball.translation(); break; } }
     }
+    // Sand: rolling over a sand cell bleeds speed fast. Pure function of ball position, so host,
+    // guest, CPU and tests all stay in sync.
+    if (cellAt(hole, Math.round(p.x), Math.round(p.z)) === 's' && p.y < BALL_R + 0.06) {
+      const lv = ball.linvel(), av = ball.angvel(), k = 0.965;
+      ball.setLinvel({ x: lv.x * k, y: lv.y, z: lv.z * k }, true);
+      ball.setAngvel({ x: av.x * k, y: av.y, z: av.z * k }, true);
+    }
     buf[0] = p.x; buf[1] = p.y; buf[2] = p.z; hash = fnv(hash, buf);
     if (record) frames.push(p.x, p.y, p.z);
     const ddx = p.x - cup[0], ddz = p.z - cup[2];

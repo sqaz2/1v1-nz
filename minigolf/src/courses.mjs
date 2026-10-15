@@ -2,6 +2,7 @@
 // Grid: x = column, z = row (row 0 is the far end). One cell = 1 world unit.
 // ' ' void · '.' floor · 'T' tee · 'H' cup · 'o' bumper · '/' ramp rising toward row 0 · '=' plateau · 'h' cup on plateau
 // 'p' portal pad: exactly two per hole, they teleport the ball to each other (see physics.mjs).
+// 's' sand: floor that bleeds ball speed fast while the ball rolls over it (see physics.mjs).
 export const PLATEAU = 0.5;
 export const BALL_R = 0.07;
 export const CUP_R = 0.11;
@@ -18,16 +19,16 @@ export const HOLES = [
   { id: 'anchorage-landing', name: 'Anchorage Landing', theme: 'anchorage', par: 2, decor: [],
     map: ['...', '.H.', '...', '...', '...', '...', '.T.', '...'] },
   { id: 'dockyard-dogleg', name: 'Dockyard Dogleg', theme: 'anchorage', par: 3, decor: [{ model: 'muffin-wrapper', x: 5, z: 4.5, scale: 1.4 }],
-    map: ['.......', '.....H.', '.......', '...', '...', '...', '.T.', '...'] },
+    map: ['.......', '.....H.', '..ss...', '...', '...', '...', '.T.', '...'] },
   { id: 'ice-shelf', name: 'Ice Shelf Ramp', theme: 'anchorage', par: 3, decor: [],
     map: ['===', '=h=', '===', '///', '...', '...', '.T.', '...'] },
   { id: 'bumper-pit', name: 'Smackzone Bumper Pit', theme: 'smackzone', par: 3, decor: [{ model: 'muffin-wrapper', x: -1.6, z: 1.5, scale: 1.2 }],
-    map: ['.....', '..H..', '.o.o.', '.....', '..o..', '.o.o.', '.....', '..T..', '.....'] },
+    map: ['.....', '..H..', '.o.o.', '..s..', '..o..', '.o.o.', '.....', '..T..', '.....'] },
   { id: 'null-cube-gate', name: 'Null-Cube Gate', theme: 'smackzone', par: 3, decor: [],
     movers: [{ model: 'null-cube', z: 3.5, x0: 0.45, x1: 1.55, size: 0.9, period: 240 }],
     map: ['...', '.H.', '...', '...', '...', '...', '...', '.T.', '...'] },
   { id: 'crown-of-six-stars', name: 'Crown of Six Stars', theme: 'crown', par: 4, decor: [{ model: 'crown-of-six-stars', x: -1.4, z: 0.2, scale: 1.3 }],
-    map: ['H.....', '......', '....o.', '    ..', '    ..', '.....', '.....', '..', '.T', '..'] },
+    map: ['H.....', '.ss...', '....o.', '    ..', '    ..', '.....', '.....', '..', '.T', '..'] },
   { id: 'portal-panic', name: 'Portal Panic', theme: 'smackzone', par: 3, decor: [],
     map: ['..H....', '.......', '.p.....', '.......', '      .', '      .', '.......', '....pT.', '.......'] },
   { id: 'loop-the-loop', name: 'Loop-the-Loop', theme: 'crown', par: 3, decor: [{ model: 'crown-of-six-stars', x: -1.6, z: 4, scale: 1.1 }],
@@ -36,13 +37,13 @@ export const HOLES = [
   { id: 'twin-gates', name: 'Twin Gates', theme: 'anchorage', par: 4, decor: [{ model: 'muffin-wrapper', x: 5.4, z: 4, scale: 1.3 }],
     movers: [{ model: 'null-cube', z: 4, x0: 0.4, x1: 3.6, size: 0.8, period: 200 },
              { model: 'muffin-wrapper', z: 6, x0: 3.6, x1: 0.4, size: 0.8, period: 260 }],
-    map: ['=====', '==h==', '/////', '.....', '.....', '.....', '.....', '..T..', '.....'] },
+    map: ['=====', '==h==', '/////', '.s.s.', '.....', '.....', '.....', '..T..', '.....'] },
 ];
 export const DEFAULT_COURSE = HOLES.map(h => h.id);
 export const QUICK_COURSE = ['anchorage-landing', 'bumper-pit', 'crown-of-six-stars'];
 export const holeById = id => HOLES.find(h => h.id === id);
 
-const FLOOR = new Set(['.', 'T', 'H', 'o', '/', '=', 'h', 'p']);
+const FLOOR = new Set(['.', 'T', 'H', 'o', '/', '=', 'h', 'p', 's']);
 export function cellAt(hole, col, row) { const r = hole.map[row]; if (!r || col < 0) return ' '; return r[col] || ' '; }
 export const isFloor = ch => FLOOR.has(ch);
 export const cellTop = ch => (ch === '=' || ch === 'h') ? PLATEAU : 0;

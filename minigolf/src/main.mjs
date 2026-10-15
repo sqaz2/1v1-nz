@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { THEMES, HOLES, DEFAULT_COURSE, QUICK_COURSE, holeById, cells, cellAt, isFloor, cellTop, cupPos, moverPos, portalPads, BALL_R, CUP_R, PORTAL_R, PLATEAU } from './courses.mjs';
+import { THEMES, HOLES, DEFAULT_COURSE, QUICK_COURSE, holeById, cells, cellAt, isFloor, cellTop, cupPos, teePos, moverPos, portalPads, BALL_R, CUP_R, PORTAL_R, PLATEAU } from './courses.mjs';
 import { createMatch, validShot, shotOf, applyResult, hole as holeOf, totals, publicState, moverPhase } from './rules.mjs';
 import { initPhysics, simulateShot, HZ } from './physics.mjs';
 import { chooseShot } from './cpu.mjs';
@@ -34,6 +34,25 @@ const aimArrow = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 12), new THRE
 const aimLine = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.01, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 }));
 aimArrow.rotation.x = -Math.PI / 2; const aimGroup = new THREE.Group(); aimGroup.add(aimLine, aimArrow); aimGroup.visible = false; scene.add(aimGroup);
 
+// ---------- confetti ----------
+const bursts = [];
+function burst(pos, colors, n = 80) {
+  for (const color of colors) {
+    const geo = new THREE.BufferGeometry(), p0 = new Float32Array(n * 3), vel = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { p0[i * 3] = pos[0]; p0[i * 3 + 1] = pos[1] + 0.05; p0[i * 3 + 2] = pos[2];
+      const a = Math.random() * Math.PI * 2, r = Math.random() * 1.6; vel[i * 3] = Math.cos(a) * r; vel[i * 3 + 1] = 1.6 + Math.random() * 2.2; vel[i * 3 + 2] = Math.sin(a) * r; }
+    geo.setAttribute('position', new THREE.BufferAttribute(p0, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size: 0.055, transparent: true, opacity: 1, depthWrite: false }));
+    scene.add(pts); bursts.push({ pts, vel, life: 0 });
+  }
+}
+function stepBursts(dt) {
+  for (let i = bursts.length - 1; i >= 0; i--) { const b = bursts[i]; b.life += dt; const attr = b.pts.geometry.attributes.position, arr = attr.array;
+    for (let j = 0; j < attr.count; j++) { b.vel[j * 3 + 1] -= 4.2 * dt; arr[j * 3] += b.vel[j * 3] * dt; arr[j * 3 + 1] = Math.max(0.02, arr[j * 3 + 1] + b.vel[j * 3 + 1] * dt); arr[j * 3 + 2] += b.vel[j * 3 + 2] * dt; }
+    attr.needsUpdate = true; b.pts.material.opacity = Math.max(0, 1 - b.life / 1.5);
+    if (b.life > 1.5) { scene.remove(b.pts); b.pts.geometry.dispose(); b.pts.material.dispose(); bursts.splice(i, 1); } }
+}
+
 let course = null; // { group, movers:[{m, mesh}], hole }
 function wedge(x, z) { const b = -0.2, v = [[x - .5, b, z - .5], [x + .5, b, z - .5], [x - .5, b, z + .5], [x + .5, b, z + .5], [x - .5, PLATEAU, z - .5], [x + .5, PLATEAU, z - .5], [x - .5, 0, z + .5], [x + .5, 0, z + .5]];
   const f = [[4, 6, 7], [4, 7, 5], [0, 1, 3], [0, 3, 2], [0, 4, 5], [0, 5, 1], [2, 3, 7], [2, 7, 6], [0, 2, 6], [0, 6, 4], [1, 5, 7], [1, 7, 3]], pos = [];
@@ -42,10 +61,10 @@ function wedge(x, z) { const b = -0.2, v = [[x - .5, b, z - .5], [x + .5, b, z -
   g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); g.computeVertexNormals(); return g; }
 function buildCourse(hole) {
   if (course) { scene.remove(course.group); course.group.traverse(o => { o.geometry?.dispose?.(); }); }
-  const th = THEMES[hole.theme], group = new THREE.Group(), feltA = [], feltB = [], rails = [], bumps = [];
+  const th = THEMES[hole.theme], group = new THREE.Group(), feltA = [], feltB = [], rails = [], bumps = [], sand = [];
   for (const { col: x, row: z, ch } of cells(hole)) {
     if (ch === '/') feltA.push(wedge(x, z));
-    else { const top = cellTop(ch), g = new THREE.BoxGeometry(1, top + 0.2, 1); g.translate(x, (top - 0.2) / 2, z); ((x + z) % 2 ? feltA : feltB).push(g); }
+    else { const top = cellTop(ch), g = new THREE.BoxGeometry(1, top + 0.2, 1); g.translate(x, (top - 0.2) / 2, z); if (ch === 's') sand.push(g); else ((x + z) % 2 ? feltA : feltB).push(g); }
     if (ch === 'o') { const g = new THREE.CylinderGeometry(0.18, 0.18, 0.4, 24); g.translate(x, 0.2, z); bumps.push(g); }
     const top = (ch === '/' ? PLATEAU : cellTop(ch)) + 0.32;
     for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { if (isFloor(cellAt(hole, x + dc, z + dr))) continue;
@@ -61,6 +80,7 @@ function buildCourse(hole) {
   mesh(rails, new THREE.MeshStandardMaterial({ color: th.rail, roughness: 0.5, metalness: 0.2 }));
   const bumpMat = new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.6, roughness: 0.3 });
   mesh(bumps, bumpMat);
+  mesh(sand, new THREE.MeshStandardMaterial({ color: 0xd9b36a, roughness: 1 }));
   const cup = cupPos(hole);
   const hole3 = new THREE.Mesh(new THREE.CircleGeometry(CUP_R, 32), new THREE.MeshBasicMaterial({ color: 0x050505 })); hole3.rotation.x = -Math.PI / 2; hole3.position.set(cup[0], cup[1] + 0.002, cup[2]); group.add(hole3);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.8, 8), new THREE.MeshStandardMaterial({ color: 0xeeeeee })); pole.position.set(cup[0], cup[1] + 0.4, cup[2]); group.add(pole);
@@ -93,14 +113,14 @@ function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h
 addEventListener('resize', resize); resize();
 
 // ---------- match state ----------
-let mode = null, state = null, shown = null, queue = [], anim = null, mp = null, presence = true, cpuJob = null, level = 'normal', handoff = false, finishSent = false, lastAnimated = 0, holeShown = -1, courseIds = DEFAULT_COURSE;
+let mode = null, state = null, shown = null, queue = [], anim = null, mp = null, presence = true, cpuJob = null, level = 'normal', handoff = false, finishSent = false, lastAnimated = 0, holeShown = -1, courseIds = DEFAULT_COURSE, fly = null, celebrated = false;
 const human = slot => mode === 'online' ? slot === mp?.slot : mode === 'cpu' ? slot === 0 : true;
 const label = slot => mode === 'online' ? (slot === mp?.slot ? 'You' : 'Opponent') : mode === 'cpu' ? (slot === 0 ? 'You' : 'StarMuff CPU') : `Player ${slot + 1}`;
 const idle = () => !anim && !queue.length;
 const canShoot = () => shown && idle() && shown.phase === 'aim' && human(shown.turn) && !handoff && (mode !== 'online' || presence) && !$('menu').classList.contains('show');
 
 function start(newMode, seed = (Math.random() * 2 ** 32) >>> 0, snapshot = null) {
-  mode = newMode; queue = []; anim = null; cpuJob = null; finishSent = false; handoff = false; holeShown = -1;
+  mode = newMode; queue = []; anim = null; cpuJob = null; finishSent = false; handoff = false; holeShown = -1; fly = null; celebrated = false;
   state = snapshot ? snapshot : createMatch({ seed, course: courseIds, solo: mode === 'solo', names: [0, 1].map(label) });
   shown = publicState(state); lastAnimated = state.turnId - 1;
   hideOverlays(); show(); audio.unlock();
@@ -131,12 +151,12 @@ let drag = null; const MAXDRAG = () => Math.min(innerWidth, innerHeight) * 0.38;
 function aimFromDrag(d) { const f = forward(), r = new THREE.Vector3(Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)), dir = f.multiplyScalar(d.dy).add(r.multiplyScalar(-d.dx));
   const len = Math.hypot(d.dx, d.dy); return { dir: len > 1 ? dir.normalize() : forward(), power: Math.min(1, len / MAXDRAG()) }; }
 let keyPower = 0.5, keyAim = false;
-canvas.addEventListener('pointerdown', e => { audio.unlock(); if (e.button === 2 || !canShoot()) { drag = { rotate: true, x: e.clientX }; } else drag = { x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerdown', e => { audio.unlock(); fly = null; if (e.button === 2 || !canShoot()) { drag = { rotate: true, x: e.clientX }; } else drag = { x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 }; canvas.setPointerCapture(e.pointerId); });
 canvas.addEventListener('pointermove', e => { if (!drag) return; if (drag.rotate) { cam.yaw -= (e.clientX - drag.x) * 0.008; drag.x = e.clientX; return; } drag.dx = e.clientX - drag.x0; drag.dy = e.clientY - drag.y0; });
 canvas.addEventListener('pointerup', () => { const d = drag; drag = null; if (!d || d.rotate || !canShoot()) return; const a = aimFromDrag(d); if (a.power < 0.04) return; fire(a.dir, a.power); });
 canvas.addEventListener('pointercancel', () => { drag = null; });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
-addEventListener('keydown', e => { if (e.target.closest?.('input,textarea')) return;
+addEventListener('keydown', e => { if (e.target.closest?.('input,textarea')) return; fly = null;
   if (e.key === 'ArrowLeft' || e.key === 'a') cam.yaw += 0.05; else if (e.key === 'ArrowRight' || e.key === 'd') cam.yaw -= 0.05;
   else if (e.key === 'ArrowUp' || e.key === 'w') { keyAim = true; keyPower = Math.min(1, keyPower + 0.04); } else if (e.key === 'ArrowDown' || e.key === 's') { keyAim = true; keyPower = Math.max(0.05, keyPower - 0.04); }
   else if (e.key === ' ' && canShoot()) { e.preventDefault(); fire(forward(), keyPower); keyAim = false; } else return; e.preventDefault(); });
@@ -151,7 +171,8 @@ function fire(dir, power) {
 // ---------- HUD ----------
 function show() {
   if (!shown) return; const hole = holeOf(shown);
-  if (holeShown !== shown.holeIdx || course?.hole !== hole) { holeShown = shown.holeIdx; buildCourse(hole); faceCup(shown.pos[shown.turn], hole); banner(`Hole ${shown.holeIdx + 1} · ${hole.name}`, `${THEMES[hole.theme].name} · Par ${hole.par}`); }
+  if (holeShown !== shown.holeIdx || course?.hole !== hole) { holeShown = shown.holeIdx; buildCourse(hole); faceCup(shown.pos[shown.turn], hole); banner(`Hole ${shown.holeIdx + 1} · ${hole.name}`, `${THEMES[hole.theme].name} · Par ${hole.par}`);
+    const tp = teePos(hole), cp = cupPos(hole); fly = { t: 0, from: new THREE.Vector3(tp[0], tp[1], tp[2]), to: new THREE.Vector3(cp[0], cp[1], cp[2]) }; }
   $('holeName').textContent = `${shown.holeIdx + 1}/${shown.course.length} · ${hole.name}`; $('holePar').textContent = `Par ${hole.par}`;
   const t = totals(shown), players = shown.solo ? [0] : [0, 1];
   $('players').replaceChildren(...players.map(i => { const el = document.createElement('div'); el.className = 'chip p' + i + (i === shown.turn && shown.phase !== 'finished' ? ' on' : '');
@@ -166,12 +187,29 @@ function show() {
 let turnSeen = 0, turnSeenSlot = 0;
 function banner(title, sub) { const b = $('banner'); b.querySelector('b').textContent = title; b.querySelector('span').textContent = sub; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); }
 function overlay(title, text, button, cb) { $('ovTitle').textContent = title; $('ovText').textContent = text; $('ovBtn').textContent = button; $('ovBtn').onclick = () => { $('overlay').classList.remove('show'); cb?.(); }; $('overlay').classList.add('show'); }
+// ---------- best scores (this device only) ----------
+const BEST_KEY = 'minigolf-best-v1';
+const loadBest = () => { try { return JSON.parse(localStorage.getItem(BEST_KEY)) || {}; } catch { return {}; } };
+function recordBest() { // 'new' when the human's total beats the saved best for this course (solo / vs CPU only)
+  if ((mode !== 'solo' && mode !== 'cpu') || !shown) return null;
+  const t = totals(shown)[0], best = loadBest(), k = shown.course.join(',');
+  if (best[k] !== undefined && t >= best[k]) return 'same';
+  best[k] = t; try { localStorage.setItem(BEST_KEY, JSON.stringify(best)); } catch { /* private mode */ } return 'new';
+}
+function bestLine() { const best = loadBest(), parts = [];
+  for (const [k, v] of Object.entries(best)) parts.push(`${k === DEFAULT_COURSE.join(',') ? 'Tour' : k === QUICK_COURSE.join(',') ? 'Quick 3' : 'Course'} best: ${v}`);
+  return parts.length ? '🏆 ' + parts.join(' · ') : ''; }
+
 function scorecard(final) {
   const s = shown, rows = s.course.map((id, i) => `<tr><td>${i + 1}</td><td>${holeById(id).name}</td><td>${holeById(id).par}</td>${(s.solo ? [0] : [0, 1]).map(p => `<td>${i <= s.holeIdx || s.phase === 'finished' ? s.strokes[p][i] : '–'}</td>`).join('')}</tr>`).join('');
   const t = totals(s), par = s.course.reduce((a, id) => a + holeById(id).par, 0);
   $('scoreTable').innerHTML = `<thead><tr><th>#</th><th>Hole</th><th>Par</th>${(s.solo ? [0] : [0, 1]).map(p => `<th>${label(p)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody><tfoot><tr><td></td><td>Total</td><td>${par}</td>${(s.solo ? [0] : [0, 1]).map(p => `<td>${t[p]}</td>`).join('')}</tr></tfoot>`;
   $('scoreTitle').textContent = final ? (s.solo ? 'Round complete' : s.winner === 'draw' ? 'Draw!' : `${label(s.winner)} ${mode === 'online' || mode === 'cpu' ? (label(s.winner) === 'You' ? 'win!' : 'wins') : 'wins!'}`) : 'Scorecard';
   $('scoreMsg').textContent = final ? s.message : '';
+  if (final && !celebrated) { celebrated = true; // once per match: confetti at the last cup + best-score bookkeeping
+    const lh = holeById(s.course[s.course.length - 1]), cp = cupPos(lh);
+    burst([cp[0], cp[1] + 0.1, cp[2]], [0xffc93c, 0x7dd3fc, 0xff4fd8], 110);
+    if (recordBest() === 'new') $('scoreMsg').textContent = (s.message ? s.message + ' ' : '') + '🏆 New best round!'; }
   $('scoreAgain').hidden = !final; $('scoreAgain').textContent = mode === 'online' ? 'Rematch (both players ready up in the room)' : 'Play again';
   $('scoreAgain').onclick = () => { if (mode === 'online') { mp.setReady(true); $('scorecard').classList.remove('show'); } else start(mode); };
   if (final && !$('scorecard').classList.contains('show')) audio.win(); $('scorecard').classList.add('show');
@@ -198,7 +236,9 @@ function frame(now) {
       b.position.set(f[i * 3], f[i * 3 + 1], f[i * 3 + 2]); simTick = anim.shot.phase + i;
       while (anim.res.events.length && anim.res.events[0].tick <= anim.t) { const ev = anim.res.events.shift(); if (ev.type === 'portal') audio.warp(); else audio.hit(ev.strength); }
       cam.want.copy(b.position);
-      if (anim.t >= n + 20) { const done = anim; anim = null; if (done.res.holed) audio.cup(); else if (done.res.out) audio.out(); shown = done.after; show(); } }
+      if (anim.t >= n + 20) { const done = anim; anim = null;
+        if (done.res.holed) { audio.cup(); const hh = holeById(shown.course[done.shot.hole]), cp = cupPos(hh); burst([cp[0], cp[1] + 0.1, cp[2]], [0xffc93c, 0xffffff, THEMES[hh.theme].accent], 70); }
+        else if (done.res.out) audio.out(); shown = done.after; show(); } }
     else { cam.want.set(...shown.pos[shown.turn]); simTick += dt * HZ; }
     if (course) for (const { m, mesh } of course.movers) mesh.position.set(...moverPos(m, Math.floor(simTick)));
     if (course) { const t = now / 1000; // idle life: waving flag, pulsing bumpers/portals, bobbing loop ring, breathing movers
@@ -213,11 +253,18 @@ function frame(now) {
       aimGroup.position.copy(p); aimGroup.rotation.y = Math.atan2(a.dir.x, a.dir.z); aimLine.scale.z = len; aimLine.position.set(0, 0, len / 2); aimArrow.position.set(0, 0, len + 0.08); aimArrow.rotation.set(Math.PI / 2, 0, 0);
       $('power').style.setProperty('--p', a.power); $('powerWrap').classList.add('show'); } else $('powerWrap').classList.remove('show');
   }
-  updateCamera(dt); renderer.render(scene, camera);
+  stepBursts(dt);
+  if (fly && shown) { fly.t += dt / 1.9; // hole intro: dolly from tee to cup, any input cancels
+    if (fly.t >= 1) fly = null;
+    else { const e = fly.t * fly.t * (3 - 2 * fly.t); cam.target.lerpVectors(fly.from, fly.to, e);
+      camera.position.set(cam.target.x + Math.sin(cam.yaw) * 4.4, cam.target.y + 2.8, cam.target.z + Math.cos(cam.yaw) * 4.4);
+      camera.lookAt(cam.target.x, cam.target.y, cam.target.z); } }
+  if (!fly) updateCamera(dt);
+  renderer.render(scene, camera);
 }
 
 // ---------- menu & online ----------
-function openMenu() { $('menu').classList.add('show'); }
+function openMenu() { $('bestLine').textContent = bestLine(); $('menu').classList.add('show'); }
 document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { audio.unlock(); courseIds = $('courseSel').value === 'quick' ? QUICK_COURSE : DEFAULT_COURSE; level = $('levelSel').value;
   const m = b.dataset.mode; if (m === 'online') { $('room').hidden = false; $('menu').classList.remove('show'); mode = 'online-lobby'; overlay('Online 1v1', mp ? 'Create a room and share the invite link, or join with a code. The match starts when both players are ready.' : 'Online rooms are unavailable right now. Solo, hotseat and CPU still work.', 'OK', () => {}); return; }
   if (mp?.roomCode) mp.leave(); $('room').hidden = true; start(m); });

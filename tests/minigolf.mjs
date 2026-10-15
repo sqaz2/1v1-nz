@@ -50,6 +50,17 @@ test('Mini golf portals teleport the ball to the paired pad and stay determinist
   assert.equal(a.out, false);
 });
 
+test('Mini golf sand bleeds ball speed and stays deterministic', () => {
+  const mk = sand => ({ id: 'sand-test', name: 'Sand Test', theme: 'anchorage', par: 3, decor: [],
+    map: ['H..', '...', '...', '...', '...', '...', '...', '...', '...', sand ? '.s.' : '...', '...', '...', '.T.', '...'] });
+  const path = res => { let d = 0; const f = res.frames; for (let i = 1; i < f.length / 3; i++) d += Math.hypot(f[i * 3] - f[(i - 1) * 3], f[i * 3 + 2] - f[(i - 1) * 3 + 2]); return d; };
+  const hs = mk(true), shot = { dx: 0, dz: -1000, power: 700, start: teePos(hs), phase: 0 };
+  const a = simulateShot(hs, shot), b = simulateShot(hs, shot), plain = simulateShot(mk(false), shot);
+  assert.equal(a.hash, b.hash); assert.deepEqual(a.end, b.end);
+  assert.ok(path(a) < path(plain) * 0.75, `sand path ${path(a).toFixed(1)} vs plain ${path(plain).toFixed(1)}`);
+  assert.ok(a.end[2] > 8.4 && a.end[2] < 9.6, 'ball dies in the sand');
+});
+
 test('Mini golf rejects out-of-turn, stale, malformed and duplicate shots', () => {
   const s = createMatch({ seed: 2 }); assert.equal(s.turn, 0);
   const ok = { turnId: 1, dx: 0, dz: -1000, power: 300 };
