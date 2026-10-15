@@ -2,7 +2,7 @@
 // A fresh world is built for every shot, so a shot is a pure function of (hole, start, shot, phase):
 // host, guest, CPU and tests all compute bit-identical results with the same Rapier version.
 import RAPIER from '@dimforge/rapier3d-deterministic-compat';
-import { cells, cellAt, isFloor, cellTop, cupPos, moverPos, portalPads, BALL_R, CUP_R, PORTAL_R, PLATEAU } from './courses.mjs';
+import { cells, cellAt, isFloor, cellTop, cupPos, moverPos, portalPads, BALL_R, CUP_R, PORTAL_R, PLATEAU, JUMP_H } from './courses.mjs';
 
 export const HZ = 120, MAX_TICKS = HZ * 14, VMAX = 9;
 let ready = null;
@@ -20,7 +20,19 @@ export function buildWorld(hole) {
   const all = cells(hole), minX = Math.min(...all.map(c => c.col)), maxX = Math.max(...all.map(c => c.col)), minZ = Math.min(...all.map(c => c.row)), maxZ = Math.max(...all.map(c => c.row));
   add(RAPIER.ColliderDesc.cuboid((maxX - minX + 1) / 2 + 0.2, 0.1, (maxZ - minZ + 1) / 2 + 0.2).setTranslation((minX + maxX) / 2, FLOOR_BOTTOM / 2, (minZ + maxZ) / 2).setRestitution(0.2));
   for (const { col: x, row: z, ch } of all) {
-    if (ch === '/') {
+    if (ch === 'j') {
+      // Jump ramp: steep wedge to JUMP_H plus a small lip plate at the top edge kicked up toward
+      // row 0 — the lip adds launch angle without height, so a firm putt leaves airborne while a
+      // soft one stalls and drops into the trap in front.
+      const b = FLOOR_BOTTOM, pts = new Float32Array([x - .5, b, z - .5, x + .5, b, z - .5, x - .5, b, z + .5, x + .5, b, z + .5,
+        x - .5, JUMP_H, z - .5, x + .5, JUMP_H, z - .5, x - .5, 0, z + .5, x + .5, 0, z + .5]);
+      add(RAPIER.ColliderDesc.convexHull(pts).setRestitution(0.2));
+      // The plate sits sunk into the wedge (its lower corner well clear of the ball's riding
+      // line on the slope) so only the top surface emerges past the wedge's top edge.
+      const lipAng = 0.42, lip = RAPIER.ColliderDesc.cuboid(0.5, 0.02, 0.16).setTranslation(x, JUMP_H + 0.01, z - 0.60)
+        .setRotation({ x: Math.sin(lipAng / 2), y: 0, z: 0, w: Math.cos(lipAng / 2) });
+      world.createCollider(lip.setFriction(0.3).setRestitution(0.2), fixed);
+    } else if (ch === '/') {
       const b = FLOOR_BOTTOM, pts = new Float32Array([x - .5, b, z - .5, x + .5, b, z - .5, x - .5, b, z + .5, x + .5, b, z + .5,
         x - .5, PLATEAU, z - .5, x + .5, PLATEAU, z - .5, x - .5, 0, z + .5, x + .5, 0, z + .5]);
       add(RAPIER.ColliderDesc.convexHull(pts).setRestitution(0.2));
@@ -29,7 +41,7 @@ export function buildWorld(hole) {
       add(RAPIER.ColliderDesc.cuboid(0.5, hy, 0.5).setTranslation(x, FLOOR_BOTTOM + hy, z).setRestitution(0.2));
     }
     if (ch === 'o') add(RAPIER.ColliderDesc.cylinder(0.2, 0.18).setTranslation(x, 0.2, z).setRestitution(1.15));
-    const top = (ch === '/' ? PLATEAU : cellTop(ch)) + RAIL_H, hy = (top - FLOOR_BOTTOM) / 2, cy = FLOOR_BOTTOM + hy;
+    const top = (ch === '/' ? PLATEAU : ch === 'j' ? JUMP_H : cellTop(ch)) + RAIL_H, hy = (top - FLOOR_BOTTOM) / 2, cy = FLOOR_BOTTOM + hy;
     for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       if (isFloor(cellAt(hole, x + dc, z + dr))) continue;
       const hx = dc ? RAIL_T / 2 : 0.5 + RAIL_T, hz = dr ? RAIL_T / 2 : 0.5 + RAIL_T;
@@ -91,7 +103,9 @@ export function simulateShot(hole, shot, { record = true } = {}) {
     buf[0] = p.x; buf[1] = p.y; buf[2] = p.z; hash = fnv(hash, buf);
     if (record) frames.push(p.x, p.y, p.z);
     const ddx = p.x - cup[0], ddz = p.z - cup[2];
-    if (ddx * ddx + ddz * ddz < CUP_R * CUP_R && Math.abs(p.y - (cup[1] + BALL_R)) < 0.06 && v.x * v.x + v.z * v.z < 2.6 * 2.6) { holed = true; break; }
+    // Cup capture is speed-gated: past ~1.9 u/s the ball lips out and skips over — real holes
+    // shrink fast with pace (a 4.25" cup plays ~2.7" wide with 1 ft of extra speed).
+    if (ddx * ddx + ddz * ddz < CUP_R * CUP_R && Math.abs(p.y - (cup[1] + BALL_R)) < 0.06 && v.x * v.x + v.z * v.z < 1.9 * 1.9) { holed = true; break; }
     if (p.y < -1.5) { out = true; break; }
     still = sp2 < 0.0016 ? still + 1 : 0;
     if (still >= 24) break;

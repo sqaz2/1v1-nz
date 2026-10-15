@@ -3,7 +3,10 @@
 // ' ' void · '.' floor · 'T' tee · 'H' cup · 'o' bumper · '/' ramp rising toward row 0 · '=' plateau · 'h' cup on plateau
 // 'p' portal pad: exactly two per hole, they teleport the ball to each other (see physics.mjs).
 // 's' sand: floor that bleeds ball speed fast while the ball rolls over it (see physics.mjs).
+// 'j' jump ramp: steep wedge + lip rising toward row 0; launches the ball airborne over the trap
+// in front of it (must have sand or void in front). Air is fast but scatters on landing.
 export const PLATEAU = 0.5;
+export const JUMP_H = 0.32;
 export const BALL_R = 0.07;
 export const CUP_R = 0.11;
 export const PORTAL_R = 0.34;
@@ -38,12 +41,14 @@ export const HOLES = [
     movers: [{ model: 'null-cube', z: 4, x0: 0.4, x1: 3.6, size: 0.8, period: 200 },
              { model: 'muffin-wrapper', z: 6, x0: 3.6, x1: 0.4, size: 0.8, period: 260 }],
     map: ['=====', '==h==', '/////', '.s.s.', '.....', '.....', '.....', '..T..', '.....'] },
+  { id: 'trap-jump', name: 'Trap Jump', theme: 'smackzone', par: 3, decor: [],
+    map: ['.....', '..H..', '.....', '.....', 'sssss', '  j  ', '.....', '..T..', '.....'] },
 ];
 export const DEFAULT_COURSE = HOLES.map(h => h.id);
 export const QUICK_COURSE = ['anchorage-landing', 'bumper-pit', 'crown-of-six-stars'];
 export const holeById = id => HOLES.find(h => h.id === id);
 
-const FLOOR = new Set(['.', 'T', 'H', 'o', '/', '=', 'h', 'p', 's']);
+const FLOOR = new Set(['.', 'T', 'H', 'o', '/', '=', 'h', 'p', 's', 'j']);
 export function cellAt(hole, col, row) { const r = hole.map[row]; if (!r || col < 0) return ' '; return r[col] || ' '; }
 export const isFloor = ch => FLOOR.has(ch);
 export const cellTop = ch => (ch === '=' || ch === 'h') ? PLATEAU : 0;
@@ -84,6 +89,7 @@ export function validateHole(hole) {
   if (!THEMES[hole.theme]) errors.push('theme');
   if (!errors.length) { const d = distanceField(hole), t = teePos(hole); if (d(t[0], t[2]) === 99) errors.push('tee not connected to cup'); }
   for (const c of cells(hole)) if (c.ch === '/' && !isFloor(cellAt(hole, c.col, c.row - 1))) errors.push('ramp leads nowhere');
+  for (const c of cells(hole)) if (c.ch === 'j') { const f = cellAt(hole, c.col, c.row - 1); if (f !== 's' && f !== ' ') errors.push('jump ramp needs a trap in front'); }
   const np = cells(hole).filter(c => c.ch === 'p').length; if (np !== 0 && np !== 2) errors.push('portals must come in pairs');
   return errors;
 }

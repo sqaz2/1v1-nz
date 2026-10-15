@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { HOLES, DEFAULT_COURSE, QUICK_COURSE, validateHole, teePos, cupPos, moverPos, holeById, MAX_STROKES } from '../minigolf/src/courses.mjs';
+import { HOLES, DEFAULT_COURSE, QUICK_COURSE, validateHole, teePos, cupPos, moverPos, holeById, cellAt, JUMP_H, MAX_STROKES } from '../minigolf/src/courses.mjs';
 import { createMatch, validShot, shotOf, applyResult, totals, publicState, hole } from '../minigolf/src/rules.mjs';
 import { initPhysics, simulateShot } from '../minigolf/src/physics.mjs';
 import { chooseShotSync } from '../minigolf/src/cpu.mjs';
@@ -11,7 +11,7 @@ await initPhysics();
 const play = (s, slot, cmd) => { assert.ok(validShot(s, slot, cmd)); const shot = shotOf(s, slot, cmd); const res = simulateShot(hole(s), shot); assert.ok(applyResult(s, shot, res)); return res; };
 
 test('Mini golf: every StarMuff hole validates, tee connects to cup, assets exist', () => {
-  assert.equal(HOLES.length, 9);
+  assert.equal(HOLES.length, 10);
   for (const h of HOLES) assert.deepEqual(validateHole(h), [], h.id);
   for (const f of ['anchorage-surface.webp', 'smackzone-approach.webp', 'muffin-wrapper.glb', 'null-cube.glb', 'crown-of-six-stars.glb']) assert.ok(existsSync(new URL('../minigolf/assets/' + f, import.meta.url)), f);
   for (const id of QUICK_COURSE) assert.ok(holeById(id));
@@ -59,6 +59,18 @@ test('Mini golf sand bleeds ball speed and stays deterministic', () => {
   assert.equal(a.hash, b.hash); assert.deepEqual(a.end, b.end);
   assert.ok(path(a) < path(plain) * 0.75, `sand path ${path(a).toFixed(1)} vs plain ${path(plain).toFixed(1)}`);
   assert.ok(a.end[2] > 8.4 && a.end[2] < 9.6, 'ball dies in the sand');
+});
+
+test('Mini golf jump ramp launches the ball airborne over the trap; too soft drops in the sand', () => {
+  const hole = holeById('trap-jump'), tee = teePos(hole);
+  const fly = simulateShot(hole, { dx: 0, dz: -1, power: 900, start: tee, phase: 0 });
+  const again = simulateShot(hole, { dx: 0, dz: -1, power: 900, start: tee, phase: 0 });
+  assert.equal(fly.hash, again.hash);
+  let maxY = 0; for (let i = 1; i < fly.frames.length; i += 3) maxY = Math.max(maxY, fly.frames[i]);
+  assert.ok(maxY > JUMP_H + 0.15, `ball gets airborne (apex ${maxY.toFixed(2)})`);
+  assert.ok(fly.end[2] < 3.5, `firm putt clears the sand (ends z=${fly.end[2].toFixed(2)})`);
+  const soft = simulateShot(hole, { dx: 0, dz: -1, power: 750, start: tee, phase: 0 });
+  assert.equal(cellAt(hole, Math.round(soft.end[0]), Math.round(soft.end[2])), 's', `soft putt drops in the trap (ends z=${soft.end[2].toFixed(2)})`);
 });
 
 test('Mini golf rejects out-of-turn, stale, malformed and duplicate shots', () => {

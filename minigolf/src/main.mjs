@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { THEMES, HOLES, DEFAULT_COURSE, QUICK_COURSE, holeById, cells, cellAt, isFloor, cellTop, cupPos, teePos, moverPos, portalPads, BALL_R, CUP_R, PORTAL_R, PLATEAU } from './courses.mjs';
+import { THEMES, HOLES, DEFAULT_COURSE, QUICK_COURSE, holeById, cells, cellAt, isFloor, cellTop, cupPos, teePos, moverPos, portalPads, BALL_R, CUP_R, PORTAL_R, PLATEAU, JUMP_H } from './courses.mjs';
 import { createMatch, validShot, shotOf, applyResult, hole as holeOf, totals, publicState, moverPhase } from './rules.mjs';
 import { initPhysics, simulateShot, HZ } from './physics.mjs';
 import { chooseShot } from './cpu.mjs';
@@ -54,19 +54,21 @@ function stepBursts(dt) {
 }
 
 let course = null; // { group, movers:[{m, mesh}], hole }
-function wedge(x, z) { const b = -0.2, v = [[x - .5, b, z - .5], [x + .5, b, z - .5], [x - .5, b, z + .5], [x + .5, b, z + .5], [x - .5, PLATEAU, z - .5], [x + .5, PLATEAU, z - .5], [x - .5, 0, z + .5], [x + .5, 0, z + .5]];
+function wedge(x, z, h = PLATEAU) { const b = -0.2, v = [[x - .5, b, z - .5], [x + .5, b, z - .5], [x - .5, b, z + .5], [x + .5, b, z + .5], [x - .5, h, z - .5], [x + .5, h, z - .5], [x - .5, 0, z + .5], [x + .5, 0, z + .5]];
   const f = [[4, 6, 7], [4, 7, 5], [0, 1, 3], [0, 3, 2], [0, 4, 5], [0, 5, 1], [2, 3, 7], [2, 7, 6], [0, 2, 6], [0, 6, 4], [1, 5, 7], [1, 7, 3]], pos = [];
   for (const t of f) for (const i of t) pos.push(...v[i]); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   // mergeGeometries() refuses mixed attribute sets: the wedge must carry uv like the box/cylinder geometries it merges with.
   g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); g.computeVertexNormals(); return g; }
 function buildCourse(hole) {
   if (course) { scene.remove(course.group); course.group.traverse(o => { o.geometry?.dispose?.(); }); }
-  const th = THEMES[hole.theme], group = new THREE.Group(), feltA = [], feltB = [], rails = [], bumps = [], sand = [];
+  const th = THEMES[hole.theme], group = new THREE.Group(), feltA = [], feltB = [], rails = [], bumps = [], sand = [], jump = [];
   for (const { col: x, row: z, ch } of cells(hole)) {
     if (ch === '/') feltA.push(wedge(x, z));
+    else if (ch === 'j') { jump.push(wedge(x, z, JUMP_H));
+      const lip = new THREE.BoxGeometry(1, 0.04, 0.32); lip.rotateX(0.42); lip.translate(x, JUMP_H + 0.01, z - 0.60); jump.push(lip); }
     else { const top = cellTop(ch), g = new THREE.BoxGeometry(1, top + 0.2, 1); g.translate(x, (top - 0.2) / 2, z); if (ch === 's') sand.push(g); else ((x + z) % 2 ? feltA : feltB).push(g); }
     if (ch === 'o') { const g = new THREE.CylinderGeometry(0.18, 0.18, 0.4, 24); g.translate(x, 0.2, z); bumps.push(g); }
-    const top = (ch === '/' ? PLATEAU : cellTop(ch)) + 0.32;
+    const top = (ch === '/' ? PLATEAU : ch === 'j' ? JUMP_H : cellTop(ch)) + 0.32;
     for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { if (isFloor(cellAt(hole, x + dc, z + dr))) continue;
       const g = new THREE.BoxGeometry(dc ? 0.1 : 1.2, top + 0.2, dr ? 0.1 : 1.2); g.translate(x + dc * 0.55, (top - 0.2) / 2, z + dr * 0.55); rails.push(g); }
   }
@@ -81,6 +83,8 @@ function buildCourse(hole) {
   const bumpMat = new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.6, roughness: 0.3 });
   mesh(bumps, bumpMat);
   mesh(sand, new THREE.MeshStandardMaterial({ color: 0xd9b36a, roughness: 1 }));
+  // Obstacle color code (real courses do the same): jump ramps are always orange.
+  mesh(jump, new THREE.MeshStandardMaterial({ color: 0xff6a00, emissive: 0xff6a00, emissiveIntensity: 0.18, roughness: 0.55 }));
   const cup = cupPos(hole);
   const hole3 = new THREE.Mesh(new THREE.CircleGeometry(CUP_R, 32), new THREE.MeshBasicMaterial({ color: 0x050505 })); hole3.rotation.x = -Math.PI / 2; hole3.position.set(cup[0], cup[1] + 0.002, cup[2]); group.add(hole3);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.8, 8), new THREE.MeshStandardMaterial({ color: 0xeeeeee })); pole.position.set(cup[0], cup[1] + 0.4, cup[2]); group.add(pole);
