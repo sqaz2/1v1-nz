@@ -2,7 +2,7 @@
   "name": "1v1-nz",
   "private": true,
   "scripts": {
-    "build": "node scripts/build.mjs && node smackzone/build.mjs",
+    "build": "node scripts/build.mjs && node smackzone/build.mjs && node minigolf/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.cjs tests/*.mjs",
     "check": "npm run build && npm run typecheck && npm test",
@@ -11,9 +11,11 @@
     "check:worker": "wrangler deploy --config multiplayer/wrangler.toml --dry-run"
   },
   "dependencies": {
+    "@dimforge/rapier3d-deterministic-compat": "0.21.0",
     "lucide-react": "0.468.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "three": "0.186.1",
     "wouter": "3.3.5"
   },
   "devDependencies": {
