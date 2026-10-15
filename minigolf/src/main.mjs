@@ -1,0 +1,220 @@
+// StarMuff Mini Golf: three.js renderer, input, modes (solo, hotseat, CPU, online room).
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { THEMES, HOLES, DEFAULT_COURSE, QUICK_COURSE, holeById, cells, cellAt, isFloor, cellTop, cupPos, moverPos, BALL_R, CUP_R, PLATEAU } from './courses.mjs';
+import { createMatch, validShot, shotOf, applyResult, hole as holeOf, totals, publicState, moverPhase } from './rules.mjs';
+import { initPhysics, simulateShot, HZ } from './physics.mjs';
+import { chooseShot } from './cpu.mjs';
+import { createAudio } from './audio.mjs';
+
+const $ = id => document.getElementById(id);
+const ASSET = new URL('./assets/', document.baseURI.replace(/[^/]*$/, '')).href;
+const audio = createAudio();
+
+// ---------- renderer ----------
+const canvas = $('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 200);
+scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x251433, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 0.5, far: 40 }); scene.add(sun, sun.target);
+const texLoader = new THREE.TextureLoader(), gltf = new GLTFLoader(), models = {}, skies = {};
+function sky(file) { return skies[file] ||= texLoader.load(ASSET + file, t => { t.colorSpace = THREE.SRGBColorSpace; }); }
+function loadModel(name) { return models[name] ||= gltf.loadAsync(ASSET + name + '.glb').then(g => g.scene).catch(() => null); }
+function fitModel(obj, size) { const box = new THREE.Box3().setFromObject(obj), s = box.getSize(new THREE.Vector3()), k = size / Math.max(s.x, s.y, s.z); obj.scale.setScalar(k); const b2 = new THREE.Box3().setFromObject(obj), c = b2.getCenter(new THREE.Vector3()); obj.position.sub(new THREE.Vector3(c.x, b2.min.y, c.z)); const wrap = new THREE.Group(); wrap.add(obj); return wrap; }
+
+const ballGeo = new THREE.SphereGeometry(BALL_R, 24, 16);
+const balls = [0xffffff, 0xffc93c].map(color => { const m = new THREE.Mesh(ballGeo, new THREE.MeshStandardMaterial({ color, roughness: 0.35, emissive: color, emissiveIntensity: 0.08 })); m.castShadow = true; scene.add(m); return m; });
+const aimArrow = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const aimLine = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.01, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 }));
+aimArrow.rotation.x = -Math.PI / 2; const aimGroup = new THREE.Group(); aimGroup.add(aimLine, aimArrow); aimGroup.visible = false; scene.add(aimGroup);
+
+let course = null; // { group, movers:[{m, mesh}], hole }
+function wedge(x, z) { const b = -0.2, v = [[x - .5, b, z - .5], [x + .5, b, z - .5], [x - .5, b, z + .5], [x + .5, b, z + .5], [x - .5, PLATEAU, z - .5], [x + .5, PLATEAU, z - .5], [x - .5, 0, z + .5], [x + .5, 0, z + .5]];
+  const f = [[4, 6, 7], [4, 7, 5], [0, 1, 3], [0, 3, 2], [0, 4, 5], [0, 5, 1], [2, 3, 7], [2, 7, 6], [0, 2, 6], [0, 6, 4], [1, 5, 7], [1, 7, 3]], pos = [];
+  for (const t of f) for (const i of t) pos.push(...v[i]); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g; }
+function buildCourse(hole) {
+  if (course) { scene.remove(course.group); course.group.traverse(o => { o.geometry?.dispose?.(); }); }
+  const th = THEMES[hole.theme], group = new THREE.Group(), feltA = [], feltB = [], rails = [], bumps = [];
+  for (const { col: x, row: z, ch } of cells(hole)) {
+    if (ch === '/') feltA.push(wedge(x, z));
+    else { const top = cellTop(ch), g = new THREE.BoxGeometry(1, top + 0.2, 1); g.translate(x, (top - 0.2) / 2, z); ((x + z) % 2 ? feltA : feltB).push(g); }
+    if (ch === 'o') { const g = new THREE.CylinderGeometry(0.18, 0.18, 0.4, 24); g.translate(x, 0.2, z); bumps.push(g); }
+    const top = (ch === '/' ? PLATEAU : cellTop(ch)) + 0.32;
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { if (isFloor(cellAt(hole, x + dc, z + dr))) continue;
+      const g = new THREE.BoxGeometry(dc ? 0.1 : 1.2, top + 0.2, dr ? 0.1 : 1.2); g.translate(x + dc * 0.55, (top - 0.2) / 2, z + dr * 0.55); rails.push(g); }
+  }
+  const mesh = (geos, mat) => { if (!geos.length) return; const m = new THREE.Mesh(mergeGeometries(geos), mat); m.receiveShadow = true; m.castShadow = true; group.add(m); };
+  mesh(feltA, new THREE.MeshStandardMaterial({ color: th.felt, roughness: 0.92 }));
+  mesh(feltB, new THREE.MeshStandardMaterial({ color: th.felt2, roughness: 0.92 }));
+  mesh(rails, new THREE.MeshStandardMaterial({ color: th.rail, roughness: 0.5, metalness: 0.2 }));
+  mesh(bumps, new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.6, roughness: 0.3 }));
+  const cup = cupPos(hole);
+  const hole3 = new THREE.Mesh(new THREE.CircleGeometry(CUP_R, 32), new THREE.MeshBasicMaterial({ color: 0x050505 })); hole3.rotation.x = -Math.PI / 2; hole3.position.set(cup[0], cup[1] + 0.002, cup[2]); group.add(hole3);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.8, 8), new THREE.MeshStandardMaterial({ color: 0xeeeeee })); pole.position.set(cup[0], cup[1] + 0.4, cup[2]); group.add(pole);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.18), new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.5, side: THREE.DoubleSide })); flag.position.set(cup[0] + 0.14, cup[1] + 0.7, cup[2]); group.add(flag);
+  const movers = (hole.movers || []).map(m => { const box = new THREE.Mesh(new THREE.BoxGeometry(m.size, m.size, m.size), new THREE.MeshStandardMaterial({ color: 0x111122, emissive: th.accent, emissiveIntensity: 0.25, transparent: true, opacity: 0.55 })); box.castShadow = true; group.add(box);
+    loadModel(m.model).then(src => { if (src && box.parent) { const o = fitModel(src.clone(), m.size * 0.95); o.position.y = -m.size / 2; box.add(o); } }); return { m, mesh: box }; });
+  for (const d of hole.decor) loadModel(d.model).then(src => { if (!src || course?.group !== group) return; const o = fitModel(src.clone(), d.scale); o.position.set(d.x, 0, d.z); group.add(o); });
+  scene.add(group); scene.background = sky(th.sky); scene.fog = new THREE.Fog(th.fog, 18, 60);
+  const xs = cells(hole).map(c => c.col), zs = cells(hole).map(c => c.row), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+  sun.position.set(cx + 4, 10, cz + 3); sun.target.position.set(cx, 0, cz);
+  aimArrow.material.color.set(th.accent); aimLine.material.color.set(th.accent);
+  course = { group, movers, hole };
+}
+
+// ---------- camera ----------
+const cam = { yaw: 0, dist: 3.4, height: 2.0, target: new THREE.Vector3(), want: new THREE.Vector3() };
+function faceCup(pos, hole) { const c = cupPos(hole); cam.yaw = Math.atan2(pos[0] - c[0], pos[2] - c[2]); }
+function forward() { return new THREE.Vector3(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw)); }
+function updateCamera(dt) { cam.target.lerp(cam.want, 1 - Math.exp(-dt * 6)); const t = cam.target;
+  camera.position.set(t.x + Math.sin(cam.yaw) * cam.dist, t.y + cam.height, t.z + Math.cos(cam.yaw) * cam.dist); camera.lookAt(t.x, t.y + 0.1, t.z); }
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w < h ? 68 : 52; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+// ---------- match state ----------
+let mode = null, state = null, shown = null, queue = [], anim = null, mp = null, presence = true, cpuJob = null, level = 'normal', handoff = false, finishSent = false, lastAnimated = 0, holeShown = -1, courseIds = DEFAULT_COURSE;
+const human = slot => mode === 'online' ? slot === mp?.slot : mode === 'cpu' ? slot === 0 : true;
+const label = slot => mode === 'online' ? (slot === mp?.slot ? 'You' : 'Opponent') : mode === 'cpu' ? (slot === 0 ? 'You' : 'StarMuff CPU') : `Player ${slot + 1}`;
+const idle = () => !anim && !queue.length;
+const canShoot = () => shown && idle() && shown.phase === 'aim' && human(shown.turn) && !handoff && (mode !== 'online' || presence) && !$('menu').classList.contains('show');
+
+function start(newMode, seed = (Math.random() * 2 ** 32) >>> 0, snapshot = null) {
+  mode = newMode; queue = []; anim = null; cpuJob = null; finishSent = false; handoff = false; holeShown = -1;
+  state = snapshot ? snapshot : createMatch({ seed, course: courseIds, solo: mode === 'solo', names: [0, 1].map(label) });
+  shown = publicState(state); lastAnimated = state.turnId - 1;
+  hideOverlays(); show(); audio.unlock();
+}
+function hideOverlays() { for (const id of ['menu', 'overlay', 'scorecard']) $(id).classList.remove('show'); }
+
+function takeShot(slot, cmd) {
+  if (!validShot(state, slot, cmd)) return false;
+  const shot = shotOf(state, slot, cmd), res = simulateShot(holeOf(state), shot);
+  applyResult(state, shot, res); lastAnimated = shot.turnId;
+  queue.push({ shot, res, after: publicState(state) });
+  if (mode === 'online' && mp?.isHost) publish();
+  return true;
+}
+function publish() { mp.publish({ kind: 'minigolf-state', state: publicState(state) }); if (state.phase === 'finished' && !finishSent) { finishSent = true; mp.finish({ winner: state.winner, totals: totals(state), reason: 'course-complete' }); } }
+function adoptSnapshot(snap, resumed) {
+  if (!snap || snap.kind !== 'minigolf-state' || snap.state?.version !== 1) return;
+  const st = snap.state, ls = st.lastShot;
+  if (!resumed && ls && ls.turnId > lastAnimated && state) {
+    const hole = holeById(st.course[ls.hole]), res = simulateShot(hole, ls);
+    if (Math.abs(res.end[0] - ls.end[0]) > 1e-4 || Math.abs(res.end[2] - ls.end[2]) > 1e-4) console.warn('minigolf: local replay differs from host; host result wins');
+    res.end = ls.end; res.holed = ls.holed; lastAnimated = ls.turnId; state = st; queue.push({ shot: ls, res, after: publicState(st) });
+  } else { state = st; lastAnimated = st.turnId - 1; if (idle()) { shown = publicState(st); show(); } else queue.push({ after: publicState(st) }); }
+}
+
+// ---------- input ----------
+let drag = null; const MAXDRAG = () => Math.min(innerWidth, innerHeight) * 0.38;
+function aimFromDrag(d) { const f = forward(), r = new THREE.Vector3(Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)), dir = f.multiplyScalar(d.dy).add(r.multiplyScalar(-d.dx));
+  const len = Math.hypot(d.dx, d.dy); return { dir: len > 1 ? dir.normalize() : forward(), power: Math.min(1, len / MAXDRAG()) }; }
+let keyPower = 0.5, keyAim = false;
+canvas.addEventListener('pointerdown', e => { audio.unlock(); if (e.button === 2 || !canShoot()) { drag = { rotate: true, x: e.clientX }; } else drag = { x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => { if (!drag) return; if (drag.rotate) { cam.yaw -= (e.clientX - drag.x) * 0.008; drag.x = e.clientX; return; } drag.dx = e.clientX - drag.x0; drag.dy = e.clientY - drag.y0; });
+canvas.addEventListener('pointerup', () => { const d = drag; drag = null; if (!d || d.rotate || !canShoot()) return; const a = aimFromDrag(d); if (a.power < 0.04) return; fire(a.dir, a.power); });
+canvas.addEventListener('pointercancel', () => { drag = null; });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('keydown', e => { if (e.target.closest?.('input,textarea')) return;
+  if (e.key === 'ArrowLeft' || e.key === 'a') cam.yaw += 0.05; else if (e.key === 'ArrowRight' || e.key === 'd') cam.yaw -= 0.05;
+  else if (e.key === 'ArrowUp' || e.key === 'w') { keyAim = true; keyPower = Math.min(1, keyPower + 0.04); } else if (e.key === 'ArrowDown' || e.key === 's') { keyAim = true; keyPower = Math.max(0.05, keyPower - 0.04); }
+  else if (e.key === ' ' && canShoot()) { e.preventDefault(); fire(forward(), keyPower); keyAim = false; } else return; e.preventDefault(); });
+$('rotL').onclick = () => { cam.yaw += Math.PI / 8; }; $('rotR').onclick = () => { cam.yaw -= Math.PI / 8; };
+function fire(dir, power) {
+  const cmd = { turnId: shown.turnId, dx: Math.round(dir.x * 1000), dz: Math.round(dir.z * 1000), power: Math.max(1, Math.round(power * 1000)) };
+  audio.putt(power);
+  if (mode === 'online' && !mp.isHost) { if (validShot(state, mp.slot, cmd)) { mp.send('shot', cmd); shown.phase = 'sent'; show(); } return; }
+  takeShot(shown.turn, cmd);
+}
+
+// ---------- HUD ----------
+function show() {
+  if (!shown) return; const hole = holeOf(shown);
+  if (holeShown !== shown.holeIdx || course?.hole !== hole) { holeShown = shown.holeIdx; buildCourse(hole); faceCup(shown.pos[shown.turn], hole); banner(`Hole ${shown.holeIdx + 1} · ${hole.name}`, `${THEMES[hole.theme].name} · Par ${hole.par}`); }
+  $('holeName').textContent = `${shown.holeIdx + 1}/${shown.course.length} · ${hole.name}`; $('holePar').textContent = `Par ${hole.par}`;
+  const t = totals(shown), players = shown.solo ? [0] : [0, 1];
+  $('players').replaceChildren(...players.map(i => { const el = document.createElement('div'); el.className = 'chip p' + i + (i === shown.turn && shown.phase !== 'finished' ? ' on' : '');
+    el.textContent = `${label(i)} · ${shown.strokes[i][shown.holeIdx]} this hole · ${t[i]} total${shown.holed[i] && !shown.solo ? ' ✓' : ''}`; return el; }));
+  const waiting = shown.phase === 'sent' ? 'Shot sent…' : shown.phase === 'finished' ? shown.message : !presence && mode === 'online' ? 'Opponent disconnected: paused' : canShoot() ? 'Drag back from anywhere and release to putt' : idle() ? `${label(shown.turn)} to putt…` : '';
+  $('status').textContent = (shown.message && shown.phase !== 'finished' ? shown.message + ' ' : '') + waiting;
+  balls[1].visible = !shown.solo;
+  if (shown.phase === 'finished' && idle()) scorecard(true);
+  if (idle() && shown.phase === 'aim') { if (mode === 'hotseat' && shown.turnId > 1 && turnSeen !== shown.turnId && turnSeenSlot !== shown.turn) { handoff = true; overlay(`Pass to ${label(shown.turn)}`, 'Hand over the device when ready.', 'Ready', () => { handoff = false; show(); }); }
+    if (turnSeen !== shown.turnId) { turnSeen = shown.turnId; turnSeenSlot = shown.turn; faceCup(shown.pos[shown.turn], hole); } maybeCpu(); }
+}
+let turnSeen = 0, turnSeenSlot = 0;
+function banner(title, sub) { const b = $('banner'); b.querySelector('b').textContent = title; b.querySelector('span').textContent = sub; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); }
+function overlay(title, text, button, cb) { $('ovTitle').textContent = title; $('ovText').textContent = text; $('ovBtn').textContent = button; $('ovBtn').onclick = () => { $('overlay').classList.remove('show'); cb?.(); }; $('overlay').classList.add('show'); }
+function scorecard(final) {
+  const s = shown, rows = s.course.map((id, i) => `<tr><td>${i + 1}</td><td>${holeById(id).name}</td><td>${holeById(id).par}</td>${(s.solo ? [0] : [0, 1]).map(p => `<td>${i <= s.holeIdx || s.phase === 'finished' ? s.strokes[p][i] : '–'}</td>`).join('')}</tr>`).join('');
+  const t = totals(s), par = s.course.reduce((a, id) => a + holeById(id).par, 0);
+  $('scoreTable').innerHTML = `<thead><tr><th>#</th><th>Hole</th><th>Par</th>${(s.solo ? [0] : [0, 1]).map(p => `<th>${label(p)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody><tfoot><tr><td></td><td>Total</td><td>${par}</td>${(s.solo ? [0] : [0, 1]).map(p => `<td>${t[p]}</td>`).join('')}</tr></tfoot>`;
+  $('scoreTitle').textContent = final ? (s.solo ? 'Round complete' : s.winner === 'draw' ? 'Draw!' : `${label(s.winner)} ${mode === 'online' || mode === 'cpu' ? (label(s.winner) === 'You' ? 'win!' : 'wins') : 'wins!'}`) : 'Scorecard';
+  $('scoreMsg').textContent = final ? s.message : '';
+  $('scoreAgain').hidden = !final; $('scoreAgain').textContent = mode === 'online' ? 'Rematch (both players ready up in the room)' : 'Play again';
+  $('scoreAgain').onclick = () => { if (mode === 'online') { mp.setReady(true); $('scorecard').classList.remove('show'); } else start(mode); };
+  if (final && !$('scorecard').classList.contains('show')) audio.win(); $('scorecard').classList.add('show');
+}
+$('scoreBtn').onclick = () => shown && scorecard(false); $('scoreClose').onclick = () => $('scorecard').classList.remove('show');
+$('menuBtn').onclick = () => openMenu(); $('muteBtn').onclick = () => { $('muteBtn').textContent = audio.toggle() ? '🔇' : '🔊'; };
+
+// ---------- CPU ----------
+function maybeCpu() { if (mode !== 'cpu' || cpuJob || shown.turn !== 1 || shown.phase !== 'aim' || !idle()) return;
+  const turnId = state.turnId, gen = chooseShot(holeOf(state), state.pos[1], moverPhase(state), level); cpuJob = { gen, turnId, wait: 0.6 }; }
+function stepCpu(dt) { if (!cpuJob) return; if ((cpuJob.wait -= dt) > 0) return; const t0 = performance.now(); let r;
+  while (performance.now() - t0 < 8) { r = cpuJob.gen.next(); if (r.done) break; }
+  if (r?.done) { const job = cpuJob; cpuJob = null; if (state.turnId === job.turnId && mode === 'cpu') { audio.putt(r.value.power / 1000); takeShot(1, { ...r.value, turnId: job.turnId }); } } }
+
+// ---------- loop ----------
+let last = performance.now(), simTick = 0;
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now; stepCpu(dt);
+  if (!anim && queue.length) { const item = queue.shift(); if (item.res) { anim = { ...item, t: 0 }; } else { shown = item.after; show(); } }
+  if (shown) {
+    for (let i = 0; i < 2; i++) balls[i].position.set(...shown.pos[i]);
+    if (anim) { anim.t += dt * HZ; const f = anim.res.frames, n = f.length / 3, i = Math.min(n - 1, Math.floor(anim.t)), b = balls[anim.shot.slot];
+      b.position.set(f[i * 3], f[i * 3 + 1], f[i * 3 + 2]); simTick = anim.shot.phase + i;
+      while (anim.res.events.length && anim.res.events[0].tick <= anim.t) audio.hit(anim.res.events.shift().strength);
+      cam.want.copy(b.position);
+      if (anim.t >= n + 20) { const done = anim; anim = null; if (done.res.holed) audio.cup(); else if (done.res.out) audio.out(); shown = done.after; show(); } }
+    else { cam.want.set(...shown.pos[shown.turn]); simTick += dt * HZ; }
+    if (course) for (const { m, mesh } of course.movers) mesh.position.set(...moverPos(m, Math.floor(simTick)));
+    const aiming = canShoot() && (drag && !drag.rotate || keyAim);
+    aimGroup.visible = aiming;
+    if (aiming) { const a = drag && !drag.rotate ? aimFromDrag(drag) : { dir: forward(), power: keyPower }, len = 0.25 + a.power * 1.6, p = balls[shown.turn].position;
+      aimGroup.position.copy(p); aimGroup.rotation.y = Math.atan2(a.dir.x, a.dir.z); aimLine.scale.z = len; aimLine.position.set(0, 0, len / 2); aimArrow.position.set(0, 0, len + 0.08); aimArrow.rotation.set(Math.PI / 2, 0, 0);
+      $('power').style.setProperty('--p', a.power); $('powerWrap').classList.add('show'); } else $('powerWrap').classList.remove('show');
+  }
+  updateCamera(dt); renderer.render(scene, camera); requestAnimationFrame(frame);
+}
+
+// ---------- menu & online ----------
+function openMenu() { $('menu').classList.add('show'); }
+document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { audio.unlock(); courseIds = $('courseSel').value === 'quick' ? QUICK_COURSE : DEFAULT_COURSE; level = $('levelSel').value;
+  const m = b.dataset.mode; if (m === 'online') { $('room').hidden = false; $('menu').classList.remove('show'); mode = 'online-lobby'; overlay('Online 1v1', mp ? 'Create a room and share the invite link, or join with a code. The match starts when both players are ready.' : 'Online rooms are unavailable right now. Solo, hotseat and CPU still work.', 'OK', () => {}); return; }
+  if (mp?.roomCode) mp.leave(); $('room').hidden = true; start(m); });
+function mountOnline() {
+  if (!window.StarMuffMultiplayer) return;
+  mp = window.StarMuffMultiplayer.mount({ game: 'minigolf', container: $('room'),
+    onStart(info) { courseIds = DEFAULT_COURSE; mode = 'online'; presence = true; if (info.resumed && info.snapshot?.state) { start('online', info.seed, info.snapshot.state); lastAnimated = state.turnId - 1; } else { start('online', info.seed); if (mp.isHost) publish(); } $('room').hidden = false; },
+    onEvent(ev) { if (!mp.isHost || mode !== 'online' || !presence) return; if (ev.type === 'shot' || ev.type === 'command') { if (!takeShot(ev.slot, ev.data)) publish(); } },
+    onSnapshot({ snapshot }) { if (mode === 'online' && !mp.isHost) adoptSnapshot(snapshot, false); },
+    onPresence(info) { presence = !!info.connected; if (mode === 'online') { drag = null; show(); } },
+    onFinish({ result }) { if (state && result && mode === 'online' && state.phase !== 'finished') { state.phase = 'finished'; state.winner = result.winner; } },
+    onLeave() { if (mode === 'online') { mode = null; shown = null; openMenu(); } },
+    onUnavailable() { /* solo/hotseat/CPU remain available */ },
+  });
+}
+mountOnline();
+const params = new URLSearchParams(location.search);
+if (params.has('room')) { $('room').hidden = false; $('menu').classList.remove('show'); } else openMenu();
+// Attract mode behind the menu: show hole 1.
+buildCourse(HOLES[0]); { const c = cupPos(HOLES[0]); cam.want.set(c[0], 0, c[2] + 3); cam.target.copy(cam.want); faceCup([c[0], 0, c[2] + 6], HOLES[0]); }
+initPhysics().then(() => { document.body.classList.add('ready'); window.minigolf = { get mp() { return mp; }, get presence() { return presence; }, get state() { return state; }, get shown() { return shown; }, get mode() { return mode; }, start, takeShot }; if (params.get('autostart')) start(params.get('autostart')); });
+requestAnimationFrame(frame);
