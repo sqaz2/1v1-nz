@@ -1,6 +1,7 @@
 // StarMuff Mini Golf: three.js renderer, input, modes (solo, hotseat, CPU, online room).
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { THEMES, HOLES, DEFAULT_COURSE, QUICK_COURSE, holeById, cells, cellAt, isFloor, cellTop, cupPos, teePos, moverPos, portalPads, loopPath, BALL_R, CUP_R, PORTAL_R, PLATEAU, JUMP_H } from './courses.mjs';
 import { createMatch, validShot, shotOf, applyResult, hole as holeOf, totals, publicState, moverPhase } from './rules.mjs';
@@ -15,10 +16,16 @@ const audio = createAudio();
 // ---------- renderer ----------
 const canvas = $('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.autoUpdate = false; // static scene: re-render shadows only when something moves
+let shadowDirty = true;
 renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
 const scene = new THREE.Scene();
+// Image-based lighting: without an environment map every standard material is lit by two
+// lights alone and reads as flat plastic. A neutral studio env lifts metals, felt and the
+// ball with real reflections at almost no runtime cost (baked once here).
+{ const pmrem = new THREE.PMREMGenerator(renderer); scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.5; }
 const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 200);
 scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x251433, 1.4));
 const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
@@ -78,14 +85,33 @@ const grainTex = (() => { const s = 128, data = new Uint8Array(s * s * 4);
   for (let i = 0; i < s * s; i++) { const v = 185 + Math.floor(Math.random() * 70); data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v; data[i * 4 + 3] = 255; }
   const t = new THREE.DataTexture(data, s, s); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2); t.needsUpdate = true; return t; })();
 
+// Colour textures (near-white, multiplied by each material's theme colour): fine weave noise
+// plus a soft edge falloff so every felt cell reads as a padded tile instead of flat plastic;
+// wood grain streaks for the rails; speckled sand. Procedural — no downloads.
+function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
+const feltTex = canvasTex(256, 256, (g, s) => { g.fillStyle = '#f4f4f4'; g.fillRect(0, 0, s, s);
+  for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? '0,0,0' : '255,255,255'},${0.03 + Math.random() * 0.05})`; g.fillRect(Math.random() * s, Math.random() * s, 1.6, 1.6); }
+  const gr = g.createRadialGradient(s / 2, s / 2, s * 0.30, s / 2, s / 2, s * 0.72); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.20)'); g.fillStyle = gr; g.fillRect(0, 0, s, s); });
+const woodTex = canvasTex(256, 64, (g, w, h) => { g.fillStyle = '#efe9e2'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 46; i++) { const y = Math.random() * h; g.strokeStyle = `rgba(120,84,50,${0.05 + Math.random() * 0.13})`; g.lineWidth = 0.6 + Math.random() * 1.8; g.beginPath(); g.moveTo(0, y);
+    for (let x = 0; x <= w; x += 32) g.lineTo(x, y + (Math.random() - 0.5) * 3); g.stroke(); } });
+woodTex.wrapS = THREE.RepeatWrapping;
+const sandTex = canvasTex(256, 256, (g, s) => { g.fillStyle = '#f6ecd8'; g.fillRect(0, 0, s, s);
+  for (let i = 0; i < 5200; i++) { g.fillStyle = `rgba(${Math.random() < .55 ? '146,106,44' : '255,252,240'},${0.08 + Math.random() * 0.16})`; g.fillRect(Math.random() * s, Math.random() * s, 1.8, 1.8); } });
+
 let course = null; // { group, movers:[{m, mesh}], hole }
 function wedge(x, z, h = PLATEAU) { const b = -0.2, v = [[x - .5, b, z - .5], [x + .5, b, z - .5], [x - .5, b, z + .5], [x + .5, b, z + .5], [x - .5, h, z - .5], [x + .5, h, z - .5], [x - .5, 0, z + .5], [x + .5, 0, z + .5]];
   const f = [[4, 6, 7], [4, 7, 5], [0, 1, 3], [0, 3, 2], [0, 4, 5], [0, 5, 1], [2, 3, 7], [2, 7, 6], [0, 2, 6], [0, 6, 4], [1, 5, 7], [1, 7, 3]], pos = [];
   for (const t of f) for (const i of t) pos.push(...v[i]); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  // mergeGeometries() refuses mixed attribute sets: the wedge must carry uv like the box/cylinder geometries it merges with.
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); g.computeVertexNormals(); return g; }
+  // mergeGeometries() refuses mixed attribute sets: the wedge must carry uv like the box/cylinder
+  // geometries it merges with. UVs come from the vertex positions so the felt texture maps the
+  // ramp exactly like a flat cell.
+  const uv = []; for (let i = 0; i < pos.length; i += 3) uv.push(pos[i] - x + .5, pos[i + 2] - z + .5);
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g; }
 function buildCourse(hole) {
   if (course) { scene.remove(course.group); course.group.traverse(o => { o.geometry?.dispose?.(); }); }
+  shadowDirty = true;
   const th = THEMES[hole.theme], group = new THREE.Group(), feltA = [], feltB = [], rails = [], bumps = [], sand = [], jump = [];
   for (const { col: x, row: z, ch } of cells(hole)) {
     if (ch === '/') feltA.push(wedge(x, z));
@@ -103,12 +129,12 @@ function buildCourse(hole) {
   const mesh = (geos, mat) => { if (!geos.length) return null; const norm = geos.map(g => g.index ? g.toNonIndexed() : g), merged = mergeGeometries(norm);
     const add = g => { const m = new THREE.Mesh(g, mat); m.receiveShadow = true; m.castShadow = true; group.add(m); return m; };
     if (merged) return add(merged); for (const g of norm) add(g); return null; };
-  mesh(feltA, new THREE.MeshStandardMaterial({ color: th.felt, roughness: 0.92, bumpMap: grainTex, bumpScale: 0.2 }));
-  mesh(feltB, new THREE.MeshStandardMaterial({ color: th.felt2, roughness: 0.92, bumpMap: grainTex, bumpScale: 0.2 }));
-  mesh(rails, new THREE.MeshStandardMaterial({ color: th.rail, roughness: 0.35, metalness: 0.4 }));
+  mesh(feltA, new THREE.MeshStandardMaterial({ color: th.felt, map: feltTex, roughness: 0.92, bumpMap: grainTex, bumpScale: 0.2 }));
+  mesh(feltB, new THREE.MeshStandardMaterial({ color: th.felt2, map: feltTex, roughness: 0.92, bumpMap: grainTex, bumpScale: 0.2 }));
+  mesh(rails, new THREE.MeshStandardMaterial({ color: th.rail, map: woodTex, roughness: 0.5, metalness: 0.05 }));
   const bumpMat = new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.6, roughness: 0.3 });
   mesh(bumps, bumpMat);
-  mesh(sand, new THREE.MeshStandardMaterial({ color: 0xd9b36a, roughness: 1, bumpMap: grainTex, bumpScale: 0.6 }));
+  mesh(sand, new THREE.MeshStandardMaterial({ color: 0xd9b36a, map: sandTex, roughness: 1, bumpMap: grainTex, bumpScale: 0.6 }));
   // The board: a base slab + accent trim under the whole layout, so the course sits on a
   // table instead of floating over the backdrop.
   { const all = cells(hole), cxs = all.map(c => c.col), czs = all.map(c => c.row);
@@ -116,14 +142,37 @@ function buildCourse(hole) {
     const cxm = (Math.min(...cxs) + Math.max(...cxs)) / 2, czm = (Math.min(...czs) + Math.max(...czs)) / 2;
     const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 1.5, 0.52, d + 1.5), new THREE.MeshStandardMaterial({ color: 0x0a0d15, roughness: 0.75, metalness: 0.15 }));
     slab.position.set(cxm, -0.46, czm); slab.receiveShadow = true; group.add(slab);
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(w + 1.62, 0.055, d + 1.62), new THREE.MeshStandardMaterial({ color: th.rail, roughness: 0.35, metalness: 0.45 }));
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(w + 1.62, 0.055, d + 1.62), new THREE.MeshStandardMaterial({ color: th.rail, map: woodTex, roughness: 0.5, metalness: 0.05 }));
     trim.position.set(cxm, -0.215, czm); group.add(trim);
     // Corner posts with glowing tips frame the board like a table.
     const postMat = new THREE.MeshStandardMaterial({ color: 0x1a2130, roughness: 0.5, metalness: 0.4 });
     const tipMat = new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.9, roughness: 0.4 });
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const px = cxm + sx * ((w + 1.5) / 2 - 0.16), pz = czm + sz * ((d + 1.5) / 2 - 0.16);
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.52, 10), postMat); post.position.set(px, -0.2, pz); post.castShadow = true; group.add(post);
-      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), tipMat); tip.position.set(px, 0.08, pz); group.add(tip); } }
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), tipMat); tip.position.set(px, 0.08, pz); group.add(tip); }
+    // Dressing: low-poly props ring the board on the slab (never on the playing surface),
+    // seeded per hole so every visit looks the same. Pines, rocks and bushes outdoors;
+    // glowing crystals in the casino.
+    { let seed = 7; for (const ch2 of hole.id) seed = (seed * 31 + ch2.charCodeAt(0)) | 0;
+      const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+      const trunkG = [], leafG = [], rockG = [], crysG = [], placed = [], casino = hole.theme === 'smackzone';
+      for (let i = 0, count = Math.round((w + d) * 0.85); i < count; i++) { let px = 0, pz = 0, ok = false;
+        for (let tries = 0; tries < 8 && !ok; tries++) { const side = Math.floor(rnd() * 4), t = rnd(), off = 0.38 + rnd() * 0.14;
+          if (side === 0) { px = cxm - w / 2 + t * w; pz = czm - d / 2 - off; } else if (side === 1) { px = cxm - w / 2 + t * w; pz = czm + d / 2 + off; }
+          else if (side === 2) { px = cxm - w / 2 - off; pz = czm - d / 2 + t * d; } else { px = cxm + w / 2 + off; pz = czm - d / 2 + t * d; }
+          ok = placed.every(q => (q[0] - px) ** 2 + (q[1] - pz) ** 2 > 0.36); }
+        if (!ok) continue; placed.push([px, pz]);
+        const kind = rnd(), s = 0.8 + rnd() * 0.5;
+        if (casino && kind < 0.6) { const g = new THREE.OctahedronGeometry(0.13); g.scale(s, s * 1.8, s); g.translate(px, -0.2 + 0.2 * s, pz); crysG.push(g); }
+        else if (kind < 0.3 || (casino && kind >= 0.6)) { const g = new THREE.IcosahedronGeometry(0.11 + rnd() * 0.05, 0); g.scale(s, s * 0.6, s * 0.85); g.rotateY(rnd() * 3); g.translate(px, -0.2 + 0.05, pz); rockG.push(g); }
+        else if (kind < 0.5) { const g = new THREE.SphereGeometry(0.13, 8, 6); g.scale(s, s * 0.62, s); g.translate(px, -0.2 + 0.07, pz); leafG.push(g); }
+        else { const tg = new THREE.CylinderGeometry(0.032, 0.048, 0.24, 6); tg.translate(px, -0.2 + 0.12, pz); trunkG.push(tg);
+          const c1 = new THREE.ConeGeometry(0.19 * s, 0.4 * s, 8); c1.translate(px, 0.2 * s, pz); leafG.push(c1);
+          const c2 = new THREE.ConeGeometry(0.13 * s, 0.3 * s, 8); c2.translate(px, 0.42 * s, pz); leafG.push(c2); } }
+      mesh(trunkG, new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.9 }));
+      mesh(leafG, new THREE.MeshStandardMaterial({ color: 0x2f7a3d, roughness: 0.85 }));
+      mesh(rockG, new THREE.MeshStandardMaterial({ color: 0x8a93a6, roughness: 0.7, metalness: 0.1 }));
+      mesh(crysG, new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.55, roughness: 0.25 })); } }
   // Obstacle color code (real courses do the same): jump ramps are always orange.
   mesh(jump, new THREE.MeshStandardMaterial({ color: 0xff6a00, emissive: 0xff6a00, emissiveIntensity: 0.18, roughness: 0.55 }));
   const cup = cupPos(hole);
@@ -243,7 +292,7 @@ function fire(dir, power) {
 
 // ---------- HUD ----------
 function show() {
-  if (!shown) return; const hole = holeOf(shown);
+  if (!shown) return; shadowDirty = true; const hole = holeOf(shown);
   if (holeShown !== shown.holeIdx || course?.hole !== hole) { holeShown = shown.holeIdx; buildCourse(hole); faceCup(shown.pos[shown.turn], hole); banner(`Hole ${shown.holeIdx + 1} · ${hole.name}`, `${THEMES[hole.theme].name} · Par ${hole.par}`); cpuHoleIntro(hole);
     const tp = teePos(hole), cp = cupPos(hole); fly = { t: 0, from: new THREE.Vector3(tp[0], tp[1], tp[2]), to: new THREE.Vector3(cp[0], cp[1], cp[2]) }; }
   $('holeName').textContent = `${shown.holeIdx + 1}/${shown.course.length} · ${hole.name}`; $('holePar').textContent = `Par ${hole.par}`;
@@ -400,6 +449,7 @@ function frame(now) {
       camera.position.set(cam.target.x + Math.sin(cam.yaw) * 4.4, cam.target.y + 2.8, cam.target.z + Math.cos(cam.yaw) * 4.4);
       camera.lookAt(cam.target.x, cam.target.y, cam.target.z); } }
   if (!fly) updateCamera(dt);
+  if (shadowDirty || anim || (course && course.movers.length)) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
   renderer.render(scene, camera);
 }
 
