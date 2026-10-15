@@ -95,7 +95,7 @@ function buildCourse(hole) {
   { const all = cells(hole), cxs = all.map(c => c.col), czs = all.map(c => c.row);
     const w = Math.max(...cxs) - Math.min(...cxs) + 1, d = Math.max(...czs) - Math.min(...czs) + 1;
     const cxm = (Math.min(...cxs) + Math.max(...cxs)) / 2, czm = (Math.min(...czs) + Math.max(...czs)) / 2;
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 1.5, 0.52, d + 1.5), new THREE.MeshStandardMaterial({ color: 0x11151f, roughness: 0.75, metalness: 0.15 }));
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 1.5, 0.52, d + 1.5), new THREE.MeshStandardMaterial({ color: 0x0a0d15, roughness: 0.75, metalness: 0.15 }));
     slab.position.set(cxm, -0.46, czm); slab.receiveShadow = true; group.add(slab);
     const trim = new THREE.Mesh(new THREE.BoxGeometry(w + 1.62, 0.055, d + 1.62), new THREE.MeshStandardMaterial({ color: th.rail, roughness: 0.35, metalness: 0.45 }));
     trim.position.set(cxm, -0.215, czm); group.add(trim); }
@@ -397,5 +397,5 @@ const params = new URLSearchParams(location.search);
 if (params.has('room')) { $('room').hidden = false; $('menu').classList.remove('show'); } else openMenu();
 // Attract mode behind the menu: show hole 1.
 buildCourse(HOLES[0]); { const c = cupPos(HOLES[0]); cam.want.set(c[0], 0, c[2] + 3); cam.target.copy(cam.want); faceCup([c[0], 0, c[2] + 6], HOLES[0]); }
-initPhysics().then(() => { document.body.classList.add('ready'); window.minigolf = { get mp() { return mp; }, get presence() { return presence; }, get state() { return state; }, get shown() { return shown; }, get mode() { return mode; }, start, takeShot }; if (params.get('autostart')) start(params.get('autostart')); });
+initPhysics().then(() => { document.body.classList.add('ready'); $('status').textContent = 'Pick a mode to start'; window.minigolf = { get mp() { return mp; }, get presence() { return presence; }, get state() { return state; }, get shown() { return shown; }, get mode() { return mode; }, start, takeShot }; if (params.get('autostart')) start(params.get('autostart')); });
 requestAnimationFrame(frame);
