@@ -79,26 +79,12 @@ function stepBursts(dt) {
     if (b.life > 1.5) { scene.remove(b.pts); b.pts.geometry.dispose(); b.pts.material.dispose(); bursts.splice(i, 1); } }
 }
 
-// Procedural grain for felt/sand: a tiny noise texture used as a bump map, so flat colour
-// reads as fabric/sand under the light instead of plastic. Visual only, built once.
-const grainTex = (() => { const s = 128, data = new Uint8Array(s * s * 4);
-  for (let i = 0; i < s * s; i++) { const v = 185 + Math.floor(Math.random() * 70); data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v; data[i * 4 + 3] = 255; }
-  const t = new THREE.DataTexture(data, s, s); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2); t.needsUpdate = true; return t; })();
-
-// Colour textures (near-white, multiplied by each material's theme colour): fine weave noise
-// plus a soft edge falloff so every felt cell reads as a padded tile instead of flat plastic;
-// wood grain streaks for the rails; speckled sand. Procedural — no downloads.
-function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
-const feltTex = canvasTex(256, 256, (g, s) => { g.fillStyle = '#f4f4f4'; g.fillRect(0, 0, s, s);
-  for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? '0,0,0' : '255,255,255'},${0.03 + Math.random() * 0.05})`; g.fillRect(Math.random() * s, Math.random() * s, 1.6, 1.6); }
-  const gr = g.createRadialGradient(s / 2, s / 2, s * 0.30, s / 2, s / 2, s * 0.72); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.20)'); g.fillStyle = gr; g.fillRect(0, 0, s, s); });
-const woodTex = canvasTex(256, 64, (g, w, h) => { g.fillStyle = '#efe9e2'; g.fillRect(0, 0, w, h);
-  for (let i = 0; i < 46; i++) { const y = Math.random() * h; g.strokeStyle = `rgba(120,84,50,${0.05 + Math.random() * 0.13})`; g.lineWidth = 0.6 + Math.random() * 1.8; g.beginPath(); g.moveTo(0, y);
-    for (let x = 0; x <= w; x += 32) g.lineTo(x, y + (Math.random() - 0.5) * 3); g.stroke(); } });
-woodTex.wrapS = THREE.RepeatWrapping;
-const sandTex = canvasTex(256, 256, (g, s) => { g.fillStyle = '#f6ecd8'; g.fillRect(0, 0, s, s);
-  for (let i = 0; i < 5200; i++) { g.fillStyle = `rgba(${Math.random() < .55 ? '146,106,44' : '255,252,240'},${0.08 + Math.random() * 0.16})`; g.fillRect(Math.random() * s, Math.random() * s, 1.8, 1.8); } });
+// Real surface images (generated photographic textures in assets/): astro turf for the playing
+// surface, walnut for the rails, sand, slate for the table body. Each is also its own bump map,
+// so the blades/grain cast real relief under the light. Theme identity now lives in the rails,
+// trim, accents and sky — the turf itself stays real green on every course, like a real course.
+function imgTex(file) { const t = texLoader.load(ASSET + file); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t; }
+const turfTex = imgTex('turf.webp'), woodTex = imgTex('wood.webp'), sandTex = imgTex('sand.webp'), slateTex = imgTex('slate.webp');
 
 let course = null; // { group, movers:[{m, mesh}], hole }
 function wedge(x, z, h = PLATEAU) { const b = -0.2, v = [[x - .5, b, z - .5], [x + .5, b, z - .5], [x - .5, b, z + .5], [x + .5, b, z + .5], [x - .5, h, z - .5], [x + .5, h, z - .5], [x - .5, 0, z + .5], [x + .5, 0, z + .5]];
@@ -129,18 +115,18 @@ function buildCourse(hole) {
   const mesh = (geos, mat) => { if (!geos.length) return null; const norm = geos.map(g => g.index ? g.toNonIndexed() : g), merged = mergeGeometries(norm);
     const add = g => { const m = new THREE.Mesh(g, mat); m.receiveShadow = true; m.castShadow = true; group.add(m); return m; };
     if (merged) return add(merged); for (const g of norm) add(g); return null; };
-  mesh(feltA, new THREE.MeshStandardMaterial({ color: th.felt, map: feltTex, roughness: 0.92, bumpMap: grainTex, bumpScale: 0.2 }));
-  mesh(feltB, new THREE.MeshStandardMaterial({ color: th.felt2, map: feltTex, roughness: 0.92, bumpMap: grainTex, bumpScale: 0.2 }));
+  mesh(feltA, new THREE.MeshStandardMaterial({ color: 0xffffff, map: turfTex, roughness: 0.94, bumpMap: turfTex, bumpScale: 0.55 }));
+  mesh(feltB, new THREE.MeshStandardMaterial({ color: 0xdce6dc, map: turfTex, roughness: 0.94, bumpMap: turfTex, bumpScale: 0.55 }));
   mesh(rails, new THREE.MeshStandardMaterial({ color: th.rail, map: woodTex, roughness: 0.5, metalness: 0.05 }));
   const bumpMat = new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.6, roughness: 0.3 });
   mesh(bumps, bumpMat);
-  mesh(sand, new THREE.MeshStandardMaterial({ color: 0xd9b36a, map: sandTex, roughness: 1, bumpMap: grainTex, bumpScale: 0.6 }));
+  mesh(sand, new THREE.MeshStandardMaterial({ color: 0xffffff, map: sandTex, roughness: 1, bumpMap: sandTex, bumpScale: 0.35 }));
   // The board: a base slab + accent trim under the whole layout, so the course sits on a
   // table instead of floating over the backdrop.
   { const all = cells(hole), cxs = all.map(c => c.col), czs = all.map(c => c.row);
     const w = Math.max(...cxs) - Math.min(...cxs) + 1, d = Math.max(...czs) - Math.min(...czs) + 1;
     const cxm = (Math.min(...cxs) + Math.max(...cxs)) / 2, czm = (Math.min(...czs) + Math.max(...czs)) / 2;
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 1.5, 0.52, d + 1.5), new THREE.MeshStandardMaterial({ color: 0x0a0d15, roughness: 0.75, metalness: 0.15 }));
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 1.5, 0.52, d + 1.5), new THREE.MeshStandardMaterial({ color: 0xffffff, map: slateTex, roughness: 0.85, metalness: 0.05 }));
     slab.position.set(cxm, -0.46, czm); slab.receiveShadow = true; group.add(slab);
     const trim = new THREE.Mesh(new THREE.BoxGeometry(w + 1.62, 0.055, d + 1.62), new THREE.MeshStandardMaterial({ color: th.rail, map: woodTex, roughness: 0.5, metalness: 0.05 }));
     trim.position.set(cxm, -0.215, czm); group.add(trim);
