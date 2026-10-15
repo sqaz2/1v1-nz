@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { THEMES, HOLES, DEFAULT_COURSE, QUICK_COURSE, holeById, cells, cellAt, isFloor, cellTop, cupPos, teePos, moverPos, portalPads, BALL_R, CUP_R, PORTAL_R, PLATEAU, JUMP_H } from './courses.mjs';
+import { THEMES, HOLES, DEFAULT_COURSE, QUICK_COURSE, holeById, cells, cellAt, isFloor, cellTop, cupPos, teePos, moverPos, portalPads, loopPath, BALL_R, CUP_R, PORTAL_R, PLATEAU, JUMP_H } from './courses.mjs';
 import { createMatch, validShot, shotOf, applyResult, hole as holeOf, totals, publicState, moverPhase } from './rules.mjs';
 import { initPhysics, simulateShot, HZ } from './physics.mjs';
 import { chooseShot } from './cpu.mjs';
@@ -95,8 +95,26 @@ function buildCourse(hole) {
     disc.rotation.x = -Math.PI / 2; disc.position.set(p[0], p[1] + 0.006, p[2]); group.add(disc);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.035, 10, 28), new THREE.MeshStandardMaterial({ color: 0x111122, emissive: th.accent, emissiveIntensity: 0.9, roughness: 0.3 }));
     ring.position.set(p[0], p[1] + 0.32, p[2]); group.add(ring); return { ring, disc }; });
-  const ringMeshes = (hole.rings || []).map(r => { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.05, 12, 36), new THREE.MeshStandardMaterial({ color: 0x111122, emissive: th.accent, emissiveIntensity: 0.7, roughness: 0.35 }));
-    ring.position.set(r.x, 0.47, r.z); group.add(ring); return ring; });
+  // Loop track: a U-channel swept along the shared loop path (blue — the obstacle color code,
+  // same convention as real courses). Struts hold it up where it leaves the ground.
+  const loopMeshes = [], lp = loopPath(hole);
+  if (lp) {
+    const prof = [[-0.235, 0.10], [-0.205, 0.02], [-0.17, 0], [0.17, 0], [0.205, 0.02], [0.235, 0.10]], pos = [], idx = [];
+    lp.forEach((p, i) => { const q = lp[Math.min(i + 1, lp.length - 1)], yaw = Math.atan2(q.x - p.x, -(q.z - p.z));
+      const lx = Math.cos(yaw), lz = -Math.sin(yaw), ny = Math.cos(p.phi), nz = Math.sin(p.phi);
+      for (const [u, v] of prof) pos.push(p.x + lx * u, p.y + ny * v, p.z + lz * u + nz * v);
+      if (i) { const a = (i - 1) * 6, b = i * 6; for (let k = 0; k < 5; k++) idx.push(a + k, b + k, a + k + 1, b + k, b + k + 1, a + k + 1); } });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(pos.length / 3 * 2), 2));
+    g.setIndex(idx); g.computeVertexNormals();
+    const track = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x2456d6, emissive: 0x2456d6, emissiveIntensity: 0.22, roughness: 0.4, metalness: 0.25, side: THREE.DoubleSide }));
+    track.castShadow = true; track.receiveShadow = true; group.add(track); loopMeshes.push(track);
+    const struts = [];
+    for (let i = 6; i < lp.length - 12; i += 6) { const p = lp[i]; if (p.y < 0.35) continue;
+      const s = new THREE.BoxGeometry(0.06, p.y, 0.06); s.translate(p.x, p.y / 2, p.z); struts.push(s); }
+    mesh(struts, new THREE.MeshStandardMaterial({ color: 0x8a93a6, roughness: 0.6, metalness: 0.4 }));
+  }
   const movers = (hole.movers || []).map(m => { const box = new THREE.Mesh(new THREE.BoxGeometry(m.size, m.size, m.size), new THREE.MeshStandardMaterial({ color: 0x111122, emissive: th.accent, emissiveIntensity: 0.25, transparent: true, opacity: 0.55 })); box.castShadow = true; group.add(box);
     loadModel(m.model).then(src => { if (src && box.parent) { const o = fitModel(src.clone(), m.size * 0.95); o.position.y = -m.size / 2; box.add(o); } }); return { m, mesh: box, mat: box.material }; });
   for (const d of hole.decor) loadModel(d.model).then(src => { if (!src || course?.group !== group) return; const o = fitModel(src.clone(), d.scale); o.position.set(d.x, 0, d.z); group.add(o); });
@@ -104,7 +122,7 @@ function buildCourse(hole) {
   const xs = cells(hole).map(c => c.col), zs = cells(hole).map(c => c.row), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
   sun.position.set(cx + 4, 10, cz + 3); sun.target.position.set(cx, 0, cz);
   aimArrow.material.color.set(th.accent); aimLine.material.color.set(th.accent);
-  course = { group, movers, hole, flag, bumpMat, portalMeshes, ringMeshes };
+  course = { group, movers, hole, flag, bumpMat, portalMeshes, loopMeshes };
 }
 
 // ---------- camera ----------
@@ -249,7 +267,7 @@ function frame(now) {
       if (course.flag) { course.flag.rotation.y = Math.sin(t * 3.2) * 0.35; course.flag.scale.x = 1 + Math.sin(t * 6.4) * 0.08; }
       if (course.bumpMat) course.bumpMat.emissiveIntensity = 0.5 + 0.3 * Math.sin(t * 2.6);
       for (const pm of course.portalMeshes) { pm.ring.rotation.y += dt * 1.4; pm.ring.rotation.x = Math.sin(t * 1.7) * 0.15; pm.disc.material.opacity = 0.28 + 0.14 * Math.sin(t * 3.1); }
-      course.ringMeshes.forEach((r, i) => { r.position.y = 0.47 + Math.sin(t * 1.3 + i) * 0.03; r.material.emissiveIntensity = 0.6 + 0.25 * Math.sin(t * 2.2 + i); });
+      course.loopMeshes.forEach(m => { m.material.emissiveIntensity = 0.22 + 0.09 * Math.sin(t * 2.2); });
       course.movers.forEach((mv, i) => { mv.mat.emissiveIntensity = 0.25 + 0.13 * Math.sin(t * 3 + i * 1.7); }); }
     const aiming = canShoot() && (drag && !drag.rotate || keyAim);
     aimGroup.visible = aiming;

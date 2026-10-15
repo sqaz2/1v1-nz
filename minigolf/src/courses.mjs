@@ -35,8 +35,8 @@ export const HOLES = [
   { id: 'portal-panic', name: 'Portal Panic', theme: 'smackzone', par: 3, decor: [],
     map: ['..H....', '.......', '.p.....', '.......', '      .', '      .', '.......', '....pT.', '.......'] },
   { id: 'loop-the-loop', name: 'Loop-the-Loop', theme: 'crown', par: 3, decor: [{ model: 'crown-of-six-stars', x: -1.6, z: 4, scale: 1.1 }],
-    rings: [{ x: 2, z: 4 }],
-    map: ['..H..', '.o.o.', '..o..', '.....', '.....', '.o.o.', '.....', '..T..', '.....'] },
+    loops: [{ x: 2, z: 5 }],
+    map: ['...H.', '.....', 'o...o', '.....', '..ss.', '.....', '.s.s.', '..T..', '.....'] },
   { id: 'twin-gates', name: 'Twin Gates', theme: 'anchorage', par: 4, decor: [{ model: 'muffin-wrapper', x: 5.4, z: 4, scale: 1.3 }],
     movers: [{ model: 'null-cube', z: 4, x0: 0.4, x1: 3.6, size: 0.8, period: 200 },
              { model: 'muffin-wrapper', z: 6, x0: 3.6, x1: 0.4, size: 0.8, period: 260 }],
@@ -63,6 +63,27 @@ export function teePos(hole) { const c = find(hole, 'T'); return [c.col, cellTop
 export function cupPos(hole) { const c = find(hole, 'Hh'); return [c.col, cellTop(c.ch), c.row]; }
 // Portal pads come in exactly one pair; returns [[x, topY, z], [x, topY, z]] or [] when the hole has none.
 export function portalPads(hole) { const ps = cells(hole).filter(c => c.ch === 'p'); return ps.length === 2 ? ps.map(c => [c.col, cellTop(c.ch), c.row]) : []; }
+
+// Loop-the-loop track. The path is the track SURFACE centerline: a clothoid entry (curvature
+// ramps 0 -> 1/R), a circular top, a clothoid exit, with a steady lateral drift of one column
+// across the loop — a helix, like the real steel loops, so entry and exit strands never cross.
+// A flat lead-in (s<0) covers the entry lane and a flat lead-out ends on the exit lane.
+// Physics rides a fast ball along this path (see physics.mjs); the renderer sweeps it too.
+const LOOP_R = 0.6, LOOP_L1 = 1.15, LOOP_DS = 0.05;
+const LOOP_PHI1 = LOOP_L1 / (2 * LOOP_R), LOOP_L2 = (2 * Math.PI - 2 * LOOP_PHI1) * LOOP_R, LOOP_LTOT = 2 * LOOP_L1 + LOOP_L2;
+function loopKappa(s) { if (s < LOOP_L1) return s / (LOOP_L1 * LOOP_R); if (s < LOOP_L1 + LOOP_L2) return 1 / LOOP_R; const u = (s - LOOP_L1 - LOOP_L2) / LOOP_L1; return (1 - u) / LOOP_R; }
+export function loopPath(hole) {
+  const L = (hole.loops || [])[0]; if (!L) return null;
+  const top = cellTop(cellAt(hole, L.x, L.z)), pts = [];
+  let y = top, z = L.z + 1, phi = 0, s = -1;
+  const push = () => { const u = Math.min(1, Math.max(0, s) / LOOP_LTOT), sm = u * u * (3 - 2 * u); pts.push({ x: L.x + sm, y, z, phi, s }); };
+  push();
+  while (s < 0) { const ds = Math.min(LOOP_DS, -s); z -= ds; s += ds; push(); }
+  while (s < LOOP_LTOT) { const ds = Math.min(LOOP_DS, LOOP_LTOT - s), km = loopKappa(s + ds / 2), pm = phi + km * ds / 2;
+    y += Math.sin(pm) * ds; z -= Math.cos(pm) * ds; phi += km * ds; s += ds; push(); }
+  for (let k = 0; k < 12; k++) { z -= LOOP_DS; s += LOOP_DS; pts.push({ x: L.x + 1, y: top, z, phi: 0, s }); }
+  return pts;
+}
 
 // Deterministic, trig-free mover path (triangle wave on integer ticks).
 export function moverPos(m, tick) {
@@ -91,5 +112,7 @@ export function validateHole(hole) {
   for (const c of cells(hole)) if (c.ch === '/' && !isFloor(cellAt(hole, c.col, c.row - 1))) errors.push('ramp leads nowhere');
   for (const c of cells(hole)) if (c.ch === 'j') { const f = cellAt(hole, c.col, c.row - 1); if (f !== 's' && f !== ' ') errors.push('jump ramp needs a trap in front'); }
   const np = cells(hole).filter(c => c.ch === 'p').length; if (np !== 0 && np !== 2) errors.push('portals must come in pairs');
+  for (const L of hole.loops || []) { if (!isFloor(cellAt(hole, L.x, L.z))) errors.push('loop entry must be on floor');
+    if (!isFloor(cellAt(hole, L.x + 1, L.z - 2))) errors.push('loop exit lane must be floor'); }
   return errors;
 }

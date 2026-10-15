@@ -73,6 +73,18 @@ test('Mini golf jump ramp launches the ball airborne over the trap; too soft dro
   assert.equal(cellAt(hole, Math.round(soft.end[0]), Math.round(soft.end[2])), 's', `soft putt drops in the trap (ends z=${soft.end[2].toFixed(2)})`);
 });
 
+test('Mini golf loop-the-loop: a committed putt rides the loop and holes out; a soft one rolls back', () => {
+  const hole = holeById('loop-the-loop'), tee = teePos(hole);
+  const full = simulateShot(hole, { dx: 0, dz: -1, power: 1000, start: tee, phase: 0 });
+  const again = simulateShot(hole, { dx: 0, dz: -1, power: 1000, start: tee, phase: 0 });
+  assert.equal(full.hash, again.hash);
+  let maxY = 0; for (let i = 1; i < full.frames.length; i += 3) maxY = Math.max(maxY, full.frames[i]);
+  assert.ok(maxY > 1.0, `ball goes over the loop (apex ${maxY.toFixed(2)})`);
+  assert.ok(full.holed, 'committed putt rides the loop and holes out');
+  const soft = simulateShot(hole, { dx: 0, dz: -1, power: 600, start: tee, phase: 0 });
+  assert.ok(!soft.holed && soft.end[2] > 4, `soft putt fails the loop and rolls back (ends z=${soft.end[2].toFixed(2)})`);
+});
+
 test('Mini golf rejects out-of-turn, stale, malformed and duplicate shots', () => {
   const s = createMatch({ seed: 2 }); assert.equal(s.turn, 0);
   const ok = { turnId: 1, dx: 0, dz: -1000, power: 300 };

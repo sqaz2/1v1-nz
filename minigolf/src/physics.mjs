@@ -2,7 +2,7 @@
 // A fresh world is built for every shot, so a shot is a pure function of (hole, start, shot, phase):
 // host, guest, CPU and tests all compute bit-identical results with the same Rapier version.
 import RAPIER from '@dimforge/rapier3d-deterministic-compat';
-import { cells, cellAt, isFloor, cellTop, cupPos, moverPos, portalPads, BALL_R, CUP_R, PORTAL_R, PLATEAU, JUMP_H } from './courses.mjs';
+import { cells, cellAt, isFloor, cellTop, cupPos, moverPos, portalPads, loopPath, BALL_R, CUP_R, PORTAL_R, PLATEAU, JUMP_H } from './courses.mjs';
 
 export const HZ = 120, MAX_TICKS = HZ * 14, VMAX = 9;
 let ready = null;
@@ -53,6 +53,20 @@ export function buildWorld(hole) {
     world.createCollider(RAPIER.ColliderDesc.cuboid(m.size / 2, m.size / 2, m.size / 2).setRestitution(0.6), body);
     return { m, body };
   });
+  // Loop track structure: hull prisms between path cross-sections (coarse step — these are
+  // only for stray balls that miss the lock; locked balls ride the path itself).
+  const lp = loopPath(hole);
+  if (lp) {
+    const cross = i => { const p = lp[i], q = lp[Math.min(i + 1, lp.length - 1)];
+      const yaw = Math.atan2(q.x - p.x, -(q.z - p.z));
+      const lat = { x: Math.cos(yaw), z: -Math.sin(yaw) }, ny = Math.cos(p.phi), nz = Math.sin(p.phi);
+      const A = [p.x + lat.x * 0.2, p.y, p.z + lat.z * 0.2], B = [p.x - lat.x * 0.2, p.y, p.z - lat.z * 0.2];
+      return [A, B, [A[0], A[1] - ny * 0.35, A[2] - nz * 0.35], [B[0], B[1] - ny * 0.35, B[2] - nz * 0.35]]; };
+    for (let i = 0; i < lp.length - 3; i += 3) {
+      const hull = RAPIER.ColliderDesc.convexHull(new Float32Array([...cross(i), ...cross(i + 3)].flat()));
+      if (hull) world.createCollider(hull.setFriction(0.08).setRestitution(0), fixed);
+    }
+  }
   return { world, movers };
 }
 
@@ -78,10 +92,33 @@ export function simulateShot(hole, shot, { record = true } = {}) {
   // re-armed by leaving its area first, so a ball resting on a pad (or arriving still) never ping-pongs.
   const pads = portalPads(hole), nearPad = (x, z, r) => pads.some(pd => (x - pd[0]) ** 2 + (z - pd[2]) ** 2 < r * r);
   let portalCd = 0, portalArmed = !pads.length || !nearPad(shot.start[0], shot.start[2], PORTAL_R);
+  // Loop track lock: a ball crossing the loop mouth fast and on-line is captured and rides
+  // the path — tangent gravity decides whether it crests or rolls back out the mouth.
+  // Pure arithmetic on the shared path samples, so host, guest, CPU and tests all agree.
+  const lp = loopPath(hole), loopL = lp ? hole.loops[0] : null;
+  const pathAt = s => { let i = 0; while (i < lp.length - 2 && lp[i + 1].s < s) i++;
+    const a = lp[i], b = lp[i + 1], u = (s - a.s) / Math.max(1e-6, b.s - a.s);
+    return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, z: a.z + (b.z - a.z) * u,
+      sin: Math.sin(a.phi) + (Math.sin(b.phi) - Math.sin(a.phi)) * u, cos: Math.cos(a.phi) + (Math.cos(b.phi) - Math.cos(a.phi)) * u,
+      dx: (b.x - a.x) / Math.max(1e-6, b.s - a.s) }; };
+  const inMouth = (x, y, z) => !!lp && Math.abs(x - loopL.x) < 0.3 && z > loopL.z - 0.2 && z < loopL.z + 1.25 && y < lp[0].y + BALL_R + 0.35;
+  let lock = null, loopArm = !inMouth(shot.start[0], shot.start[1], shot.start[2]);
   for (; tick < MAX_TICKS; tick++) {
     for (const { m, body } of movers) { const p = moverPos(m, shot.phase + tick + 1); body.setNextKinematicTranslation({ x: p[0], y: p[1], z: p[2] }); }
+    if (lock) {
+      lock.v += -9.81 * pathAt(lock.s).sin / HZ;
+      lock.v *= 0.999;
+      if (Math.abs(lock.v) < 0.08 && pathAt(lock.s).sin > -0.02) lock.v = -0.08; // never balance on the top
+      lock.s += lock.v / HZ;
+      const done = lock.s <= lp[0].s || lock.s >= lp[lp.length - 1].s;
+      const c = pathAt(Math.max(lp[0].s, Math.min(lp[lp.length - 1].s, lock.s))), tl = Math.hypot(c.dx, c.sin, c.cos) || 1;
+      ball.setTranslation({ x: c.x, y: c.y + c.cos * BALL_R, z: c.z + c.sin * BALL_R }, true);
+      ball.setLinvel({ x: c.dx / tl * lock.v, y: c.sin / tl * lock.v, z: -c.cos / tl * lock.v }, true);
+      if (done) { if (lock.s >= lp[lp.length - 1].s) events.push({ tick, type: 'hit', strength: 7 }); lock = null; }
+    }
     world.step();
     let p = ball.translation(); const v = ball.linvel();
+    if (lock) { const c = pathAt(lock.s); ball.setTranslation({ x: c.x, y: c.y + c.cos * BALL_R, z: c.z + c.sin * BALL_R }, true); p = ball.translation(); }
     const sp2 = v.x * v.x + v.y * v.y + v.z * v.z, pv2 = prev.x * prev.x + prev.y * prev.y + prev.z * prev.z;
     if (pv2 > 0.25 && sp2 < pv2 * 0.6) events.push({ tick, type: 'hit', strength: Math.sqrt(pv2) });
     prev = v;
@@ -92,6 +129,15 @@ export function simulateShot(hole, shot, { record = true } = {}) {
         if (dx * dx + dz * dz < PORTAL_R * PORTAL_R && p.y < pd[1] + 0.35) { const o = pads[1 - i];
           ball.setTranslation({ x: o[0], y: o[1] + BALL_R, z: o[2] }, true);
           events.push({ tick, type: 'portal', strength: 6 }); portalCd = 45; portalArmed = false; p = ball.translation(); break; } }
+    }
+    // Loop capture: crossing the mouth on-line with pace engages the ride. A ball that
+    // starts the shot in the mouth zone must leave it before it can be captured (like portals).
+    if (lp && !lock) {
+      if (!loopArm && (Math.abs(p.x - loopL.x) > 0.6 || p.z < loopL.z - 0.6 || p.z > loopL.z + 1.7)) loopArm = true;
+      if (loopArm && inMouth(p.x, p.y, p.z) && v.z < -1.2) {
+        lock = { s: Math.max(lp[0].s, Math.min(0, -(p.z - loopL.z))), v: -v.z };
+        events.push({ tick, type: 'portal', strength: 6 });
+      }
     }
     // Sand: rolling over a sand cell bleeds speed fast. Pure function of ball position, so host,
     // guest, CPU and tests all stay in sync.
