@@ -53,6 +53,12 @@ function stepBursts(dt) {
     if (b.life > 1.5) { scene.remove(b.pts); b.pts.geometry.dispose(); b.pts.material.dispose(); bursts.splice(i, 1); } }
 }
 
+// Procedural grain for felt/sand: a tiny noise texture used as a bump map, so flat colour
+// reads as fabric/sand under the light instead of plastic. Visual only, built once.
+const grainTex = (() => { const s = 128, data = new Uint8Array(s * s * 4);
+  for (let i = 0; i < s * s; i++) { const v = 185 + Math.floor(Math.random() * 70); data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v; data[i * 4 + 3] = 255; }
+  const t = new THREE.DataTexture(data, s, s); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2); t.needsUpdate = true; return t; })();
+
 let course = null; // { group, movers:[{m, mesh}], hole }
 function wedge(x, z, h = PLATEAU) { const b = -0.2, v = [[x - .5, b, z - .5], [x + .5, b, z - .5], [x - .5, b, z + .5], [x + .5, b, z + .5], [x - .5, h, z - .5], [x + .5, h, z - .5], [x - .5, 0, z + .5], [x + .5, 0, z + .5]];
   const f = [[4, 6, 7], [4, 7, 5], [0, 1, 3], [0, 3, 2], [0, 4, 5], [0, 5, 1], [2, 3, 7], [2, 7, 6], [0, 2, 6], [0, 6, 4], [1, 5, 7], [1, 7, 3]], pos = [];
@@ -68,7 +74,8 @@ function buildCourse(hole) {
       const lip = new THREE.BoxGeometry(1, 0.04, 0.32); lip.rotateX(0.42); lip.translate(x, JUMP_H + 0.01, z - 0.60); jump.push(lip); }
     else { const top = cellTop(ch), g = new THREE.BoxGeometry(1, top + 0.2, 1); g.translate(x, (top - 0.2) / 2, z); if (ch === 's') sand.push(g); else ((x + z) % 2 ? feltA : feltB).push(g); }
     if (ch === 'o') { const g = new THREE.CylinderGeometry(0.18, 0.18, 0.4, 24); g.translate(x, 0.2, z); bumps.push(g); }
-    const top = (ch === '/' ? PLATEAU : ch === 'j' ? JUMP_H : cellTop(ch)) + 0.32;
+    const surfTop = ch === '/' ? PLATEAU : ch === 'j' ? JUMP_H : cellTop(ch);
+    const top = surfTop + 0.32 + (surfTop >= PLATEAU ? 0.3 : 0); // matches physics: plateau rails stand taller
     for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { if (isFloor(cellAt(hole, x + dc, z + dr))) continue;
       const g = new THREE.BoxGeometry(dc ? 0.1 : 1.2, top + 0.2, dr ? 0.1 : 1.2); g.translate(x + dc * 0.55, (top - 0.2) / 2, z + dr * 0.55); rails.push(g); }
   }
@@ -77,16 +84,34 @@ function buildCourse(hole) {
   const mesh = (geos, mat) => { if (!geos.length) return null; const norm = geos.map(g => g.index ? g.toNonIndexed() : g), merged = mergeGeometries(norm);
     const add = g => { const m = new THREE.Mesh(g, mat); m.receiveShadow = true; m.castShadow = true; group.add(m); return m; };
     if (merged) return add(merged); for (const g of norm) add(g); return null; };
-  mesh(feltA, new THREE.MeshStandardMaterial({ color: th.felt, roughness: 0.92 }));
-  mesh(feltB, new THREE.MeshStandardMaterial({ color: th.felt2, roughness: 0.92 }));
-  mesh(rails, new THREE.MeshStandardMaterial({ color: th.rail, roughness: 0.5, metalness: 0.2 }));
+  mesh(feltA, new THREE.MeshStandardMaterial({ color: th.felt, roughness: 0.92, bumpMap: grainTex, bumpScale: 0.2 }));
+  mesh(feltB, new THREE.MeshStandardMaterial({ color: th.felt2, roughness: 0.92, bumpMap: grainTex, bumpScale: 0.2 }));
+  mesh(rails, new THREE.MeshStandardMaterial({ color: th.rail, roughness: 0.35, metalness: 0.4 }));
   const bumpMat = new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.6, roughness: 0.3 });
   mesh(bumps, bumpMat);
-  mesh(sand, new THREE.MeshStandardMaterial({ color: 0xd9b36a, roughness: 1 }));
+  mesh(sand, new THREE.MeshStandardMaterial({ color: 0xd9b36a, roughness: 1, bumpMap: grainTex, bumpScale: 0.6 }));
+  // The board: a base slab + accent trim under the whole layout, so the course sits on a
+  // table instead of floating over the backdrop.
+  { const all = cells(hole), cxs = all.map(c => c.col), czs = all.map(c => c.row);
+    const w = Math.max(...cxs) - Math.min(...cxs) + 1, d = Math.max(...czs) - Math.min(...czs) + 1;
+    const cxm = (Math.min(...cxs) + Math.max(...cxs)) / 2, czm = (Math.min(...czs) + Math.max(...czs)) / 2;
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 1.5, 0.52, d + 1.5), new THREE.MeshStandardMaterial({ color: 0x11151f, roughness: 0.75, metalness: 0.15 }));
+    slab.position.set(cxm, -0.46, czm); slab.receiveShadow = true; group.add(slab);
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(w + 1.62, 0.055, d + 1.62), new THREE.MeshStandardMaterial({ color: th.rail, roughness: 0.35, metalness: 0.45 }));
+    trim.position.set(cxm, -0.215, czm); group.add(trim); }
   // Obstacle color code (real courses do the same): jump ramps are always orange.
   mesh(jump, new THREE.MeshStandardMaterial({ color: 0xff6a00, emissive: 0xff6a00, emissiveIntensity: 0.18, roughness: 0.55 }));
   const cup = cupPos(hole);
   const hole3 = new THREE.Mesh(new THREE.CircleGeometry(CUP_R, 32), new THREE.MeshBasicMaterial({ color: 0x050505 })); hole3.rotation.x = -Math.PI / 2; hole3.position.set(cup[0], cup[1] + 0.002, cup[2]); group.add(hole3);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(CUP_R + 0.02, 0.014, 10, 32), new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.35, roughness: 0.4 }));
+  rim.rotation.x = Math.PI / 2; rim.position.set(cup[0], cup[1] + 0.006, cup[2]); group.add(rim);
+  // Crater cups (on a plateau) get a lava ring; it pulses with the idle animation.
+  const lavaMeshes = [];
+  if (cellAt(hole, Math.round(cup[0]), Math.round(cup[2])) === 'h') { const lava = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.04, 10, 36), new THREE.MeshStandardMaterial({ color: 0x3a0d00, emissive: 0xff4400, emissiveIntensity: 1.1, roughness: 0.6 }));
+    lava.rotation.x = Math.PI / 2; lava.position.set(cup[0], cup[1] + 0.012, cup[2]); group.add(lava); lavaMeshes.push(lava); }
+  const tee = teePos(hole);
+  const teeRing = new THREE.Mesh(new THREE.RingGeometry(0.13, 0.185, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+  teeRing.rotation.x = -Math.PI / 2; teeRing.position.set(tee[0], tee[1] - BALL_R + 0.004, tee[2]); group.add(teeRing);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.8, 8), new THREE.MeshStandardMaterial({ color: 0xeeeeee })); pole.position.set(cup[0], cup[1] + 0.4, cup[2]); group.add(pole);
   const flagGeo = new THREE.PlaneGeometry(0.28, 0.18); flagGeo.translate(0.14, 0, 0); // pivot on the pole edge so the flag can wave
   const flag = new THREE.Mesh(flagGeo, new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.5, side: THREE.DoubleSide })); flag.position.set(cup[0], cup[1] + 0.7, cup[2]); group.add(flag);
@@ -122,7 +147,7 @@ function buildCourse(hole) {
   const xs = cells(hole).map(c => c.col), zs = cells(hole).map(c => c.row), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
   sun.position.set(cx + 4, 10, cz + 3); sun.target.position.set(cx, 0, cz);
   aimArrow.material.color.set(th.accent); aimLine.material.color.set(th.accent);
-  course = { group, movers, hole, flag, bumpMat, portalMeshes, loopMeshes };
+  course = { group, movers, hole, flag, bumpMat, portalMeshes, loopMeshes, lavaMeshes };
 }
 
 // ---------- camera ----------
@@ -228,6 +253,11 @@ const CPU_HOLE_LINES = {
   'portal-panic': 'Portals. Try not to think about the physics.',
   'ice-shelf': 'Everything here slides. Everything.',
   'null-cube-gate': 'The gate moves. So should you. Eventually.',
+  'volcano': 'Aim for the crater. Mind the ash on the way up.',
+  'gauntlet': 'Two gates. No mercy. Time it.',
+  'ice-bridge': 'One bridge. Sand everywhere else. Choose wisely.',
+  'downhill': 'Downhill. Everything runs hot here — including your putts.',
+  'grand-finale': 'The finale. A gate, a portal, and a guarded green. Good luck.',
 };
 let cpuLineTimer = null, lastCpuLine = '';
 function cpuSay(pool) { if (mode !== 'cpu' || !pool?.length) return; const el = $('cpuBubble'); if (!el) return;
@@ -326,6 +356,7 @@ function frame(now) {
       if (course.bumpMat) course.bumpMat.emissiveIntensity = 0.5 + 0.3 * Math.sin(t * 2.6);
       for (const pm of course.portalMeshes) { pm.ring.rotation.y += dt * 1.4; pm.ring.rotation.x = Math.sin(t * 1.7) * 0.15; pm.disc.material.opacity = 0.28 + 0.14 * Math.sin(t * 3.1); }
       course.loopMeshes.forEach(m => { m.material.emissiveIntensity = 0.22 + 0.09 * Math.sin(t * 2.2); });
+      course.lavaMeshes.forEach(m => { m.material.emissiveIntensity = 1.1 + 0.35 * Math.sin(t * 2.7); });
       course.movers.forEach((mv, i) => { mv.mat.emissiveIntensity = 0.25 + 0.13 * Math.sin(t * 3 + i * 1.7); }); }
     const aiming = canShoot() && (drag && !drag.rotate || keyAim);
     aimGroup.visible = aiming;

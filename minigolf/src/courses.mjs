@@ -5,6 +5,7 @@
 // 's' sand: floor that bleeds ball speed fast while the ball rolls over it (see physics.mjs).
 // 'j' jump ramp: steep wedge + lip rising toward row 0; launches the ball airborne over the trap
 // in front of it (must have sand or void in front). Air is fast but scatters on landing.
+// 't' tee on a plateau (like 'h' is a cup on a plateau): the start sits at plateau height.
 export const PLATEAU = 0.5;
 export const JUMP_H = 0.32;
 export const BALL_R = 0.07;
@@ -43,15 +44,35 @@ export const HOLES = [
     map: ['=====', '==h==', '/////', '.s.s.', '.....', '.....', '.....', '..T..', '.....'] },
   { id: 'trap-jump', name: 'Trap Jump', theme: 'smackzone', par: 3, decor: [],
     map: ['.....', '..H..', '.....', '.....', 'sssss', '  j  ', '.....', '..T..', '.....'] },
+  // ---- Back nine (holes 11-18) ----
+  { id: 'volcano', name: 'Volcano', theme: 'smackzone', par: 3, decor: [],
+    map: ['.......', '..===..', '..=h=..', '..===..', '.../...', '.s...s.', '.......', '...T...', '.......'] },
+  { id: 'serpent', name: 'Serpent', theme: 'crown', par: 4, decor: [],
+    map: ['H........', '..ss.....', '.....o   ', '.........', '   o.....', '.........', '.........', '........T', '.........'] },
+  { id: 'gauntlet', name: 'The Gauntlet', theme: 'smackzone', par: 3, decor: [],
+    movers: [{ model: 'null-cube', z: 3, x0: 0.4, x1: 3.6, size: 0.8, period: 200 },
+             { model: 'muffin-wrapper', z: 5, x0: 3.6, x1: 0.4, size: 0.8, period: 150 }],
+    map: ['..H..', '.....', '.....', '.....', '..s..', '.....', '.....', '..T..', '.....'] },
+  { id: 'split-decision', name: 'Split Decision', theme: 'crown', par: 3, decor: [],
+    map: ['....H....', '....  ...', '.p..  ...', '....  ...', '.ssssss..', '.........', '.........', '....T..p.', '.........'] },
+  { id: 'ice-bridge', name: 'Ice Bridge', theme: 'anchorage', par: 3, decor: [],
+    map: ['...H...', '...=...', '..s=s..', '..s=s..', '..s=s..', '..s/s..', '..sss..', '...T...', '.......'] },
+  { id: 'ricochet', name: 'Ricochet', theme: 'smackzone', par: 3, decor: [],
+    map: ['......H', '.......', '..o....', '....o..', '.o.....', '....o..', '..o....', '.T.....', '.......'] },
+  { id: 'downhill', name: 'Downhill', theme: 'anchorage', par: 3, decor: [],
+    map: ['..=====..', '..==t==..', '...///...', '.........', '....s....', '.........', '....H....', '.........'] },
+  { id: 'grand-finale', name: 'Grand Finale', theme: 'crown', par: 5, decor: [{ model: 'crown-of-six-stars', x: -1.6, z: 5, scale: 1.2 }],
+    movers: [{ model: 'null-cube', z: 6, x0: 0.4, x1: 7.6, size: 0.9, period: 300 }],
+    map: ['...o.o...', '....H....', '...o.o...', '..sssss..', '.p.......', '.........', '.........', '.......p.', '....T....', '.........'] },
 ];
 export const DEFAULT_COURSE = HOLES.map(h => h.id);
 export const QUICK_COURSE = ['anchorage-landing', 'bumper-pit', 'crown-of-six-stars'];
 export const holeById = id => HOLES.find(h => h.id === id);
 
-const FLOOR = new Set(['.', 'T', 'H', 'o', '/', '=', 'h', 'p', 's', 'j']);
+const FLOOR = new Set(['.', 'T', 'H', 'o', '/', '=', 'h', 'p', 's', 'j', 't']);
 export function cellAt(hole, col, row) { const r = hole.map[row]; if (!r || col < 0) return ' '; return r[col] || ' '; }
 export const isFloor = ch => FLOOR.has(ch);
-export const cellTop = ch => (ch === '=' || ch === 'h') ? PLATEAU : 0;
+export const cellTop = ch => (ch === '=' || ch === 'h' || ch === 't') ? PLATEAU : 0;
 
 export function cells(hole) {
   const out = [];
@@ -59,7 +80,7 @@ export function cells(hole) {
   return out;
 }
 export function find(hole, chars) { const c = cells(hole).find(c => chars.includes(c.ch)); if (!c) throw new Error(`Hole ${hole.id} missing ${chars}`); return c; }
-export function teePos(hole) { const c = find(hole, 'T'); return [c.col, cellTop(c.ch) + BALL_R, c.row]; }
+export function teePos(hole) { const c = find(hole, 'Tt'); return [c.col, cellTop(c.ch) + BALL_R, c.row]; }
 export function cupPos(hole) { const c = find(hole, 'Hh'); return [c.col, cellTop(c.ch), c.row]; }
 // Portal pads come in exactly one pair; returns [[x, topY, z], [x, topY, z]] or [] when the hole has none.
 export function portalPads(hole) { const ps = cells(hole).filter(c => c.ch === 'p'); return ps.length === 2 ? ps.map(c => [c.col, cellTop(c.ch), c.row]) : []; }

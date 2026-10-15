@@ -41,7 +41,11 @@ export function buildWorld(hole) {
       add(RAPIER.ColliderDesc.cuboid(0.5, hy, 0.5).setTranslation(x, FLOOR_BOTTOM + hy, z).setRestitution(0.2));
     }
     if (ch === 'o') add(RAPIER.ColliderDesc.cylinder(0.2, 0.18).setTranslation(x, 0.2, z).setRestitution(1.15));
-    const top = (ch === '/' ? PLATEAU : ch === 'j' ? JUMP_H : cellTop(ch)) + RAIL_H, hy = (top - FLOOR_BOTTOM) / 2, cy = FLOOR_BOTTOM + hy;
+    // Rails on plateau-height surfaces stand taller: a ball up there can reach the wall still
+    // carrying tee-shot speed (the downhill tee), and a corner impact at that pace pops it
+    // clean over a standard rail and off the course.
+    const surfTop = ch === '/' ? PLATEAU : ch === 'j' ? JUMP_H : cellTop(ch);
+    const top = surfTop + RAIL_H + (surfTop >= PLATEAU ? 0.3 : 0), hy = (top - FLOOR_BOTTOM) / 2, cy = FLOOR_BOTTOM + hy;
     for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       if (isFloor(cellAt(hole, x + dc, z + dr))) continue;
       const hx = dc ? RAIL_T / 2 : 0.5 + RAIL_T, hz = dr ? RAIL_T / 2 : 0.5 + RAIL_T;

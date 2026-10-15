@@ -11,7 +11,7 @@ await initPhysics();
 const play = (s, slot, cmd) => { assert.ok(validShot(s, slot, cmd)); const shot = shotOf(s, slot, cmd); const res = simulateShot(hole(s), shot); assert.ok(applyResult(s, shot, res)); return res; };
 
 test('Mini golf: every StarMuff hole validates, tee connects to cup, assets exist', () => {
-  assert.equal(HOLES.length, 10);
+  assert.equal(HOLES.length, 18);
   for (const h of HOLES) assert.deepEqual(validateHole(h), [], h.id);
   for (const f of ['anchorage-surface.webp', 'smackzone-approach.webp', 'muffin-wrapper.glb', 'null-cube.glb', 'crown-of-six-stars.glb']) assert.ok(existsSync(new URL('../minigolf/assets/' + f, import.meta.url)), f);
   for (const id of QUICK_COURSE) assert.ok(holeById(id));
