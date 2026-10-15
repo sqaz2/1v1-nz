@@ -144,7 +144,7 @@ const canShoot = () => shown && idle() && shown.phase === 'aim' && human(shown.t
 function start(newMode, seed = (Math.random() * 2 ** 32) >>> 0, snapshot = null) {
   mode = newMode; queue = []; anim = null; cpuJob = null; finishSent = false; handoff = false; holeShown = -1; fly = null; celebrated = false;
   state = snapshot ? snapshot : createMatch({ seed, course: courseIds, solo: mode === 'solo', names: [0, 1].map(label) });
-  shown = publicState(state); lastAnimated = state.turnId - 1;
+  shown = publicState(state); lastAnimated = state.turnId - 1; applyBallColor();
   hideOverlays(); show(); audio.unlock();
 }
 function hideOverlays() { for (const id of ['menu', 'overlay', 'scorecard']) $(id).classList.remove('show'); }
@@ -193,7 +193,7 @@ function fire(dir, power) {
 // ---------- HUD ----------
 function show() {
   if (!shown) return; const hole = holeOf(shown);
-  if (holeShown !== shown.holeIdx || course?.hole !== hole) { holeShown = shown.holeIdx; buildCourse(hole); faceCup(shown.pos[shown.turn], hole); banner(`Hole ${shown.holeIdx + 1} · ${hole.name}`, `${THEMES[hole.theme].name} · Par ${hole.par}`);
+  if (holeShown !== shown.holeIdx || course?.hole !== hole) { holeShown = shown.holeIdx; buildCourse(hole); faceCup(shown.pos[shown.turn], hole); banner(`Hole ${shown.holeIdx + 1} · ${hole.name}`, `${THEMES[hole.theme].name} · Par ${hole.par}`); cpuHoleIntro(hole);
     const tp = teePos(hole), cp = cupPos(hole); fly = { t: 0, from: new THREE.Vector3(tp[0], tp[1], tp[2]), to: new THREE.Vector3(cp[0], cp[1], cp[2]) }; }
   $('holeName').textContent = `${shown.holeIdx + 1}/${shown.course.length} · ${hole.name}`; $('holePar').textContent = `Par ${hole.par}`;
   const t = totals(shown), players = shown.solo ? [0] : [0, 1];
@@ -209,6 +209,47 @@ function show() {
 let turnSeen = 0, turnSeenSlot = 0;
 function banner(title, sub) { const b = $('banner'); b.querySelector('b').textContent = title; b.querySelector('span').textContent = sub; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); }
 function overlay(title, text, button, cb) { $('ovTitle').textContent = title; $('ovText').textContent = text; $('ovBtn').textContent = button; $('ovBtn').onclick = () => { $('overlay').classList.remove('show'); cb?.(); }; $('overlay').classList.add('show'); }
+
+// ---------- CPU dialogue (presentation only — never touches the sim) ----------
+const CPU_LINES = {
+  intro: ['This one? I have played it ten thousand times. In simulation.', 'Watch the slopes here. Or do not. Your funeral.', 'I like this hole. It humbles people.', 'Ten holes, one winner. A hint: it is usually me.'],
+  cpuHoled: ['Calculated. Obviously.', 'That is how it is done.', 'I make this look easy because, for me, it is.', 'File that under: inevitable.'],
+  cpuNear: ['Close enough to scare you.', 'Tap-in. Watch and learn.', 'A whisker away. The cup is nervous.'],
+  cpuBad: ['That was a deliberate test of the physics. It passed.', 'Recalibrating… ignore that one.', 'The wind. Definitely the wind. In space.', 'I meant to do that. Probably.'],
+  youHoled: ['...Fine. That was decent.', 'Lucky bounce. I have the replay.', 'Enjoy it. I learn from every mistake you survive.', 'One good putt does not make a comeback. Usually.'],
+  youBad: ['Ouch. Even my sympathy subroutine felt that.', 'The cup is the round part, if that helps.', 'Bold strategy. Shame about the result.', 'I will pretend I did not see that. You should too.'],
+  cpuWins: ['Good game. The rematch button is right there — I insist.', 'Victory logged. Your improvement is noted. And encouraged. Barely.'],
+  cpuLoses: ['...Recount requested. Denied by myself. Fine — good game.', 'You beat the machine. Do not let it go to your head. Rematch?'],
+  draw: ['A draw. Statistically rude.'],
+};
+const CPU_HOLE_LINES = {
+  'loop-the-loop': 'The loop? Full send or go home. I always send it.',
+  'trap-jump': 'Mind the sand. It is hungrier than it looks.',
+  'portal-panic': 'Portals. Try not to think about the physics.',
+  'ice-shelf': 'Everything here slides. Everything.',
+  'null-cube-gate': 'The gate moves. So should you. Eventually.',
+};
+let cpuLineTimer = null, lastCpuLine = '';
+function cpuSay(pool) { if (mode !== 'cpu' || !pool?.length) return; const el = $('cpuBubble'); if (!el) return;
+  let line; do { line = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && line === lastCpuLine);
+  lastCpuLine = line; $('cpuText').textContent = line; el.hidden = false; el.classList.add('show');
+  clearTimeout(cpuLineTimer); cpuLineTimer = setTimeout(() => { el.classList.remove('show'); el.hidden = true; }, 4200); }
+function cpuHoleIntro(hole) { if (mode !== 'cpu') return;
+  if (CPU_HOLE_LINES[hole.id]) return cpuSay([CPU_HOLE_LINES[hole.id]]);
+  if (Math.random() < 0.3) cpuSay(CPU_LINES.intro); }
+function reactCpu(done) {
+  if (mode !== 'cpu' || !done?.res || !shown) return;
+  const res = done.res, hole = holeById(shown.course[done.shot.hole]), c = cupPos(hole);
+  const dist = Math.hypot(res.end[0] - c[0], res.end[2] - c[2]);
+  if (done.shot.slot === 1) {
+    if (res.holed) cpuSay(CPU_LINES.cpuHoled);
+    else if (res.out || dist > 2.2) { if (Math.random() < 0.8) cpuSay(CPU_LINES.cpuBad); }
+    else if (dist < 0.8 && Math.random() < 0.7) cpuSay(CPU_LINES.cpuNear);
+  } else {
+    if (res.holed) { if (Math.random() < 0.8) cpuSay(CPU_LINES.youHoled); }
+    else if (res.out || shown.strokes[0][shown.holeIdx] >= 5) { if (Math.random() < 0.75) cpuSay(CPU_LINES.youBad); }
+  }
+}
 // ---------- best scores (this device only) ----------
 const BEST_KEY = 'minigolf-best-v1';
 const loadBest = () => { try { return JSON.parse(localStorage.getItem(BEST_KEY)) || {}; } catch { return {}; } };
@@ -234,10 +275,27 @@ function scorecard(final) {
     if (recordBest() === 'new') $('scoreMsg').textContent = (s.message ? s.message + ' ' : '') + '🏆 New best round!'; }
   $('scoreAgain').hidden = !final; $('scoreAgain').textContent = mode === 'online' ? 'Rematch (both players ready up in the room)' : 'Play again';
   $('scoreAgain').onclick = () => { if (mode === 'online') { mp.setReady(true); $('scorecard').classList.remove('show'); } else start(mode); };
+  if (final && mode === 'cpu' && !s.solo) cpuSay(s.winner === 1 ? CPU_LINES.cpuWins : s.winner === 0 ? CPU_LINES.cpuLoses : CPU_LINES.draw);
   if (final && !$('scorecard').classList.contains('show')) audio.win(); $('scorecard').classList.add('show');
 }
 $('scoreBtn').onclick = () => shown && scorecard(false); $('scoreClose').onclick = () => $('scorecard').classList.remove('show');
 $('menuBtn').onclick = () => openMenu(); $('muteBtn').onclick = () => { $('muteBtn').textContent = audio.toggle() ? '🔇' : '🔊'; };
+
+// ---------- ball colour (your ball, this device; cosmetic and local) ----------
+const BALL_CHOICES = [0xffffff, 0x38bdf8, 0xff4fd8, 0x7dff6a, 0xff7a1a, 0xa78bfa];
+let ballColor = BALL_CHOICES[0];
+try { const v = parseInt(localStorage.getItem('minigolf-ball') || '', 16); if (BALL_CHOICES.includes(v)) ballColor = v; } catch { /* private mode */ }
+function applyBallColor() { const defs = [0xffffff, 0xffc93c];
+  balls.forEach((b, i) => { b.material.color.setHex(defs[i]); b.material.emissive.setHex(defs[i]); });
+  const slot = mode === 'online' ? (mp?.slot ?? 0) : 0;
+  balls[slot].material.color.setHex(ballColor); balls[slot].material.emissive.setHex(ballColor);
+  document.documentElement.style.setProperty('--p0', '#' + ballColor.toString(16).padStart(6, '0')); }
+{ const wrap = $('ballSwatches');
+  for (const c of BALL_CHOICES) { const b = document.createElement('button'); b.className = 'sw' + (c === ballColor ? ' on' : '');
+    b.style.setProperty('--c', '#' + c.toString(16).padStart(6, '0')); b.setAttribute('aria-label', 'Ball colour');
+    b.onclick = () => { ballColor = c; try { localStorage.setItem('minigolf-ball', c.toString(16)); } catch { /* ignore */ }
+      wrap.querySelectorAll('.sw').forEach(x => x.classList.remove('on')); b.classList.add('on'); applyBallColor(); };
+    wrap.appendChild(b); } }
 
 // ---------- CPU ----------
 function maybeCpu() { if (mode !== 'cpu' || cpuJob || shown.turn !== 1 || shown.phase !== 'aim' || !idle()) return;
@@ -260,7 +318,7 @@ function frame(now) {
       cam.want.copy(b.position);
       if (anim.t >= n + 20) { const done = anim; anim = null;
         if (done.res.holed) { audio.cup(); const hh = holeById(shown.course[done.shot.hole]), cp = cupPos(hh); burst([cp[0], cp[1] + 0.1, cp[2]], [0xffc93c, 0xffffff, THEMES[hh.theme].accent], 70); }
-        else if (done.res.out) audio.out(); shown = done.after; show(); } }
+        else if (done.res.out) audio.out(); shown = done.after; show(); reactCpu(done); } }
     else { cam.want.set(...shown.pos[shown.turn]); simTick += dt * HZ; }
     if (course) for (const { m, mesh } of course.movers) mesh.position.set(...moverPos(m, Math.floor(simTick)));
     if (course) { const t = now / 1000; // idle life: waving flag, pulsing bumpers/portals, bobbing loop ring, breathing movers
@@ -287,7 +345,8 @@ function frame(now) {
 
 // ---------- menu & online ----------
 function openMenu() { $('bestLine').textContent = bestLine(); $('menu').classList.add('show'); }
-document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { audio.unlock(); courseIds = $('courseSel').value === 'quick' ? QUICK_COURSE : DEFAULT_COURSE; level = $('levelSel').value;
+document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { audio.unlock(); const cs = $('courseSel').value;
+  courseIds = cs === 'quick' ? QUICK_COURSE : cs.startsWith('hole:') ? [cs.slice(5)] : DEFAULT_COURSE; level = $('levelSel').value;
   const m = b.dataset.mode; if (m === 'online') { $('room').hidden = false; $('menu').classList.remove('show'); mode = 'online-lobby'; overlay('Online 1v1', mp ? 'Create a room and share the invite link, or join with a code. The match starts when both players are ready.' : 'Online rooms are unavailable right now. Solo, hotseat and CPU still work.', 'OK', () => {}); return; }
   if (mp?.roomCode) mp.leave(); $('room').hidden = true; start(m); });
 function mountOnline() {

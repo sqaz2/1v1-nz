@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { HOLES, DEFAULT_COURSE, QUICK_COURSE, validateHole, teePos, cupPos, moverPos, holeById, cellAt, JUMP_H, MAX_STROKES } from '../minigolf/src/courses.mjs';
-import { createMatch, validShot, shotOf, applyResult, totals, publicState, hole } from '../minigolf/src/rules.mjs';
+import { createMatch, validShot, shotOf, applyResult, totals, publicState, hole, moverPhase } from '../minigolf/src/rules.mjs';
 import { initPhysics, simulateShot } from '../minigolf/src/physics.mjs';
 import { chooseShotSync } from '../minigolf/src/cpu.mjs';
 import { RoomCore, GAMES } from '../multiplayer/room-core.mjs';
@@ -83,6 +83,21 @@ test('Mini golf loop-the-loop: a committed putt rides the loop and holes out; a 
   assert.ok(full.holed, 'committed putt rides the loop and holes out');
   const soft = simulateShot(hole, { dx: 0, dz: -1, power: 600, start: tee, phase: 0 });
   assert.ok(!soft.holed && soft.end[2] > 4, `soft putt fails the loop and rolls back (ends z=${soft.end[2].toFixed(2)})`);
+});
+
+test('Mini golf every hole is completable by the CPU through the rules', () => {
+  for (const h of HOLES) {
+    const st = createMatch({ seed: 7, course: [h.id], solo: true, names: ['A', 'B'] });
+    let holed = false, guard = 0;
+    while (st.phase !== 'finished' && guard++ < 10) {
+      const cmd = chooseShotSync(hole(st), st.pos[0], moverPhase(st), 'hard');
+      const shot = shotOf(st, 0, { ...cmd, turnId: st.turnId });
+      const res = simulateShot(hole(st), shot);
+      if (res.holed) holed = true;
+      applyResult(st, shot, res);
+    }
+    assert.ok(holed, `${h.id} is completable (finished in ${st.strokes[0][0]} strokes)`);
+  }
 });
 
 test('Mini golf rejects out-of-turn, stale, malformed and duplicate shots', () => {

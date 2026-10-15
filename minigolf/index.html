@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover"/>
 <title>StarMuff Mini Golf 3D | 1v1.nz</title>
-<meta name="description" content="Play 3D mini golf 1v1 online with a friend, against the CPU, or pass-and-play. Nine StarMuff planet holes with ramps, portals, moving gates and a loop-the-loop."/>
+<meta name="description" content="Play 3D mini golf 1v1 online with a friend, against the CPU, or pass-and-play. Ten StarMuff planet holes with ramps, portals, moving gates, a jump ramp and a working loop-the-loop."/>
 <link rel="canonical" href="https://1v1.nz/minigolf/"/>
 <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="64x64"/>
 <link rel="apple-touch-icon" href="/assets/favicon.png"/>
@@ -22,7 +22,10 @@ html,body{margin:0;height:100%;background:#070b14;color:#eaf1ff;font-family:syst
 .hud .spacer{flex:1}.hud button{pointer-events:auto}
 #players{display:flex;gap:6px;flex-wrap:wrap;width:100%}
 .chip{font-size:.8rem;padding:4px 9px;border-radius:999px;background:#ffffff14;border:1px solid #ffffff22}
-.chip.p0::before{content:"●";color:#fff;margin-right:5px}.chip.p1::before{content:"●";color:#ffc93c;margin-right:5px}
+.chip.p0::before{content:"●";color:var(--p0,#fff);margin-right:5px}.chip.p1::before{content:"●";color:#ffc93c;margin-right:5px}
+#cpuBubble{position:fixed;left:50%;transform:translate(-50%,8px);bottom:max(64px,calc(env(safe-area-inset-bottom) + 54px));max-width:min(430px,92vw);background:#0e1626f0;border:1px solid #ffc93c66;border-radius:14px;padding:9px 14px;font-size:.92rem;z-index:30;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none}
+#cpuBubble.show{opacity:1;transform:translate(-50%,0)}#cpuBubble b{color:#ffc93c;display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
+.sw{width:26px;height:26px;border-radius:50%;border:2px solid #ffffff33;padding:0;background:var(--c)} .sw.on{border-color:#fff;box-shadow:0 0 0 2px #38bdf8}
 .chip.on{border-color:#7dd3fc;background:#38bdf833}
 button{font:inherit;color:#eaf1ff;background:#ffffff14;border:1px solid #ffffff2a;border-radius:10px;padding:8px 12px;cursor:pointer}
 button:hover{background:#ffffff22}button.primary{background:#38bdf8;color:#04121f;border:0;font-weight:700}
@@ -55,6 +58,7 @@ body:not(.ready) #menu .modes button{opacity:.5;pointer-events:none}
 </div>
 <div id="powerWrap" aria-hidden="true"><div id="power"></div></div>
 <div class="cam"><button id="rotL" aria-label="Rotate camera left">⟲</button><button id="rotR" aria-label="Rotate camera right">⟳</button></div>
+<div id="cpuBubble" hidden><b>StarMuff CPU</b><span id="cpuText"></span></div>
 <div id="status" role="status">Loading physics…</div>
 <div id="banner"><b></b><span></span></div>
 <div id="room" hidden></div>
@@ -65,8 +69,10 @@ body:not(.ready) #menu .modes button{opacity:.5;pointer-events:none}
     <button class="primary" data-mode="online">Online 1v1</button><button data-mode="cpu">vs CPU</button>
     <button data-mode="hotseat">Hotseat</button><button data-mode="solo">Solo practice</button>
   </div>
-  <div class="opts"><label>Course <select id="courseSel"><option value="full">StarMuff Tour (9 holes)</option><option value="quick">Quick 3</option></select></label>
+  <div class="opts"><label>Course <select id="courseSel"><option value="full">StarMuff Tour (10 holes)</option><option value="quick">Quick 3</option><optgroup label="Single hole">
+  <option value="hole:anchorage-landing">Anchorage Landing</option><option value="hole:dockyard-dogleg">Dockyard Dogleg</option><option value="hole:ice-shelf">Ice Shelf Ramp</option><option value="hole:bumper-pit">Smackzone Bumper Pit</option><option value="hole:null-cube-gate">Null-Cube Gate</option><option value="hole:crown-of-six-stars">Crown of Six Stars</option><option value="hole:portal-panic">Portal Panic</option><option value="hole:loop-the-loop">Loop-the-Loop</option><option value="hole:twin-gates">Twin Gates</option><option value="hole:trap-jump">Trap Jump</option></optgroup></select></label>
   <label>CPU <select id="levelSel"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></label></div>
+  <div class="opts"><span style="font-size:.85rem;color:#a9bcd9">Your ball</span><span id="ballSwatches"></span></div>
   <p class="credit" id="bestLine"></p>
   <p class="credit">Planet art and relic models from StarMuff. Online rooms are casual and host-run: not ranked.</p>
   <p><a href="/" style="color:#7dd3fc">← All 1v1.nz games</a></p>
