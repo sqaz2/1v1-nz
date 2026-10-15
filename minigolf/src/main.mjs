@@ -35,15 +35,13 @@ function sky(file) { return skies[file] ||= texLoader.load(ASSET + file, t => { 
 function loadModel(name) { return models[name] ||= gltf.loadAsync(ASSET + name + '.glb').then(g => g.scene).catch(() => null); }
 function fitModel(obj, size) { const box = new THREE.Box3().setFromObject(obj), s = box.getSize(new THREE.Vector3()), k = size / Math.max(s.x, s.y, s.z); obj.scale.setScalar(k); const b2 = new THREE.Box3().setFromObject(obj), c = b2.getCenter(new THREE.Vector3()); obj.position.sub(new THREE.Vector3(c.x, b2.min.y, c.z)); const wrap = new THREE.Group(); wrap.add(obj); return wrap; }
 
-// Ball texture: soft dimples + one dark marker dot, mostly white so the chosen ball
-// colour tints it and the roll reads clearly as the ball moves.
-const ballTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d');
-  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 256, 128); g.fillStyle = 'rgba(0,0,0,0.15)';
-  for (let y = 8; y < 128; y += 16) for (let x = ((y / 16) % 2) * 8; x < 256; x += 16) { g.beginPath(); g.arc(x + 8, y, 3.2, 0, 7); g.fill(); }
-  g.fillStyle = 'rgba(15,15,25,0.9)'; g.beginPath(); g.arc(64, 64, 7, 0, 7); g.fill();
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
-const ballGeo = new THREE.SphereGeometry(BALL_R, 24, 16);
-const balls = [0xffffff, 0xffc93c].map(color => { const m = new THREE.Mesh(ballGeo, new THREE.MeshStandardMaterial({ color, map: ballTex, roughness: 0.35, emissive: color, emissiveIntensity: 0.08 })); m.castShadow = true; scene.add(m); return m; });
+// Ball texture: a photographic dimpled golf ball surface (assets/ball.webp, tiled 2:1 so the
+// dimples stay round on the sphere, with a small printed brand like a real ball). It is also
+// the bump map, so the dimples have real relief; a clearcoat layer gives the glossy shell.
+// The chosen ball colour tints it, and the printed brand makes the roll read as it turns.
+const ballTex = texLoader.load(ASSET + 'ball.webp'); ballTex.colorSpace = THREE.SRGBColorSpace; ballTex.anisotropy = 8;
+const ballGeo = new THREE.SphereGeometry(BALL_R, 48, 32);
+const balls = [0xffffff, 0xffc93c].map(color => { const m = new THREE.Mesh(ballGeo, new THREE.MeshPhysicalMaterial({ color, map: ballTex, bumpMap: ballTex, bumpScale: 0.35, roughness: 0.32, clearcoat: 0.9, clearcoatRoughness: 0.28, emissive: color, emissiveIntensity: 0.08 })); m.castShadow = true; scene.add(m); return m; });
 // True rolling: rotate each ball by the distance it travelled, around the ground axis.
 const ballPrev = [new THREE.Vector3(), new THREE.Vector3()];
 function rollBall(i) { const b = balls[i], dx = b.position.x - ballPrev[i].x, dz = b.position.z - ballPrev[i].z, dist = Math.hypot(dx, dz);
