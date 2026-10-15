@@ -17,6 +17,7 @@
 html,body{margin:0;height:100%;background:#070b14;color:#eaf1ff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
 *{box-sizing:border-box}
 #scene{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 52%,rgba(2,4,10,.45) 100%)}
 .hud{position:fixed;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;pointer-events:none;background:linear-gradient(#070b14cc,#070b1400)}
 .hud .title{font-weight:800;letter-spacing:.02em}.hud .par{opacity:.7;font-size:.9rem}
 .hud .spacer{flex:1}.hud button{pointer-events:auto}
@@ -51,6 +52,7 @@ body:not(.ready) #menu .modes button{opacity:.5;pointer-events:none}
 </head>
 <body>
 <canvas id="scene" aria-label="3D mini golf course"></canvas>
+<div id="vig"></div>
 <div class="hud">
   <span class="title" id="holeName">StarMuff Mini Golf</span><span class="par" id="holePar"></span><span class="spacer"></span>
   <button id="scoreBtn" aria-label="Scorecard">📋</button><button id="muteBtn" aria-label="Mute">🔊</button><button id="menuBtn">Menu</button>

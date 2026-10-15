@@ -28,8 +28,27 @@ function sky(file) { return skies[file] ||= texLoader.load(ASSET + file, t => { 
 function loadModel(name) { return models[name] ||= gltf.loadAsync(ASSET + name + '.glb').then(g => g.scene).catch(() => null); }
 function fitModel(obj, size) { const box = new THREE.Box3().setFromObject(obj), s = box.getSize(new THREE.Vector3()), k = size / Math.max(s.x, s.y, s.z); obj.scale.setScalar(k); const b2 = new THREE.Box3().setFromObject(obj), c = b2.getCenter(new THREE.Vector3()); obj.position.sub(new THREE.Vector3(c.x, b2.min.y, c.z)); const wrap = new THREE.Group(); wrap.add(obj); return wrap; }
 
+// Ball texture: soft dimples + one dark marker dot, mostly white so the chosen ball
+// colour tints it and the roll reads clearly as the ball moves.
+const ballTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 256, 128); g.fillStyle = 'rgba(0,0,0,0.15)';
+  for (let y = 8; y < 128; y += 16) for (let x = ((y / 16) % 2) * 8; x < 256; x += 16) { g.beginPath(); g.arc(x + 8, y, 3.2, 0, 7); g.fill(); }
+  g.fillStyle = 'rgba(15,15,25,0.9)'; g.beginPath(); g.arc(64, 64, 7, 0, 7); g.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 const ballGeo = new THREE.SphereGeometry(BALL_R, 24, 16);
-const balls = [0xffffff, 0xffc93c].map(color => { const m = new THREE.Mesh(ballGeo, new THREE.MeshStandardMaterial({ color, roughness: 0.35, emissive: color, emissiveIntensity: 0.08 })); m.castShadow = true; scene.add(m); return m; });
+const balls = [0xffffff, 0xffc93c].map(color => { const m = new THREE.Mesh(ballGeo, new THREE.MeshStandardMaterial({ color, map: ballTex, roughness: 0.35, emissive: color, emissiveIntensity: 0.08 })); m.castShadow = true; scene.add(m); return m; });
+// True rolling: rotate each ball by the distance it travelled, around the ground axis.
+const ballPrev = [new THREE.Vector3(), new THREE.Vector3()];
+function rollBall(i) { const b = balls[i], dx = b.position.x - ballPrev[i].x, dz = b.position.z - ballPrev[i].z, dist = Math.hypot(dx, dz);
+  if (dist > 1e-5 && dist < 0.5) { const axis = new THREE.Vector3(dz / dist, 0, -dx / dist); b.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(axis, dist / BALL_R)); }
+  ballPrev[i].copy(b.position); }
+// Shot trail: a fading streak behind the moving ball.
+const TRAIL_N = 30, trailPos = new Float32Array(TRAIL_N * 3);
+const trailGeo = new THREE.BufferGeometry(); trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 })); trail.frustumCulled = false; trail.visible = false; scene.add(trail);
+let trailPts = [], trailTtl = 0;
+function pushTrail(p) { trailPts.push(p.x, p.y, p.z); if (trailPts.length > TRAIL_N * 3) trailPts.splice(0, trailPts.length - TRAIL_N * 3);
+  trailPos.set(trailPts); trailGeo.attributes.position.needsUpdate = true; trailGeo.setDrawRange(0, trailPts.length / 3); trail.visible = trailPts.length > 3; }
 const aimArrow = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
 const aimLine = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.01, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 }));
 aimArrow.rotation.x = -Math.PI / 2; const aimGroup = new THREE.Group(); aimGroup.add(aimLine, aimArrow); aimGroup.visible = false; scene.add(aimGroup);
@@ -98,13 +117,20 @@ function buildCourse(hole) {
     const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 1.5, 0.52, d + 1.5), new THREE.MeshStandardMaterial({ color: 0x0a0d15, roughness: 0.75, metalness: 0.15 }));
     slab.position.set(cxm, -0.46, czm); slab.receiveShadow = true; group.add(slab);
     const trim = new THREE.Mesh(new THREE.BoxGeometry(w + 1.62, 0.055, d + 1.62), new THREE.MeshStandardMaterial({ color: th.rail, roughness: 0.35, metalness: 0.45 }));
-    trim.position.set(cxm, -0.215, czm); group.add(trim); }
+    trim.position.set(cxm, -0.215, czm); group.add(trim);
+    // Corner posts with glowing tips frame the board like a table.
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x1a2130, roughness: 0.5, metalness: 0.4 });
+    const tipMat = new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.9, roughness: 0.4 });
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const px = cxm + sx * ((w + 1.5) / 2 - 0.16), pz = czm + sz * ((d + 1.5) / 2 - 0.16);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.52, 10), postMat); post.position.set(px, -0.2, pz); post.castShadow = true; group.add(post);
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), tipMat); tip.position.set(px, 0.08, pz); group.add(tip); } }
   // Obstacle color code (real courses do the same): jump ramps are always orange.
   mesh(jump, new THREE.MeshStandardMaterial({ color: 0xff6a00, emissive: 0xff6a00, emissiveIntensity: 0.18, roughness: 0.55 }));
   const cup = cupPos(hole);
   const hole3 = new THREE.Mesh(new THREE.CircleGeometry(CUP_R, 32), new THREE.MeshBasicMaterial({ color: 0x050505 })); hole3.rotation.x = -Math.PI / 2; hole3.position.set(cup[0], cup[1] + 0.002, cup[2]); group.add(hole3);
   const rim = new THREE.Mesh(new THREE.TorusGeometry(CUP_R + 0.02, 0.014, 10, 32), new THREE.MeshStandardMaterial({ color: th.accent, emissive: th.accent, emissiveIntensity: 0.35, roughness: 0.4 }));
   rim.rotation.x = Math.PI / 2; rim.position.set(cup[0], cup[1] + 0.006, cup[2]); group.add(rim);
+  const cupGlow = new THREE.PointLight(th.accent, 2.4, 5, 1.8); cupGlow.position.set(cup[0], cup[1] + 0.55, cup[2]); group.add(cupGlow);
   // Crater cups (on a plateau) get a lava ring; it pulses with the idle animation.
   const lavaMeshes = [];
   if (cellAt(hole, Math.round(cup[0]), Math.round(cup[2])) === 'h') { const lava = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.04, 10, 36), new THREE.MeshStandardMaterial({ color: 0x3a0d00, emissive: 0xff4400, emissiveIntensity: 1.1, roughness: 0.6 }));
@@ -339,17 +365,20 @@ let last = performance.now(), simTick = 0;
 function frame(now) {
   requestAnimationFrame(frame); // schedule first: a render error must never kill the loop outright
   const dt = Math.min(0.1, (now - last) / 1000); last = now; stepCpu(dt);
-  if (!anim && queue.length) { const item = queue.shift(); if (item.res) { anim = { ...item, t: 0 }; } else { shown = item.after; show(); } }
+  if (!anim && queue.length) { const item = queue.shift(); if (item.res) { anim = { ...item, t: 0 }; trailPts = []; } else { shown = item.after; show(); } }
   if (shown) {
     for (let i = 0; i < 2; i++) balls[i].position.set(...shown.pos[i]);
     if (anim) { anim.t += dt * HZ; const f = anim.res.frames, n = f.length / 3, i = Math.min(n - 1, Math.floor(anim.t)), b = balls[anim.shot.slot];
       b.position.set(f[i * 3], f[i * 3 + 1], f[i * 3 + 2]); simTick = anim.shot.phase + i;
+      pushTrail(b.position); trail.material.color.copy(b.material.color); trailTtl = 0.4; trail.material.opacity = 0.38;
       while (anim.res.events.length && anim.res.events[0].tick <= anim.t) { const ev = anim.res.events.shift(); if (ev.type === 'portal') audio.warp(); else audio.hit(ev.strength); }
       cam.want.copy(b.position);
       if (anim.t >= n + 20) { const done = anim; anim = null;
         if (done.res.holed) { audio.cup(); const hh = holeById(shown.course[done.shot.hole]), cp = cupPos(hh); burst([cp[0], cp[1] + 0.1, cp[2]], [0xffc93c, 0xffffff, THEMES[hh.theme].accent], 70); }
         else if (done.res.out) audio.out(); shown = done.after; show(); reactCpu(done); } }
     else { cam.want.set(...shown.pos[shown.turn]); simTick += dt * HZ; }
+    rollBall(0); rollBall(1);
+    if (trailTtl > 0 && !anim) { trailTtl -= dt; trail.material.opacity = Math.max(0, 0.38 * (trailTtl / 0.4)); if (trailTtl <= 0) { trail.visible = false; trailPts = []; } }
     if (course) for (const { m, mesh } of course.movers) mesh.position.set(...moverPos(m, Math.floor(simTick)));
     if (course) { const t = now / 1000; // idle life: waving flag, pulsing bumpers/portals, bobbing loop ring, breathing movers
       if (course.flag) { course.flag.rotation.y = Math.sin(t * 3.2) * 0.35; course.flag.scale.x = 1 + Math.sin(t * 6.4) * 0.08; }

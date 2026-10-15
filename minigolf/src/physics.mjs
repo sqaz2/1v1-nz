@@ -5,6 +5,10 @@ import RAPIER from '@dimforge/rapier3d-deterministic-compat';
 import { cells, cellAt, isFloor, cellTop, cupPos, moverPos, portalPads, loopPath, BALL_R, CUP_R, PORTAL_R, PLATEAU, JUMP_H } from './courses.mjs';
 
 export const HZ = 120, MAX_TICKS = HZ * 14, VMAX = 9;
+// Grounded rolling losses (applied per tick in simulateShot): an exponential share, gentle
+// at touch-putt speeds, plus a small constant turf term (units/s^2) that firms up the stop.
+// Airborne balls get almost no drag instead — real flight keeps its speed (and its scatter).
+const TURF_EXP = 0.35, TURF_MU = 0.15, AIR_DRAG = 0.03;
 let ready = null;
 export function initPhysics() { return ready ||= RAPIER.init().then(() => RAPIER); }
 
@@ -19,6 +23,17 @@ export function buildWorld(hole) {
   // Void cells inside the bounds are unreachable because every floor edge facing void has a rail.
   const all = cells(hole), minX = Math.min(...all.map(c => c.col)), maxX = Math.max(...all.map(c => c.col)), minZ = Math.min(...all.map(c => c.row)), maxZ = Math.max(...all.map(c => c.row));
   add(RAPIER.ColliderDesc.cuboid((maxX - minX + 1) / 2 + 0.2, 0.1, (maxZ - minZ + 1) / 2 + 0.2).setTranslation((minX + maxX) / 2, FLOOR_BOTTOM / 2, (minZ + maxZ) / 2).setRestitution(0.2));
+  // Plateau surfaces are merged into rectangles for the same reason: per-cell tiles have
+  // internal seams, and a ball crossing a seam at speed gets launched (a full-power putt
+  // off Downhill's plateau tee went ballistic at the first seam). Greedy rectangle merge.
+  { const plat = new Set(all.filter(c => cellTop(c.ch) > 0).map(c => c.col + ',' + c.row)), used = new Set();
+    for (const c of all) { const k0 = c.col + ',' + c.row; if (!plat.has(k0) || used.has(k0)) continue;
+      let w = 1; while (plat.has((c.col + w) + ',' + c.row) && !used.has((c.col + w) + ',' + c.row)) w++;
+      let d = 1, grow = true;
+      while (grow) { for (let dx = 0; dx < w; dx++) { const kk = (c.col + dx) + ',' + (c.row + d); if (!plat.has(kk) || used.has(kk)) { grow = false; break; } } if (grow) d++; }
+      for (let dx = 0; dx < w; dx++) for (let dz = 0; dz < d; dz++) used.add((c.col + dx) + ',' + (c.row + dz));
+      const hy = (PLATEAU - FLOOR_BOTTOM) / 2;
+      add(RAPIER.ColliderDesc.cuboid(w / 2, hy, d / 2).setTranslation(c.col + (w - 1) / 2, FLOOR_BOTTOM + hy, c.row + (d - 1) / 2).setRestitution(0.2)); } }
   for (const { col: x, row: z, ch } of all) {
     if (ch === 'j') {
       // Jump ramp: steep wedge to JUMP_H plus a small lip plate at the top edge kicked up toward
@@ -36,9 +51,6 @@ export function buildWorld(hole) {
       const b = FLOOR_BOTTOM, pts = new Float32Array([x - .5, b, z - .5, x + .5, b, z - .5, x - .5, b, z + .5, x + .5, b, z + .5,
         x - .5, PLATEAU, z - .5, x + .5, PLATEAU, z - .5, x - .5, 0, z + .5, x + .5, 0, z + .5]);
       add(RAPIER.ColliderDesc.convexHull(pts).setRestitution(0.2));
-    } else if (cellTop(ch) > 0) {
-      const top = cellTop(ch), hy = (top - FLOOR_BOTTOM) / 2;
-      add(RAPIER.ColliderDesc.cuboid(0.5, hy, 0.5).setTranslation(x, FLOOR_BOTTOM + hy, z).setRestitution(0.2));
     }
     if (ch === 'o') add(RAPIER.ColliderDesc.cylinder(0.2, 0.18).setTranslation(x, 0.2, z).setRestitution(1.15));
     // Rails on plateau-height surfaces stand taller: a ball up there can reach the wall still
@@ -86,7 +98,7 @@ export function simulateShot(hole, shot, { record = true } = {}) {
   if (!ready) throw new Error('initPhysics() first');
   const { world, movers } = buildWorld(hole);
   const ball = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(...shot.start)
-    .setLinearDamping(0.55).setAngularDamping(1.2).setCcdEnabled(true).setCanSleep(false));
+    .setLinearDamping(0).setAngularDamping(1.2).setCcdEnabled(true).setCanSleep(false));
   world.createCollider(RAPIER.ColliderDesc.ball(BALL_R).setDensity(1).setFriction(0.4).setRestitution(0.45), ball);
   ball.setLinvel(shotVelocity(shot), true);
   const cup = cupPos(hole), frames = [], events = [];
@@ -149,6 +161,20 @@ export function simulateShot(hole, shot, { record = true } = {}) {
       const lv = ball.linvel(), av = ball.angvel(), k = 0.965;
       ball.setLinvel({ x: lv.x * k, y: lv.y, z: lv.z * k }, true);
       ball.setAngvel({ x: av.x * k, y: av.y, z: av.z * k }, true);
+    }
+    // Rolling vs flight, decided per tick from the surface under the ball (wedge surfaces
+    // interpolate along the slope). Grounded: exponential + constant turf losses. Airborne:
+    // a whisper of drag only, so jumps carry and land hot. Sand above stacks on top.
+    if (!lock) {
+      const col = Math.round(p.x), row = Math.round(p.z), ch = cellAt(hole, col, row);
+      let grounded = false;
+      if (isFloor(ch)) { let surf = cellTop(ch);
+        if (ch === '/') surf = PLATEAU * (row + 0.5 - p.z); else if (ch === 'j') surf = JUMP_H * (row + 0.5 - p.z);
+        grounded = p.y - (surf + BALL_R) < 0.045 && p.y > surf; }
+      const lv = ball.linvel();
+      if (grounded) { const sp = Math.hypot(lv.x, lv.z);
+        if (sp > 0) { const ns = Math.max(0, sp * Math.exp(-TURF_EXP / HZ) - TURF_MU / HZ) / sp; ball.setLinvel({ x: lv.x * ns, y: lv.y, z: lv.z * ns }, true); } }
+      else { const k = Math.exp(-AIR_DRAG / HZ); ball.setLinvel({ x: lv.x * k, y: lv.y * k, z: lv.z * k }, true); }
     }
     buf[0] = p.x; buf[1] = p.y; buf[2] = p.z; hash = fnv(hash, buf);
     if (record) frames.push(p.x, p.y, p.z);
