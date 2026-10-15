@@ -11,7 +11,7 @@ await initPhysics();
 const play = (s, slot, cmd) => { assert.ok(validShot(s, slot, cmd)); const shot = shotOf(s, slot, cmd); const res = simulateShot(hole(s), shot); assert.ok(applyResult(s, shot, res)); return res; };
 
 test('Mini golf: every StarMuff hole validates, tee connects to cup, assets exist', () => {
-  assert.equal(HOLES.length, 6);
+  assert.equal(HOLES.length, 9);
   for (const h of HOLES) assert.deepEqual(validateHole(h), [], h.id);
   for (const f of ['anchorage-surface.webp', 'smackzone-approach.webp', 'muffin-wrapper.glb', 'null-cube.glb', 'crown-of-six-stars.glb']) assert.ok(existsSync(new URL('../minigolf/assets/' + f, import.meta.url)), f);
   for (const id of QUICK_COURSE) assert.ok(holeById(id));
@@ -38,6 +38,16 @@ test('Mini golf moving null-cube uses integer ticks only and changes outcomes by
   assert.deepEqual(moverPos(m, 0), moverPos(m, m.period)); assert.equal(moverPos(m, m.period / 2)[0], m.x1);
   const ends = new Set([0, 60, 120, 180].map(phase => simulateShot(h, { dx: 0, dz: -1000, power: 900, start: teePos(h), phase }, { record: false }).end.join()));
   assert.ok(ends.size > 1, 'mover must interact with the ball');
+});
+
+test('Mini golf portals teleport the ball to the paired pad and stay deterministic', () => {
+  const h = holeById('portal-panic'), start = teePos(h);
+  const shot = { dx: -1000, dz: 0, power: 320, start, phase: 0 }; // tee is one cell east of a pad
+  const a = simulateShot(h, shot), b = simulateShot(h, shot);
+  assert.equal(a.hash, b.hash); assert.deepEqual(a.end, b.end);
+  assert.ok(a.events.some(e => e.type === 'portal'), 'rolling over the near pad must warp');
+  assert.ok(a.end[2] < 4, 'ball ends on the far side of the void wall');
+  assert.equal(a.out, false);
 });
 
 test('Mini golf rejects out-of-turn, stale, malformed and duplicate shots', () => {

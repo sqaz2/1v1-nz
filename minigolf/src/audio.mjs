@@ -9,6 +9,7 @@ export function createAudio() {
     toggle() { muted = !muted; return muted; },
     putt(p) { tone(180 + p * 220, 0.08, 'triangle', 0.25); },
     hit(s) { tone(120 + Math.min(s, 9) * 30, 0.06, 'square', Math.min(0.18, 0.03 + s * 0.02)); },
+    warp() { tone(300, 0.28, 'sine', 0.22, 700); },
     cup() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.18, 'sine', 0.2), i * 90)); },
     out() { tone(400, 0.4, 'sawtooth', 0.12, -300); },
     win() { [392, 523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.25, 'triangle', 0.18), i * 120)); },

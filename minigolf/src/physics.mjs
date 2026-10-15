@@ -2,7 +2,7 @@
 // A fresh world is built for every shot, so a shot is a pure function of (hole, start, shot, phase):
 // host, guest, CPU and tests all compute bit-identical results with the same Rapier version.
 import RAPIER from '@dimforge/rapier3d-deterministic-compat';
-import { cells, cellAt, isFloor, cellTop, cupPos, moverPos, BALL_R, CUP_R, PLATEAU } from './courses.mjs';
+import { cells, cellAt, isFloor, cellTop, cupPos, moverPos, portalPads, BALL_R, CUP_R, PORTAL_R, PLATEAU } from './courses.mjs';
 
 export const HZ = 120, MAX_TICKS = HZ * 14, VMAX = 9;
 let ready = null;
@@ -62,15 +62,27 @@ export function simulateShot(hole, shot, { record = true } = {}) {
   const cup = cupPos(hole), frames = [], events = [];
   let still = 0, tick = 0, holed = false, out = false, prev = shotVelocity(shot), hash = 2166136261;
   const buf = new Float32Array(3);
+  // Portals: crossing a pad teleports the ball to the paired pad, velocity kept. The pad must be
+  // re-armed by leaving its area first, so a ball resting on a pad (or arriving still) never ping-pongs.
+  const pads = portalPads(hole), nearPad = (x, z, r) => pads.some(pd => (x - pd[0]) ** 2 + (z - pd[2]) ** 2 < r * r);
+  let portalCd = 0, portalArmed = !pads.length || !nearPad(shot.start[0], shot.start[2], PORTAL_R);
   for (; tick < MAX_TICKS; tick++) {
     for (const { m, body } of movers) { const p = moverPos(m, shot.phase + tick + 1); body.setNextKinematicTranslation({ x: p[0], y: p[1], z: p[2] }); }
     world.step();
-    const p = ball.translation(), v = ball.linvel();
-    buf[0] = p.x; buf[1] = p.y; buf[2] = p.z; hash = fnv(hash, buf);
-    if (record) frames.push(p.x, p.y, p.z);
+    let p = ball.translation(); const v = ball.linvel();
     const sp2 = v.x * v.x + v.y * v.y + v.z * v.z, pv2 = prev.x * prev.x + prev.y * prev.y + prev.z * prev.z;
     if (pv2 > 0.25 && sp2 < pv2 * 0.6) events.push({ tick, type: 'hit', strength: Math.sqrt(pv2) });
     prev = v;
+    if (pads.length) {
+      if (portalCd > 0) portalCd--;
+      if (!portalArmed && !nearPad(p.x, p.z, PORTAL_R * 1.2)) portalArmed = true;
+      if (portalArmed && portalCd === 0) for (let i = 0; i < 2; i++) { const pd = pads[i], dx = p.x - pd[0], dz = p.z - pd[2];
+        if (dx * dx + dz * dz < PORTAL_R * PORTAL_R && p.y < pd[1] + 0.35) { const o = pads[1 - i];
+          ball.setTranslation({ x: o[0], y: o[1] + BALL_R, z: o[2] }, true);
+          events.push({ tick, type: 'portal', strength: 6 }); portalCd = 45; portalArmed = false; p = ball.translation(); break; } }
+    }
+    buf[0] = p.x; buf[1] = p.y; buf[2] = p.z; hash = fnv(hash, buf);
+    if (record) frames.push(p.x, p.y, p.z);
     const ddx = p.x - cup[0], ddz = p.z - cup[2];
     if (ddx * ddx + ddz * ddz < CUP_R * CUP_R && Math.abs(p.y - (cup[1] + BALL_R)) < 0.06 && v.x * v.x + v.z * v.z < 2.6 * 2.6) { holed = true; break; }
     if (p.y < -1.5) { out = true; break; }
