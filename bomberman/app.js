@@ -177,6 +177,13 @@ function restore(s){
   if(!s)return;const now=performance.now();seed=s.seed>>>0;round=s.round;roundOver=!!s.roundOver;matchOver=!!s.matchOver;nextRoundAt=s.nextRoundIn?now+s.nextRoundIn:0;
   crates=new Set(s.crates||[]);pickups=new Map(s.pickups||[]);players=(s.players||[]).map(p=>({...p}));
   bombs=(s.bombs||[]).map(b=>({...b,fuseAt:now+(b.fuseIn||0)}));flames=(s.flames||[]).map(f=>({...f,until:now+(f.life||0)}));syncHud();roundText.textContent='ROUND '+round;
+  overlay.hidden=!roundOver;
+  if(roundOver){
+    const a=players[0]?.alive,b=players[1]?.alive;let winner=-1;if(a&&!b)winner=0;else if(!a&&b)winner=1;
+    resultEl.textContent=winner<0?'DOUBLE KO':(winner===onlineSlot?'YOU WIN':'RIVAL WINS');
+    subEl.textContent=matchOver?'Match over · first to 3':'Next round…';
+    rematchBtn.hidden=!matchOver;
+  }
 }
 function publish(force=false){
   if(mode!=='online'||!mp?.active||!mp.isHost)return;const now=performance.now();if(!force&&now-lastPublish<100)return;lastPublish=now;try{mp.publish(serialize(now))}catch{}
@@ -239,5 +246,7 @@ function mountOnline(){
     onUnavailable({message}){statusText.textContent='Online unavailable';console.warn(message)}
   });
 }
-mountOnline();resetMatch();requestAnimationFrame(tick);
+let invited=false;try{invited=new URLSearchParams(location.search).has('room')}catch{}
+if(invited)setMode('online');else resetMatch();
+mountOnline();requestAnimationFrame(tick);
 })();
