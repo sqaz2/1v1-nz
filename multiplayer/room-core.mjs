@@ -1,5 +1,5 @@
 /** Shared room state machine: used unchanged by the Worker and local WebSocket server. */
-export const GAMES = new Set(['tetris', 'pinball', 'simon', 'skirmish', 'odyssey-tanks', 'minigolf']);
+export const GAMES = new Set(['tetris', 'pinball', 'simon', 'skirmish', 'odyssey-tanks', 'minigolf', 'bomberman']);
 export const LIMITS = Object.freeze({ message: 100 * 1024, snapshot: 96 * 1024, event: 8 * 1024, result: 4096, replay: 96 * 1024, rate: 120, ttl: 6 * 60 * 60 * 1000 });
 const bytes = value => new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const randomToken = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), x => x.toString(16).padStart(2, '0')).join('');
