@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Bomberman 1v1 — Free Bomb Duel Browser Game | 1v1.nz</title>
+  <meta name="description" content="Play Bomberman-style 1v1 in your browser: vs CPU, local two-player, or online room-code duels. Drop bombs, break cover, collect upgrades and trap your opponent.">
+  <link rel="canonical" href="https://1v1.nz/bomberman/">
+  <link rel="icon" href="/assets/favicon.png" type="image/png">
+  <meta name="theme-color" content="#07152c">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="1v1.nz">
+  <meta property="og:title" content="Bomberman 1v1 | 1v1.nz">
+  <meta property="og:description" content="Bombs, breakable cover, upgrades and first-to-3 head-to-head rounds.">
+  <meta property="og:url" content="https://1v1.nz/bomberman/">
+  <link rel="stylesheet" href="./style.css?v=1">
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <a href="/" class="back">← 1v1.nz</a>
+      <div class="eyebrow">1v1 arcade</div>
+      <h1>BOMBER<span>MAN</span></h1>
+      <p>Drop bombs. Break cover. Steal upgrades. Trap the other player before they trap you.</p>
+    </header>
+
+    <section class="modebar" aria-label="Game mode">
+      <button class="mode active" data-mode="cpu">vs CPU</button>
+      <button class="mode" data-mode="local">Local 2P</button>
+      <button class="mode" data-mode="online">Online Friend</button>
+    </section>
+
+    <section id="onlineWrap" class="online-wrap" hidden>
+      <div id="onlineRoom"></div>
+      <p class="online-note">Online rooms use the shared 1v1.nz room service. If the service is unavailable, vs CPU and local 2P still work.</p>
+    </section>
+
+    <section class="scorebar">
+      <div class="fighter p1"><span class="dot"></span><b id="p1Name">YOU</b><strong id="p1Score">0</strong></div>
+      <div class="round"><small>FIRST TO 3</small><b id="roundText">ROUND 1</b><span id="statusText">Fight.</span></div>
+      <div class="fighter p2"><strong id="p2Score">0</strong><b id="p2Name">CPU</b><span class="dot"></span></div>
+    </section>
+
+    <section class="arena-shell">
+      <canvas id="game" width="624" height="528" aria-label="Bomberman arena"></canvas>
+      <div id="roundOverlay" class="round-overlay" hidden>
+        <strong id="roundResult">PLAYER 1 WINS</strong>
+        <span id="roundSub">Next round…</span>
+        <button id="rematchBtn" type="button" hidden>REMATCH</button>
+      </div>
+    </section>
+
+    <section class="controls" id="singleControls" aria-label="Player controls">
+      <div class="dpad">
+        <button data-player="local" data-action="up" aria-label="Move up">▲</button>
+        <button data-player="local" data-action="left" aria-label="Move left">◀</button>
+        <button class="center" type="button" tabindex="-1" aria-hidden="true">1</button>
+        <button data-player="local" data-action="right" aria-label="Move right">▶</button>
+        <button data-player="local" data-action="down" aria-label="Move down">▼</button>
+      </div>
+      <button class="bomb" data-player="local" data-action="bomb"><span>💣</span> DROP</button>
+    </section>
+
+    <section class="dual-controls" id="dualControls" hidden>
+      <div class="player-controls">
+        <small>P1 · WASD + SPACE</small>
+        <div class="mini-row">
+          <button data-player="0" data-action="left">◀</button>
+          <button data-player="0" data-action="up">▲</button>
+          <button data-player="0" data-action="down">▼</button>
+          <button data-player="0" data-action="right">▶</button>
+          <button class="bomb-mini" data-player="0" data-action="bomb">💣</button>
+        </div>
+      </div>
+      <div class="player-controls">
+        <small>P2 · ARROWS + ENTER</small>
+        <div class="mini-row">
+          <button data-player="1" data-action="left">◀</button>
+          <button data-player="1" data-action="up">▲</button>
+          <button data-player="1" data-action="down">▼</button>
+          <button data-player="1" data-action="right">▶</button>
+          <button class="bomb-mini" data-player="1" data-action="bomb">💣</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="help">
+      <div><b>🔥 Flame</b><span>Longer blast</span></div>
+      <div><b>💣 Bomb</b><span>Carry one more</span></div>
+      <div><b>⚡ Speed</b><span>Faster movement</span></div>
+    </section>
+  </main>
+
+  <script src="/multiplayer/client.js"></script>
+  <script src="./app.js?v=1"></script>
+</body>
+</html>
