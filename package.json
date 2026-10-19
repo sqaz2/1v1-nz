@@ -2,7 +2,7 @@
   "name": "1v1-nz",
   "private": true,
   "scripts": {
-    "build": "node scripts/build.mjs && node smackzone/build.mjs && node minigolf/build.mjs && node bomberman/build.mjs",
+    "build": "node scripts/build.mjs && node smackzone/build.mjs && node minigolf/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.cjs tests/*.mjs",
     "check": "npm run build && npm run typecheck && npm test",
