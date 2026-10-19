@@ -27,6 +27,10 @@ export default {
     try {
       const path = url.pathname.replace(/^\/api\/starmuff/, '').replace(/\/$/, '') || '/';
       if (path === '/health') return cors(json({ ok: true, transport: 'websocket', version: 1, games: [...GAMES] }));
+      if (request.method === 'POST' && path === '/bomberman-live/join') {
+        const stub = env.STARMUFF_ROOMS.get(env.STARMUFF_ROOMS.idFromName('BOMBLIVE'));
+        return cors(await stub.fetch(new Request('https://room.internal/live-join', { method: 'POST', body: await request.text() || '{}' })));
+      }
       if (request.method === 'POST' && path === '/rooms') {
         if (env.ROOM_RATE_LIMIT) {
           const limited = await env.ROOM_RATE_LIMIT.limit({ key: `create:${request.headers.get('CF-Connecting-IP') || 'unknown'}` });
@@ -100,6 +104,24 @@ export class StarMuffRoom {
         const data = await body(request), result = this.core.create(data.code, data.game);
         await this.save(); await this.ctx.storage.setAlarm(this.core.state.expiresAt);
         return json(result, 201);
+      }
+      if (path === '/live-join') {
+        let data = {}; try { data = await body(request); } catch (e) { if (e.code !== 'json') throw e; }
+        const stale = !this.core.state || this.core.state.phase === 'closed' || this.core.now() >= this.core.state.expiresAt;
+        let result;
+        if (stale) {
+          if (this.checkpoint) clearTimeout(this.checkpoint);
+          this.checkpoint = null;
+          await this.ctx.storage.deleteAll();
+          this.core = new RoomCore();
+          result = this.core.create('BOMBLIVE', 'bomberman');
+          const s = this.core.state;
+          s.epoch = 1; s.matchId = `BOMBLIVE:1:${this.core.newToken().slice(0, 12)}`; s.seed = this.core.newSeed(); s.phase = 'active';
+        } else {
+          result = this.core.join('bomberman', data.token);
+        }
+        await this.save(); await this.ctx.storage.setAlarm(this.core.state.expiresAt);
+        return json(result, stale ? 201 : 200);
       }
       if (path === '/join') { const data = await body(request); const result = this.core.join(data.game, data.token); await this.save(); return json(result); }
       if (path === '/ws') {
