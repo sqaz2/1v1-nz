@@ -56,7 +56,10 @@
     function describe() {
       if (!socket || socket.readyState !== 1) return;
       if (state.phase === 'closed') show('Room closed. Leave this room to create a new one.');
-      else if (state.phase === 'active') show(state.connected ? 'Online match connected.' : 'Match paused — waiting for your opponent to reconnect.');
+      else if (state.phase === 'active') {
+        if (options.game === 'bomberman' && slot === 0 && !state.players[1]?.occupied) show('Live arena open — CPU is holding Player 2. Share the invite; a human can jump in mid-game.');
+        else show(state.connected ? 'Online match connected.' : options.game === 'bomberman' ? 'Live arena open — CPU can take Player 2 until someone joins.' : 'Match paused — waiting for your opponent to reconnect.');
+      }
       else if (state.phase === 'finished') show('Match finished. Both players must request a rematch.');
       else show(state.connected ? 'Both players connected. Choose Ready when your game setup is selected.' : 'Invite your friend using the link below.');
     }
