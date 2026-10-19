@@ -34,7 +34,7 @@ Load `/multiplayer/client.js` before the game's adapter. It loads CSS and `/mult
 
 ```js
 const mp = StarMuffMultiplayer.mount({
-  game: 'skirmish', // tetris, pinball, simon, skirmish, odyssey-tanks
+  game: 'skirmish', // tetris, pinball, simon, skirmish, odyssey-tanks, minigolf, bomberman
   container: '#online-room', // element or selector; defaults to a new body child
   canReady: () => loadoutIsValid(), // optional; block readiness until original setup is complete
   onStart({ matchId, seed, slot, isHost, resumed, snapshot }) {
@@ -87,6 +87,6 @@ Each frame is at most 100 KiB, each full snapshot 96 KiB, each game event 8 KiB,
 
 This is **casual host-authoritative multiplayer**, not server-validated anti-cheat. The server rejects guest world snapshots/results, invalid rooms/seats, stale matches and transport abuse. It cannot prove a host's physics or a pinball player's reported score without moving original game simulation into a trusted server. Hosts must validate game-specific commands: legal turn owner, loadouts, ranges, rounds, sequence answers, weapon cooldowns and score bounds. Do not advertise ranked, tamper-proof, or wagering support.
 
-Production checks still required after deployment: real mobile networks, reconnect from background/screen lock, simultaneous rematch clicks, leave mid-shot, full-match results for all five source-based games, and asset/audio loads over the actual deployment domain.
+Production checks still required after deployment: real mobile networks, reconnect from background/screen lock, simultaneous rematch clicks, disconnect during active play, full-match results including Bomberman, and asset/audio loads over the actual deployment domain.
 
 Native Cloudflare runtime QA is pending: a Wrangler deployment dry-run built the Worker successfully, but `wrangler dev --local` could not start in this workspace (`uv_interface_addresses: Unknown system error 1`). Core state, real Node WebSocket networking and browser-client lifecycle tests are executable here; they do not substitute for a deployed Durable Object/WebSocket smoke test.
