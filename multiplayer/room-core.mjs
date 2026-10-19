@@ -34,7 +34,8 @@ export class RoomCore {
       const slot = this.authenticate(token);
       return { code: s.code, game: s.game, token, slot };
     }
-    assert(s.phase === 'lobby' && !s.players[1], 'full', 'Room is full. Rejoin using the same browser that reserved your seat.', 409);
+    const hotJoin = s.game === 'bomberman' && s.phase === 'active' && !s.players[1];
+    assert((s.phase === 'lobby' || hotJoin) && !s.players[1], 'full', 'Room is full. Rejoin using the same browser that reserved your seat.', 409);
     const fresh = this.newToken(); s.players[1] = this.player(fresh);
     return { code: s.code, game: s.game, token: fresh, slot: 1 };
   }
@@ -52,8 +53,12 @@ export class RoomCore {
   disconnect(slot, connectionId) {
     const p = this.state?.players[slot];
     if (!p || p.connectionId !== connectionId) return [];
-    p.connected = false; p.connectionId = null;
-    if (this.state.phase !== 'active') p.ready = false;
+    if (this.state.game === 'bomberman' && slot === 1 && this.state.phase === 'active') {
+      this.state.players[1] = null;
+    } else {
+      p.connected = false; p.connectionId = null;
+      if (this.state.phase !== 'active') p.ready = false;
+    }
     return [{ to: 'all', message: { kind: 'presence', ...this.view() } }];
   }
   view() {
@@ -80,10 +85,12 @@ export class RoomCore {
       assert(s.phase === 'lobby' || s.phase === 'finished', 'phase', 'A match is already in progress.', 409);
       assert((m.matchId ?? null) === s.matchId, 'stale-match', 'That readiness belongs to an old match.', 409);
       p.ready = m.ready === true;
-      if (s.players.every(player => player?.connected && player.ready)) {
+      const bomberHostSolo = s.game === 'bomberman' && slot === 0 && p.connected && p.ready && !s.players[1];
+      const everybodyReady = s.players.every(player => player?.connected && player.ready);
+      if (everybodyReady || bomberHostSolo) {
         s.epoch++; s.matchId = `${s.code}:${s.epoch}:${this.newToken().slice(0, 12)}`; s.seed = this.newSeed();
         s.phase = 'active'; s.snapshot = null; s.snapshotSeq = 0; s.events = []; s.serverSeq = 0; s.result = null;
-        s.players.forEach(player => { player.ready = false; });
+        s.players.forEach(player => { if (player) player.ready = false; });
         out.push({ to: 'all', message: { kind: 'start', ...this.view() } });
       } else out.push({ to: 'all', message: { kind: 'presence', ...this.view() } });
       return out;
@@ -94,7 +101,10 @@ export class RoomCore {
     }
     assert(m.matchId && m.matchId === s.matchId, 'stale-match', 'That command belongs to an old match.', 409);
     assert(s.phase === 'active', 'phase', 'No active match.', 409);
-    assert(s.players.every(player => player?.connected), 'paused', 'Match paused while the other player reconnects.', 409);
+    const liveReady = s.game === 'bomberman'
+      ? !!s.players[0]?.connected && (!s.players[1] || !!s.players[1]?.connected)
+      : s.players.every(player => player?.connected);
+    assert(liveReady, 'paused', 'Match paused while the other player reconnects.', 409);
     if (m.kind === 'event') {
       assert(typeof m.type === 'string' && /^[a-zA-Z0-9_.:-]{1,64}$/.test(m.type), 'event-type', 'Invalid event type.');
       assert(bytes(m.data ?? null) <= LIMITS.event, 'size', 'Event payload is too large.');
