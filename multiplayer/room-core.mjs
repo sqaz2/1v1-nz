@@ -17,7 +17,9 @@ export class RoomCore {
     assert(!this.state, 'exists', 'Room already exists.', 409);
     assert(GAMES.has(game), 'game', 'Unknown game.');
     const token = this.newToken();
-    this.state = { code, game, createdAt: this.now(), expiresAt: this.now() + LIMITS.ttl, phase: 'lobby', players: [this.player(token), null], matchId: null, seed: null, epoch: 0, serverSeq: 0, snapshot: null, snapshotSeq: 0, events: [], result: null };
+    const players = Array(game === 'bomberman' ? 4 : 2).fill(null);
+    players[0] = this.player(token);
+    this.state = { code, game, createdAt: this.now(), expiresAt: this.now() + LIMITS.ttl, phase: 'lobby', players, matchId: null, seed: null, epoch: 0, serverSeq: 0, snapshot: null, snapshotSeq: 0, events: [], result: null };
     return { code, game, token, slot: 0 };
   }
   player(token) { return { token, ready: false, connected: false, connectionId: null, lastSeq: 0 }; }
@@ -34,10 +36,11 @@ export class RoomCore {
       const slot = this.authenticate(token);
       return { code: s.code, game: s.game, token, slot };
     }
-    const hotJoin = s.game === 'bomberman' && s.phase === 'active' && !s.players[1];
-    assert((s.phase === 'lobby' || hotJoin) && !s.players[1], 'full', 'Room is full. Rejoin using the same browser that reserved your seat.', 409);
-    const fresh = this.newToken(); s.players[1] = this.player(fresh);
-    return { code: s.code, game: s.game, token: fresh, slot: 1 };
+    const openSlot = s.players.findIndex((player, slot) => slot > 0 && !player);
+    const bomberJoin = s.game === 'bomberman' && (s.phase === 'lobby' || s.phase === 'active');
+    assert(openSlot > 0 && (bomberJoin || s.phase === 'lobby'), 'full', 'Room is full. Rejoin using the same browser that reserved your seat.', 409);
+    const fresh = this.newToken(); s.players[openSlot] = this.player(fresh);
+    return { code: s.code, game: s.game, token: fresh, slot: openSlot };
   }
   authenticate(token) {
     const s = this.valid();
@@ -53,8 +56,13 @@ export class RoomCore {
   disconnect(slot, connectionId) {
     const p = this.state?.players[slot];
     if (!p || p.connectionId !== connectionId) return [];
-    if (this.state.game === 'bomberman' && slot === 1 && this.state.phase === 'active') {
-      this.state.players[1] = null;
+    if (this.state.game === 'bomberman') {
+      if (slot === 0) {
+        this.state.phase = 'closed';
+        p.connected = false; p.connectionId = null;
+        return [{ to: 'all', message: { kind: 'closed', reason: 'Arena host left. Rejoining the public arena…', ...this.view() } }];
+      }
+      this.state.players[slot] = null;
     } else {
       p.connected = false; p.connectionId = null;
       if (this.state.phase !== 'active') p.ready = false;
@@ -63,7 +71,10 @@ export class RoomCore {
   }
   view() {
     const s = this.state;
-    return { code: s.code, game: s.game, phase: s.phase, matchId: s.matchId, seed: s.seed, expiresAt: s.expiresAt, result: s.result, connected: s.players.every(p => p?.connected), players: s.players.map((p, slot) => ({ slot, occupied: !!p, connected: !!p?.connected, ready: !!p?.ready })) };
+    const connected = s.game === 'bomberman'
+      ? !!s.players[0]?.connected && s.players.filter(Boolean).every(p => p.connected)
+      : s.players.every(p => p?.connected);
+    return { code: s.code, game: s.game, phase: s.phase, matchId: s.matchId, seed: s.seed, expiresAt: s.expiresAt, result: s.result, connected, players: s.players.map((p, slot) => ({ slot, occupied: !!p, connected: !!p?.connected, ready: !!p?.ready })) };
   }
   receive(slot, connectionId, raw) {
     const s = this.valid(), p = s.players[slot];
@@ -85,8 +96,10 @@ export class RoomCore {
       assert(s.phase === 'lobby' || s.phase === 'finished', 'phase', 'A match is already in progress.', 409);
       assert((m.matchId ?? null) === s.matchId, 'stale-match', 'That readiness belongs to an old match.', 409);
       p.ready = m.ready === true;
-      const bomberHostSolo = s.game === 'bomberman' && slot === 0 && p.connected && p.ready && !s.players[1];
-      const everybodyReady = s.players.every(player => player?.connected && player.ready);
+      const bomberHostSolo = s.game === 'bomberman' && slot === 0 && p.connected && p.ready;
+      const everybodyReady = s.game === 'bomberman'
+        ? s.players.filter(Boolean).every(player => player.connected && player.ready)
+        : s.players.every(player => player?.connected && player.ready);
       if (everybodyReady || bomberHostSolo) {
         s.epoch++; s.matchId = `${s.code}:${s.epoch}:${this.newToken().slice(0, 12)}`; s.seed = this.newSeed();
         s.phase = 'active'; s.snapshot = null; s.snapshotSeq = 0; s.events = []; s.serverSeq = 0; s.result = null;
@@ -102,7 +115,7 @@ export class RoomCore {
     assert(m.matchId && m.matchId === s.matchId, 'stale-match', 'That command belongs to an old match.', 409);
     assert(s.phase === 'active', 'phase', 'No active match.', 409);
     const liveReady = s.game === 'bomberman'
-      ? !!s.players[0]?.connected && (!s.players[1] || !!s.players[1]?.connected)
+      ? !!s.players[0]?.connected
       : s.players.every(player => player?.connected);
     assert(liveReady, 'paused', 'Match paused while the other player reconnects.', 409);
     if (m.kind === 'event') {
@@ -112,7 +125,8 @@ export class RoomCore {
       s.events.push(event);
       // Snapshots should be frequent; retain bounded recovery history if a game omits them.
       while (s.events.length > 128 || bytes(s.events) > LIMITS.replay) s.events.shift();
-      out.push({ to: 1 - slot, message: event });
+      if (s.game === 'bomberman') out.push({ to: 'all', message: event });
+      else out.push({ to: 1 - slot, message: event });
     } else if (m.kind === 'snapshot') {
       assert(slot === 0, 'host-only', 'Only the host can publish world state.', 403);
       assert(m.snapshot !== undefined && bytes(m.snapshot) <= LIMITS.snapshot, 'size', 'Snapshot is too large.');
@@ -122,7 +136,7 @@ export class RoomCore {
       // A guest command may arrive at the server before a host snapshot that has not seen it yet.
       // Keep such in-flight commands; never acknowledge them merely because a snapshot arrived.
       s.events = s.events.filter(event => event.slot !== 0 && event.serverSeq > appliedThrough);
-      out.push({ to: 1, message: { kind: 'snapshot', snapshot: s.snapshot, slot, matchId: s.matchId, serverSeq: s.snapshotSeq } });
+      out.push({ to: s.game === 'bomberman' ? 'all' : 1, message: { kind: 'snapshot', snapshot: s.snapshot, slot, matchId: s.matchId, serverSeq: s.snapshotSeq } });
     } else if (m.kind === 'finish') {
       assert(slot === 0, 'host-only', 'Only the host can adjudicate the match.', 403);
       assert(bytes(m.result ?? null) <= LIMITS.result, 'size', 'Result is too large.');
