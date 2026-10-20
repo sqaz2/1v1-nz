@@ -3,6 +3,10 @@ from PIL import Image, ImageFilter, ImageEnhance, ImageOps
 E='scripts/bombman-art/sources/'; OUT='bomberman/sprites/'  # run from repo root: python3 scripts/bombman-art/slice.py (needs numpy, opencv-python-headless, pillow)
 S={k:np.array(Image.open(E+f).convert('RGB')) for k,f in [('00','00.jpeg'),('24','24.jpeg'),('21','21.jpeg'),('22','22.jpeg'),('23','23.jpeg')]}
 G=256
+CH=384  # character sprites (hero, rivals, robot) are cut from the 4x sheets at a larger grid
+# 4x Real-ESRGAN (x4plus-anime) upscales of the two sprite sheets; masks are still computed on the
+# original sheet (tuned tolerances), then the alpha is upsampled and applied to the cleaner 4x pixels.
+X4={k:np.array(Image.open(E+f'{k}_x4.webp').convert('RGB')) for k in ('00','24') if os.path.exists(E+f'{k}_x4.webp')}
 manifest={}
 
 def cutout(sheet, box, tol=None, keep_ratio=0.08):
@@ -27,6 +31,11 @@ def cutout(sheet, box, tol=None, keep_ratio=0.08):
     inner=cv2.erode(fg,np.ones((3,3),np.uint8))
     alpha=np.where(inner==1,1.0,np.where(fg==1,soft,0.0))
     alpha=cv2.GaussianBlur(alpha.astype(np.float32),(3,3),0.6)
+    if sheet in X4:
+        big=X4[sheet][y0*4:y1*4,x0*4:x1*4]
+        a4=cv2.resize(alpha.astype(np.float32),(big.shape[1],big.shape[0]),interpolation=cv2.INTER_CUBIC)
+        a4=np.clip((a4-0.5)*1.7+0.5,0,1); a4=cv2.GaussianBlur(a4,(5,5),1.0)
+        im,alpha=big,a4
     rgba=np.dstack([im.astype(np.uint8),(alpha*255).astype(np.uint8)])
     ys,xs=np.where(alpha>0.05)
     rgba=rgba[ys.min():ys.max()+1, xs.min():xs.max()+1]
@@ -90,9 +99,14 @@ SPR=[ # name, sheet, rough box, kind, anchor, label on sheet
 cut=[]
 for name,sh,box,kind,anchor,label in SPR:
     img=cutout(sh,box, keep_ratio=0.02 if kind=='fx' else 0.15)
-    size=96 if kind=='icon' else G
-    c,s=fit(img,anchor,pad=6 if kind=='icon' else 10,size=size)
-    save(name,c,kind,f'{sh}.jpeg {box}', 'cut', anchor, label=label, upscale=round(s,2))
+    if name=='hero_left':  # the grey pointer of the RIGHT label above touches the hat: drop low-saturation pixels in the top band
+        a=np.array(img); hsv=cv2.cvtColor(a[...,:3],cv2.COLOR_RGB2HSV); band=int(a.shape[0]*0.16)
+        grey=(hsv[:band,:,1]<70)&(hsv[:band,:,2]>45); a[:band,:,3][grey]=0
+        img=Image.fromarray(a,'RGBA'); img=img.crop(img.getbbox())
+    size=96 if kind=='icon' else CH if kind=='character' else G
+    c,s=fit(img,anchor,pad=6 if kind=='icon' else 10 if size==G else 14,size=size)
+    src=f'{sh}_x4.webp {tuple(v*4 for v in box)} (Real-ESRGAN 4x of {sh}.jpeg {box})' if sh in X4 else f'{sh}.jpeg {box}'
+    save(name,c,kind,src, 'cut', anchor, label=label, upscale=round(s,2))
     cut.append(name)
 
 # ---- derived sprites
@@ -128,7 +142,7 @@ save('pu_line',fr,'powerup','pu_bomb + bomb','derived: recoloured Bomb Up frame 
 KIT=[('tex_stone',(15,160,65,212)),('tex_metal',(71,161,114,185)),('tex_metal_side',(71,187,114,212)),('tex_crate',(126,161,171,185)),('tex_crate_side',(126,187,171,212)),
      ('tex_ice',(181,159,224,212)),('tex_lava',(233,159,276,212)),('tex_conveyor',(286,160,330,211)),('tex_bush',(337,160,385,204))]
 for name,(x0,y0,x1,y1) in KIT:
-    f=S['24'][y0:y1,x0:x1]; t=cv2.resize(f,(G,G),interpolation=cv2.INTER_CUBIC)
+    f=X4['24'][y0*4:y1*4,x0*4:x1*4] if '24' in X4 else S['24'][y0:y1,x0:x1]; t=cv2.resize(f,(G,G),interpolation=cv2.INTER_CUBIC if f.shape[0]<G else cv2.INTER_AREA)
     T=Image.fromarray(t).filter(ImageFilter.UnsharpMask(radius=2,percent=60,threshold=2))
     T.save(OUT+name+'.webp','WEBP',quality=82,method=6)
     face='top face (unforeshortened)' if (y1-y0)<30 else 'front face'

@@ -542,11 +542,73 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   }
   /* bmStickDir:end */
   window.bmStickDir=bmStickDir;
+
+  /* bmMotion:start */
+  // Continuous Bomberman movement. Positions are in tile units (fx,fz); a whole number is a tile centre.
+  // Actors glide at a constant speed (tiles/s, frame-rate independent) and keep going through tile
+  // centres while a direction is held. Rules, as in the classic games:
+  //  * you only travel along a row/column; when you are off the lane (mid-turn) you are first slid
+  //    onto it ("lane snapping"), and if the tile ahead in your lane is blocked but the one in the
+  //    neighbouring lane you are leaning toward is open, you are nudged around the block corner;
+  //  * a perpendicular direction pressed shortly before an intersection is buffered: you keep
+  //    gliding in your old direction and turn the moment the new one opens up;
+  //  * a bomb tile is solid unless you still overlap it (so you can walk off the bomb you just
+  //    dropped, but not back onto it once you have left).
+  // `env` supplies open(x,z,actor), optional push(x,z,dir,actor) (kick) and enter(actor) (tile changed).
+  const BM_DIRS={left:[-1,0],right:[1,0],up:[0,-1],down:[0,1]};
+  const BM_MOTION={eps:1e-4, base:3.6, perLevel:0.75, assistMin:0.1, turnBuffer:0.35};
+  function bmSpeed(level){ return BM_MOTION.base+(Math.max(1,level||1)-1)*BM_MOTION.perLevel; }
+  function bmAxis(d){ return d==='left'||d==='right'?'x':'z'; }
+  function bmPerp(a,b){ return !!(a&&b&&bmAxis(a)!==bmAxis(b)); }
+  function bmStep(a,d,budget,env){
+    const v=BM_DIRS[d]; if(!v||budget<=0) return 0; const horiz=v[0]!==0, s=horiz?v[0]:v[1], E=BM_MOTION.eps;
+    const along=horiz?a.fx:a.fz, crossV=horiz?a.fz:a.fx; const lane=Math.round(crossV), off=crossV-lane, cur=Math.round(along);
+    const open=(al,cr)=>horiz?env.open(al,cr,a):env.open(cr,al,a);
+    const setCross=val=>{ if(horiz) a.fz=val; else a.fx=val; }, setAlong=val=>{ if(horiz) a.fx=val; else a.fz=val; };
+    if(Math.abs(off)>E){
+      // lane snapping: slide onto the nearest lane when the way ahead in it is open
+      if(open(cur+s,lane)){ const m=Math.min(budget,Math.abs(off)); setCross(m>=Math.abs(off)-E?lane:crossV-Math.sign(off)*m); return m; }
+      // corner nudge: blocked ahead, but we lean toward an open neighbouring lane (never backwards mid-turn)
+      const side=lane+Math.sign(off), mv=a.mdir&&BM_DIRS[a.mdir], back=mv&&bmPerp(a.mdir,d)&&((horiz?mv[1]:mv[0])*Math.sign(off)<0);
+      if(!back&&Math.abs(off)>=BM_MOTION.assistMin&&open(cur+s,side)&&open(cur,side)){ const m=Math.min(budget,1-Math.abs(off)); setCross(m>=1-Math.abs(off)-E?side:crossV+Math.sign(off)*m); return m; }
+      return 0;
+    }
+    setCross(lane);
+    const toCentre=(cur-along)*s;
+    if(toCentre>E){ const m=Math.min(budget,toCentre); setAlong(m>=toCentre-E?cur:along+s*m); return m; }
+    if(Math.abs(toCentre)<=E) setAlong(cur);
+    if(!open(cur+s,lane)){ if(!(env.push&&env.push(horiz?cur+s:lane,horiz?lane:cur+s,d,a)&&open(cur+s,lane))) return 0; }
+    const m=Math.min(budget,1+toCentre); setAlong(m>=1+toCentre-E?cur+s:along+s*m); return m;
+  }
+  // Advance actor `a` for dt seconds. input={dir,alt}; speed in tiles/s. Returns tiles travelled.
+  function bmMoveActor(a,input,dt,speed,env){
+    if(a.fx==null||!isFinite(a.fx)){ a.fx=a.x; a.fz=a.z; }
+    const want=(input&&input.dir)||null, alt=(input&&input.alt)||null; const x0=a.fx, z0=a.fz;
+    if(want!==a.want){ a.turnT=(want&&a.mdir&&bmPerp(want,a.mdir))?BM_MOTION.turnBuffer:0; a.want=want; }
+    let moved=0, used=null;
+    if(want&&dt>0){
+      const order=[want]; if(a.turnT>0&&a.mdir&&a.mdir!==want) order.push(a.mdir); if(alt&&!order.includes(alt)) order.push(alt);
+      let budget=speed*dt;
+      for(let i=0;i<10&&budget>1e-6;i++){
+        let m=0,d=null;
+        for(const c of order){ const sx=a.fx, sz=a.fz; m=bmStep(a,c,budget,env); if(m>0){ d=c; break; } a.fx=sx; a.fz=sz; }
+        if(!m) break; budget-=m; moved+=m; used=d; if(d===want) a.turnT=0;
+      }
+      a.turnT=Math.max(0,(a.turnT||0)-dt);
+      a.facing = used&&used!==want&&!bmPerp(used,want) ? used : want;
+      if(used) a.mdir=used;
+    } else { a.turnT=0; a.mdir=null; }
+    a.vx=dt>0?(a.fx-x0)/dt:0; a.vz=dt>0?(a.fz-z0)/dt:0; a.moving=moved>0; a.stride=((a.stride||0)+moved)%4;
+    const nx=Math.round(a.fx), nz=Math.round(a.fz); if(nx!==a.x||nz!==a.z){ a.x=nx; a.z=nz; if(env.enter) env.enter(a); }
+    return moved;
+  }
+  /* bmMotion:end */
+  window.BombManMotion={bmStep,bmMoveActor,bmSpeed,BM_MOTION};
   (function wireJoystick(){
     const zone=$id('bmMoveZone'), joy=$id('bmJoy'), knob=$id('bmJoyKnob'); if(!zone||!joy||!knob) return;
     let pid=null, cx=0, cy=0, cur=null;
     const emit=(dir,alt)=>{ const changed=dir!==bm.state.stickDir; bm.state.stickDir=dir; bm.state.stickAlt=alt;
-      if(changed){ if(dir){ bm.state.dir=dir; bm.state.dirTimer=0; } else if(bm.state.dir&&!bm.state.keyDir) bm.state.dir=null;
+      if(changed){ if(dir){ bm.state.dir=dir; bm.state.dirTimer=0; } else bm.state.dir=bm.state.keyDir||null;
         window.dispatchEvent(new CustomEvent('bm:stick',{detail:{dir,alt}})); } };
     const place=(e)=>{ const r=zone.getBoundingClientRect(); cx=e.clientX; cy=e.clientY; joy.style.left=(cx-r.left)+'px'; joy.style.top=(cy-r.top)+'px'; };
     const move=(e)=>{ const range=Math.max(40, joy.clientWidth*.42); let dx=e.clientX-cx, dy=e.clientY-cy; const mag=Math.hypot(dx,dy)||1, k=Math.min(1,range/mag); dx*=k; dy*=k;
@@ -561,13 +623,12 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
     $id('bmGame').addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
     $id('bmGame').addEventListener('dblclick',e=>e.preventDefault());
   })();
+  function keyDirOf(k){ return ['ArrowUp','w','W'].includes(k)?'up':['ArrowDown','s','S'].includes(k)?'down':['ArrowLeft','a','A'].includes(k)?'left':['ArrowRight','d','D'].includes(k)?'right':null; }
+  addEventListener('blur',()=>{ bm.state.keyStack=[]; bm.state.keyDir=null; bm.state.dir=bm.state.stickDir||null; });
   document.addEventListener('keydown',e=>{
     if(!bm.state.active) return;
     const k=e.key;
-    if(['ArrowUp','w','W'].includes(k)) bm.state.dir=bm.state.keyDir='up';
-    if(['ArrowDown','s','S'].includes(k)) bm.state.dir=bm.state.keyDir='down';
-    if(['ArrowLeft','a','A'].includes(k)) bm.state.dir=bm.state.keyDir='left';
-    if(['ArrowRight','d','D'].includes(k)) bm.state.dir=bm.state.keyDir='right';
+    const kd=keyDirOf(k); if(kd){ const st=bm.state.keyStack||(bm.state.keyStack=[]); const i=st.indexOf(kd); if(i>=0) st.splice(i,1); st.push(kd); bm.state.dir=bm.state.keyDir=kd; if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k)) e.preventDefault(); }
     if(k===' '){ bm.state.bombQueued=true; e.preventDefault(); }
     if(['j','J'].includes(k)){ bm.state.actQueued=true; e.preventDefault(); }
     if(['k','K'].includes(k)){ bm.state.detQueued=true; e.preventDefault(); }
@@ -575,7 +636,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   });
   document.addEventListener('keyup',e=>{
     if(!bm.state.active) return;
-    if(['ArrowUp','w','W','ArrowDown','s','S','ArrowLeft','a','A','ArrowRight','d','D'].includes(e.key)){ bm.state.keyDir=null; bm.state.dir=bm.state.stickDir||null; }
+    if(['ArrowUp','w','W','ArrowDown','s','S','ArrowLeft','a','A','ArrowRight','d','D'].includes(e.key)){ const kd=keyDirOf(e.key), st=bm.state.keyStack||(bm.state.keyStack=[]); const i=st.indexOf(kd); if(i>=0) st.splice(i,1); bm.state.keyDir=st[st.length-1]||null; bm.state.dir=bm.state.keyDir||bm.state.stickDir||null; }
   });
 
   function makeGrid(mapId){
@@ -602,7 +663,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   }
   function createGame(mapId){
     const grid=makeGrid(mapId);
-    const player={x:0,z:0,rx:0,rz:0,moveCd:0,alive:true,bombsMax:1,fire:2,speed:1,remote:false,kick:false,punch:false,carry:false,line:false,shield:0,holding:null,facing:'right'};
+    const player={x:0,z:0,fx:0,fz:0,rx:0,rz:0,moveCd:0,alive:true,bombsMax:1,fire:2,speed:1,remote:false,kick:false,punch:false,carry:false,line:false,shield:0,holding:null,facing:'right'};
     const enemies=[
       {x:grid.cols-1,z:grid.rows-1,rx:grid.cols-1,rz:grid.rows-1,type:'bot',alive:true,moveCd:.5,bombCd:1.5,bombsMax:1,fire:2,remote:false,kick:false},
       {x:grid.cols-1,z:0,rx:grid.cols-1,rz:0,type:mapId==='factory'?'remote':'bot',alive:true,moveCd:.8,bombCd:2.2,bombsMax:1,fire:mapId==='lava'?3:2,remote:mapId==='factory',kick:mapId==='temple'},
@@ -620,8 +681,15 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   function resolveCell(g,x,z,actor){ const c=cell(g,x,z); if(!c) return; if(actor==='player'){ if(c.pickup){ applyPickup(c.pickup); c.pickup=null; } if(c.special==='lava'){ if(g.player.shield>0){ g.player.shield--; showBMMessage('Shield saved you from lava',0.8); } else killPlayer('Lava wins this round.'); } } }
   function applyPickup(kind){ const p=bm.state.game.player; if(kind==='bomb') p.bombsMax=Math.min(6,p.bombsMax+1); if(kind==='fire') p.fire=Math.min(6,p.fire+1); if(kind==='speed') p.speed=Math.min(4,p.speed+1); if(kind==='remote') p.remote=true; if(kind==='kick') p.kick=true; if(kind==='punch') p.punch=true; if(kind==='carry') p.carry=true; if(kind==='line') p.line=true; if(kind==='shield') p.shield++; showBMMessage(`${pickupName(kind)} acquired`,0.9); tone(420,.08,'triangle',.03,140); }
   function dirVec(dir){ return dir==='left'?[-1,0]:dir==='right'?[1,0]:dir==='up'?[0,-1]:dir==='down'?[0,1]:[0,0]; }
-  function movePlayer(dir){ const g=bm.state.game,p=g.player; if(!p.alive||p.moveCd>0) return; p.facing=dir; const [dx,dz]=dirVec(dir); const nx=p.x+dx, nz=p.z+dz; const targetBomb=bombAt(g,nx,nz); if(targetBomb){ if(p.kick && kickBomb(g,targetBomb,dir)){} else return; }
-    if(blocked(g,nx,nz,true) || enemyAt(g,nx,nz)) return; p.x=nx; p.z=nz; p.moveCd=Math.max(.09,.24-(p.speed-1)*.035); resolveCell(g,p.x,p.z,'player'); }
+  // ---- movement environment for bmMoveActor: what an actor may glide into
+  function actorsOf(g){ return [g.player,...g.enemies]; }
+  function canOccupy(g,x,z,a){ if(blocked(g,x,z,true)) return false; const b=bombAt(g,x,z); if(b && !(Math.abs((a.fx??a.x)-x)<.999 && Math.abs((a.fz??a.z)-z)<.999)) return false;
+    for(const o of actorsOf(g)) if(o!==a && o.alive && o.x===x && o.z===z) return false; return true; }
+  function moveEnv(g,a,opts={}){ return { open:(x,z)=>canOccupy(g,x,z,a), push:opts.kick?((x,z,d)=>{ const b=bombAt(g,x,z); return !!(b&&kickBomb(g,b,d)); }):null, enter:opts.enter||null }; }
+  function enterRemoteTile(g,e){ const c=cell(g,e.x,e.z); if(c?.pickup){applyRemotePickup(e,c.pickup);c.pickup=null;} if(c?.special==='lava'){if(e.shield>0)e.shield--;else e.alive=false;} }
+  function movePlayer(dt){ const g=bm.state.game,p=g.player; if(!p.alive){ p.moving=false; return 0; }
+    const alt=bm.state.stickDir&&bm.state.stickDir===bm.state.dir?bm.state.stickAlt:null;
+    return bmMoveActor(p,{dir:bm.state.dir,alt},dt,bmSpeed(p.speed),moveEnv(g,p,{kick:p.kick,enter:a=>resolveCell(g,a.x,a.z,'player')})); }
   function kickBomb(g,bomb,dir){ const [dx,dz]=dirVec(dir); let x=bomb.x,z=bomb.z,moved=false; while(true){ const nx=x+dx,nz=z+dz; if(blocked(g,nx,nz,true)||enemyAt(g,nx,nz)||bombAt(g,nx,nz)) break; x=nx; z=nz; moved=true; const c=cell(g,x,z); if(c && (c.special==='water'||c.special==='lava')) break; }
     if(moved){ bomb.x=x; bomb.z=z; bomb.rx=x; bomb.rz=z; showBMMessage('Kick!',0.55); tone(170,.05,'square',.03,50); } return moved; }
   function punchBomb(g,bomb,dir){ const [dx,dz]=dirVec(dir); let x=bomb.x,z=bomb.z; for(let i=0;i<3;i++){ const nx=x+dx,nz=z+dz; if(blocked(g,nx,nz,true)||enemyAt(g,nx,nz)||bombAt(g,nx,nz)) break; x=nx; z=nz; } bomb.x=x; bomb.z=z; bomb.rx=x; bomb.rz=z; showBMMessage('Punch launch!',0.55); tone(230,.06,'square',.03,50); }
@@ -647,17 +715,30 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
     const e=g.enemies[idx]; e.slot=slot; if(e.speed==null)e.speed=1; if(e.punch==null)e.punch=false; if(e.carry==null)e.carry=false; if(e.line==null)e.line=false; if(e.shield==null)e.shield=0; if(e.holding===undefined)e.holding=null; if(!e.facing)e.facing='left'; return e;
   }
   function applyRemotePickup(e,kind){ if(kind==='bomb')e.bombsMax=Math.min(6,(e.bombsMax||1)+1); if(kind==='fire')e.fire=Math.min(6,(e.fire||2)+1); if(kind==='speed')e.speed=Math.min(4,(e.speed||1)+1); if(kind==='remote')e.remote=true; if(kind==='kick')e.kick=true; if(kind==='punch')e.punch=true; if(kind==='carry')e.carry=true; if(kind==='line')e.line=true; if(kind==='shield')e.shield=(e.shield||0)+1; }
-  function remoteMove(slot,dir){ const g=bm.state.game,e=ensureRemoteEnemy(slot); if(!e||!e.alive||e.moveCd>0)return; e.facing=dir; const [dx,dz]=dirVec(dir),nx=e.x+dx,nz=e.z+dz; const targetBomb=bombAt(g,nx,nz); if(targetBomb){ if(e.kick&&kickBomb(g,targetBomb,dir)){}else return; } if(blocked(g,nx,nz,true)||enemyAt(g,nx,nz)||(g.player.alive&&g.player.x===nx&&g.player.z===nz))return; e.x=nx;e.z=nz;e.moveCd=Math.max(.09,.24-((e.speed||1)-1)*.035); const c=cell(g,nx,nz); if(c?.pickup){applyRemotePickup(e,c.pickup);c.pickup=null;} if(c?.special==='lava'){if(e.shield>0)e.shield--;else e.alive=false;} }
+  const REMOTE_HOLD=.32; // seconds a guest's held direction stays live without a refresh
+  function remoteMove(slot,dir){ const e=ensureRemoteEnemy(slot); if(!e||!e.alive)return; if(dir==='stop'){ e.holdDir=null; e.holdT=0; return; } e.holdDir=dir; e.holdT=REMOTE_HOLD; if(!e.moving) e.facing=dir; }
   function remoteBombCount(g,slot){return g.bombs.filter(b=>!b.dead&&b.owner===`human:${slot}`).length}
   function remoteDrop(g,e,slot,x,z,timer=null){if(bombAt(g,x,z)||blocked(g,x,z,true)||remoteBombCount(g,slot)>=(e.bombsMax||1))return false;g.bombs.push({x,z,rx:x,rz:z,owner:`human:${slot}`,timer:timer??(e.remote?999:2.3),remote:!!e.remote,range:e.fire||2,dead:false});return true}
   function remoteThrow(g,e,slot){if(!e.holding)return false;const[dx,dz]=dirVec(e.facing);let x=e.x,z=e.z;for(let i=0;i<3;i++){const nx=x+dx,nz=z+dz;if(blocked(g,nx,nz,true)||enemyAt(g,nx,nz)||bombAt(g,nx,nz))break;x=nx;z=nz;}g.bombs.push({x,z,rx:x,rz:z,owner:`human:${slot}`,timer:e.holding.remote?999:1.6,remote:e.holding.remote,range:e.holding.range,dead:false});e.holding=null;return true}
   function remotePlace(slot){const g=bm.state.game,e=ensureRemoteEnemy(slot);if(!e?.alive)return;if(e.holding){remoteThrow(g,e,slot);return;}if(!remoteDrop(g,e,slot,e.x,e.z))return;if(e.line){const[dx,dz]=dirVec(e.facing);for(let i=1;i<=6&&remoteBombCount(g,slot)<e.bombsMax;i++){const x=e.x+dx*i,z=e.z+dz*i;if(blocked(g,x,z,true)||enemyAt(g,x,z)||bombAt(g,x,z))break;remoteDrop(g,e,slot,x,z);}}}
   function remoteAct(slot){const g=bm.state.game,e=ensureRemoteEnemy(slot);if(!e?.alive)return;const[dx,dz]=dirVec(e.facing);const here=bombAt(g,e.x,e.z),front=bombAt(g,e.x+dx,e.z+dz);if(e.carry&&!e.holding&&(here||front)){const b=here||front;e.holding={range:b.range,remote:b.remote};b.dead=true;return;}if(front&&e.punch){punchBomb(g,front,e.facing);return;}if(front&&e.kick)kickBomb(g,front,e.facing);}
   function remoteDet(slot){const g=bm.state.game;g?.bombs.forEach(b=>{if(!b.dead&&b.owner===`human:${slot}`&&b.remote)b.timer=.01;});}
-  function remoteAction(slot,action){if(action==='bomb')remotePlace(slot);else if(action==='act')remoteAct(slot);else if(action==='det')remoteDet(slot);else if(['left','right','up','down'].includes(action))remoteMove(slot,action);}
+  function remoteAction(slot,action){if(action==='bomb')remotePlace(slot);else if(action==='act')remoteAct(slot);else if(action==='det')remoteDet(slot);else if(['left','right','up','down','stop'].includes(action))remoteMove(slot,action);}
   function setHumanSlots(slots){const active=new Set(slots||[]),g=bm.state.game;for(let slot=1;slot<=3;slot++){const e=active.has(slot)?ensureRemoteEnemy(slot):g?.enemies?.[slot-1];if(e)e.human=active.has(slot);}}
   function bmSnapshot(){return JSON.parse(JSON.stringify({screen:bm.state.screen,selected:bm.state.selected,rotation:bm.state.rotation,roundCount:bm.state.roundCount,queue:bm.state.queue,round:bm.state.round,ended:bm.state.ended,game:bm.state.game}));}
-  function bmApplySnapshot(s){if(!s)return;['selected','rotation','roundCount','queue','round','ended'].forEach(k=>{if(s[k]!==undefined)bm.state[k]=s[k]});bm.state.game=s.game||null;bm.state.lastTs=performance.now();/* Switch screens only on a real change; re-running showGame/showMenu 10x a second re-laid out the page and re-rendered the menu. */const want=bm.state.game&&s.screen!=='menu'?'game':'menu';if(want==='game'){if(bm.state.screen!=='game')showGame();updateBMHud();}else if(bm.state.screen!=='menu')showMenu();}
+  function bmApplySnapshot(s){if(!s)return;['selected','rotation','roundCount','queue','round','ended'].forEach(k=>{if(s[k]!==undefined)bm.state[k]=s[k]});const prev=bm.state.game;bm.state.game=s.game||null;bmCarryRender(prev,bm.state.game);bm.state.snapAt=performance.now();/* Switch screens only on a real change; re-running showGame/showMenu 10x a second re-laid out the page and re-rendered the menu. */const want=bm.state.game&&s.screen!=='menu'?'game':'menu';if(want==='game'){if(bm.state.screen!=='game')showGame();updateBMHud();}else if(bm.state.screen!=='menu')showMenu();}
+  /* bmInterp:start */
+  // Replica (online guest) rendering: snapshots arrive ~10x a second. Keep each actor's on-screen
+  // position from the previous frame and ease it toward the host position extrapolated by its velocity,
+  // so remote players glide instead of jumping a tile at a time.
+  function bmCarryRender(prev,next){ if(!next) return; const pa=prev?[prev.player,...(prev.enemies||[])]:[], na=[next.player,...(next.enemies||[])];
+    na.forEach((a,i)=>{ if(!a) return; if(a.fx==null){ a.fx=a.x; a.fz=a.z; } const o=pa[i]; if(o&&o.rx!=null&&Math.abs(o.rx-a.fx)+Math.abs(o.rz-a.fz)<2.5){ a.rx=o.rx; a.rz=o.rz; a.stride=o.stride||0; } else { a.rx=a.fx; a.rz=a.fz; } });
+    (next.bombs||[]).forEach(b=>{ const o=prev&&(prev.bombs||[]).find(q=>q.owner===b.owner&&Math.abs(q.x-b.x)+Math.abs(q.z-b.z)<=6&&q.rx!=null); if(o&&(o.x!==b.x||o.z!==b.z)){ b.rx=o.rx; b.rz=o.rz; } }); }
+  function bmInterpStep(g,dt,sinceSnap){ const lead=Math.min(.12,Math.max(0,sinceSnap)); const k=Math.min(1,dt*14);
+    [g.player,...g.enemies].forEach(a=>{ if(!a) return; if(a.fx==null){ a.fx=a.x; a.fz=a.z; } if(a.rx==null){ a.rx=a.fx; a.rz=a.fz; }
+      const tx=a.fx+(a.vx||0)*lead, tz=a.fz+(a.vz||0)*lead; const ox=a.rx, oz=a.rz; a.rx+=(tx-a.rx)*k; a.rz+=(tz-a.rz)*k; a.stride=((a.stride||0)+Math.abs(a.rx-ox)+Math.abs(a.rz-oz))%4; });
+    g.bombs.forEach(b=>{ b.rx+=(b.x-b.rx)*Math.min(1,dt*10); b.rz+=(b.z-b.rz)*Math.min(1,dt*10); }); }
+  /* bmInterp:end */
   window.BombManLegacy={getState:()=>bm.state,snapshot:bmSnapshot,applySnapshot:bmApplySnapshot,remoteAction,setHumanSlots,setReplica:on=>{window.__bmReplicaMode=!!on},setLocalSlot:slot=>{window.__bmLocalSlot=slot},showMessage:showBMMessage,open:bmOpen};
   function killPlayer(msg){ const g=bm.state.game; if(!g.player.alive) return; g.player.alive=false; g.status='lost'; showBMMessage(msg||'Boom.',1.1); tone(90,.18,'square',.06,-20); setTimeout(()=>{ if(bm.state.active) showMenu(); },1500); }
   function explodeBomb(g,b){ if(b.dead) return; b.dead=true; const boomCells=[]; boomCells.push({x:b.x,z:b.z,kind:'center'}); const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
@@ -666,16 +747,21 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
     boomCells.forEach(c=>{ const chain=bombAt(g,c.x,c.z); if(chain && chain!==b && !chain.dead) chain.timer=.01; const e=enemyAt(g,c.x,c.z); if(e) e.alive=false; if(g.player.alive && g.player.x===c.x && g.player.z===c.z){ if(g.player.shield>0){ g.player.shield--; showBMMessage('Shield absorbed the blast',0.75); } else killPlayer('Direct hit.'); } });
     tone(100,.11,'sawtooth',.06,-15);
   }
-  function updateEnemies(dt){ const g=bm.state.game, p=g.player; g.enemies.forEach(e=>{ if(!e.alive) return; e.moveCd-=dt; e.bombCd-=dt; if(g.explosions.some(ex=>ex.x===e.x&&ex.z===e.z)) { e.alive=false; return; } if(e.human) return;
-      if(e.moveCd<=0){ const dirs=shuffle(['left','right','up','down']); const preferred=[]; if(p.x<e.x) preferred.push('left'); if(p.x>e.x) preferred.push('right'); if(p.z<e.z) preferred.push('up'); if(p.z>e.z) preferred.push('down'); const choices=(Math.random()<.68?preferred:[]).concat(dirs);
-        for(const d of choices){ const [dx,dz]=dirVec(d); const nx=e.x+dx,nz=e.z+dz; if(blocked(g,nx,nz,false)||enemyAt(g,nx,nz)||(p.alive&&p.x===nx&&p.z===nz)) continue; e.x=nx; e.z=nz; break; } e.moveCd=.35+Math.random()*.35; }
+  const BOT_SPEED=2.5;
+  function updateEnemies(dt){ const g=bm.state.game, p=g.player; g.enemies.forEach(e=>{ if(!e.alive){ e.moving=false; return; } if(e.fx==null){ e.fx=e.x; e.fz=e.z; } e.moveCd-=dt; e.bombCd-=dt; if(g.explosions.some(ex=>ex.x===e.x&&ex.z===e.z)) { e.alive=false; return; }
+      if(e.human){ e.holdT=Math.max(0,(e.holdT||0)-dt); bmMoveActor(e,{dir:e.holdT>0?e.holdDir:null},dt,bmSpeed(e.speed||1),moveEnv(g,e,{kick:e.kick,enter:a=>enterRemoteTile(g,a)})); return; }
+      const atGoal=e.goal&&Math.abs(e.fx-e.goal[0])<1e-3&&Math.abs(e.fz-e.goal[1])<1e-3;
+      if(atGoal){ e.fx=e.goal[0]; e.fz=e.goal[1]; e.goal=null; if(Math.random()<.22) e.moveCd=.12+Math.random()*.3; }
+      if(!e.goal && e.moveCd<=0){ e.fx=Math.round(e.fx); e.fz=Math.round(e.fz); const dirs=shuffle(['left','right','up','down']); const preferred=[]; if(p.x<e.x) preferred.push('left'); if(p.x>e.x) preferred.push('right'); if(p.z<e.z) preferred.push('up'); if(p.z>e.z) preferred.push('down'); const choices=(Math.random()<.68?preferred:[]).concat(dirs);
+        for(const d of choices){ const [dx,dz]=dirVec(d); const nx=e.x+dx,nz=e.z+dz; if(blocked(g,nx,nz,false)||enemyAt(g,nx,nz)||(p.alive&&p.x===nx&&p.z===nz)) continue; e.goal=[nx,nz]; e.gdir=d; e.mdir=null; e.turnT=0; break; } if(!e.goal) e.moveCd=.2+Math.random()*.25; }
+      if(e.goal){ const left=Math.abs(e.goal[0]-e.fx)+Math.abs(e.goal[1]-e.fz); const env=moveEnv(g,e); const m=bmMoveActor(e,{dir:e.gdir},Math.min(dt,left/BOT_SPEED),BOT_SPEED,env); if(m<=0){ e.goal=null; e.moveCd=.15; } }
+      else { e.moving=false; e.vx=0; e.vz=0; }
       const dist=Math.abs(p.x-e.x)+Math.abs(p.z-e.z);
       if(dist<=3 && e.bombCd<=0 && !bombAt(g,e.x,e.z)){ g.bombs.push({x:e.x,z:e.z,rx:e.x,rz:e.z,owner:'enemy',timer:e.remote?999:2.0+Math.random()*1.2,remote:e.remote,range:e.fire,dead:false}); e.bombCd=2.4+Math.random()*1.4; if(e.remote){ setTimeout(()=>{ const bb=g.bombs.find(b=>!b.dead&&b.owner==='enemy'&&b.remote&&b.x===e.x&&b.z===e.z); if(bb) bb.timer=.01; },800+randi(0,600)); } }
     }); }
   function updateGame(dt){ const g=bm.state.game; if(!g||g.status!=='playing'||window.__bmReplicaMode) return; if(bm.state.msgT>0){ bm.state.msgT-=dt; if(bm.state.msgT<=0) hideBMMessage(); }
     g.timer=Math.max(0,g.timer-dt); if(g.timer<=0) killPlayer('Time ran out.');
-    if(g.player.moveCd>0) g.player.moveCd=Math.max(0,g.player.moveCd-dt);
-    if(bm.state.dir){ bm.state.dirTimer-=dt; if(bm.state.dirTimer<=0){ const px=g.player.x, pz=g.player.z; movePlayer(bm.state.dir); if(px===g.player.x&&pz===g.player.z&&g.player.moveCd<=0&&bm.state.stickAlt&&bm.state.stickDir===bm.state.dir){ movePlayer(bm.state.stickAlt); } bm.state.dirTimer=Math.max(.08,.21-(g.player.speed-1)*.03); } } else bm.state.dirTimer=0;
+    movePlayer(dt);
     if(bm.state.bombQueued){ placeBomb(); bm.state.bombQueued=false; }
     if(bm.state.actQueued){ tryCarryOrAction(); bm.state.actQueued=false; }
     if(bm.state.detQueued){ detonateRemote(); bm.state.detQueued=false; }
@@ -683,8 +769,8 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
     g.bombs = g.bombs.filter(b=>!b.dead);
     g.explosions.forEach(ex=>ex.t-=dt); g.explosions=g.explosions.filter(ex=>ex.t>0);
     updateEnemies(dt);
-    g.player.rx += (g.player.x-g.player.rx)*Math.min(1,dt*10); g.player.rz += (g.player.z-g.player.rz)*Math.min(1,dt*10);
-    g.enemies.forEach(e=>{ e.rx += (e.x-e.rx)*Math.min(1,dt*8); e.rz += (e.z-e.rz)*Math.min(1,dt*8); });
+    // render positions are the simulated continuous positions (no catch-up lag on the host)
+    actorsOf(g).forEach(a=>{ if(a.fx==null){ a.fx=a.x; a.fz=a.z; } a.rx=a.fx; a.rz=a.fz; });
     g.bombs.forEach(b=>{ b.rx += (b.x-b.rx)*Math.min(1,dt*10); b.rz += (b.z-b.rz)*Math.min(1,dt*10); });
     if(g.enemies.every(e=>!e.alive)){
       g.status='won'; bm.state.round++;
@@ -705,7 +791,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
      Every gameplay visual below is drawn from sprite/texture files in /bomberman/sprites/,
      cut from the landing-page art sheets (see docs/BOMBMAN-ART-AUDIT.md). No flat-colour
      boxes, emoji or text labels are used for gameplay objects. */
-  const ART_BASE='/bomberman/sprites/', ART_V='1';
+  const ART_BASE='/bomberman/sprites/', ART_V='2';
   const ART_SPRITES=['hero_front','hero_back','hero_left','hero_right','p2_front','p2_back','p2_left','p2_right','p3_front','p3_back','p3_left','p3_right','p4_front','p4_back','p4_left','p4_right','bot_robot','bot_robot_blue','bomb','bomb_remote','fx_center','fx_segment','fx_end','fx_dust','pu_bomb','pu_fire','pu_speed','pu_remote','pu_kick','pu_punch','pu_carry','pu_line','pu_shield','tex_stone','tex_metal','tex_metal_side','tex_crate','tex_crate_side','tex_ice','tex_lava','tex_conveyor','tex_bush','tex_water','bg_factory','bg_temple','bg_ice','bg_lava'];
   const PICKUP_ART={bomb:'pu_bomb',fire:'pu_fire',speed:'pu_speed',remote:'pu_remote',kick:'pu_kick',punch:'pu_punch',carry:'pu_carry',line:'pu_line',shield:'pu_shield'};
   const SPECIAL_ART={ice:'tex_ice',lava:'tex_lava',water:'tex_water',conveyor:'tex_conveyor',bush:'tex_bush'};
@@ -789,13 +875,35 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   function spriteBox(name,wx,wy,wz,worldH,g,anchor='bottom'){ const img=art[name]; if(!img) return null; const base=project({x:wx,y:wy,z:wz},g); if(!base) return null; const b=artBox[name]||{x0:0,y0:0,x1:img.width,y1:img.height}; const k=base.s*worldH/(b.y1-b.y0); const w=img.width*k, h=img.height*k; const left=base.x-((b.x0+b.x1)/2)*k; const top=anchor==='bottom'? base.y-b.y1*k : base.y-((b.y0+b.y1)/2)*k; return {img,left,top,w,h,base,k,b,box:{x0:left+b.x0*k,y0:top+b.y0*k,x1:left+b.x1*k,y1:top+b.y1*k}}; }
   function blit(sb,alpha=1,sx=1,sy=1){ if(!sb) return; ctx3.save(); if(alpha!==1) ctx3.globalAlpha=alpha; if(sx!==1||sy!==1){ const ox=sb.base.x, oy=sb.box.y1; ctx3.translate(ox,oy); ctx3.scale(sx,sy); ctx3.translate(-ox,-oy); } ctx3.drawImage(sb.img,sb.left,sb.top,sb.w,sb.h); ctx3.restore(); }
   function groundShadow(g,wx,wz,r){ const p=project({x:wx,y:.125,z:wz},g); if(!p) return; ctx3.fillStyle='rgba(0,0,0,.32)'; ctx3.beginPath(); ctx3.ellipse(p.x,p.y,p.s*r,p.s*r*.42,0,0,Math.PI*2); ctx3.fill(); }
-  const faceMemo=[];
-  function faceOf(actor,key){ let f=actor.facing; const dx=actor.x-actor.rx, dz=actor.z-actor.rz; if(Math.abs(dx)+Math.abs(dz)>.03) f=Math.abs(dx)>Math.abs(dz)?(dx>0?'right':'left'):(dz>0?'down':'up'); if(!actor.facing||Math.abs(dx)+Math.abs(dz)>.03) faceMemo[key]=f||faceMemo[key]; return f||faceMemo[key]||'down'; }
+  // ---- walking characters. Animation is driven by distance travelled on screen (rx/rz), so it is the
+  // same for the local player, bots and interpolated online players, and a stopped actor settles smoothly.
+  const animMemo={};
+  function animOf(actor,key){ let m=animMemo[key]; if(!m||m.g!==bm.state.game){ m=animMemo[key]={g:bm.state.game,x:actor.rx,z:actor.rz,amt:0,ph:0,face:actor.facing||'down'}; }
+    const dx=actor.rx-m.x, dz=actor.rz-m.z, d=Math.abs(dx)+Math.abs(dz); m.x=actor.rx; m.z=actor.rz;
+    if(d>1.5){ m.amt=0; } else { m.ph+=d*Math.PI*2/0.9; m.amt+=((d>2e-4?1:0)-m.amt)*.25; if(d>2e-4) m.face=Math.abs(dx)>=Math.abs(dz)?(dx>0?'right':'left'):(dz>0?'down':'up'); }
+    return m; }
+  function faceOf(actor,m){ return actor.facing||m.face||'down'; }
   const FACE_SPRITE={down:'front',up:'back',left:'left',right:'right'};
-  function characterItem(g,actor,sprite,key){ const moving=Math.abs(actor.x-actor.rx)+Math.abs(actor.z-actor.rz)>.03; const t=performance.now()/1000; const bob=moving?Math.abs(Math.sin(t*16+key))*.07:0; const sb=spriteBox(sprite,actor.rx+.5,.12+bob,actor.rz+.62,1.32,g); if(!sb) return null;
-    return {d:project({x:actor.rx+.5,y:.6,z:actor.rz+.5},g)?.d||0, box:sb.box, fn:()=>{ groundShadow(g,actor.rx+.5,actor.rz+.62,.34); const squash=moving?1+Math.sin(t*32+key)*.035:1+Math.sin(t*3+key)*.012; blit(sb,1,1/squash,squash); if(actor.holding){ const hb=spriteBox(actor.holding.remote?'bomb_remote':'bomb',actor.rx+.5,1.42+bob,actor.rz+.62,.5,g); blit(hb); } }}; }
-  function playerItem(g){ const p=g.player; return characterItem(g,p,'hero_'+FACE_SPRITE[faceOf(p,'p')],0); }
-  function enemyItem(g,e,i){ let sprite; if(e.human){ const skin=HUMAN_SKINS[(e.slot||i+1)%4]||'p2'; sprite=skin+'_'+FACE_SPRITE[faceOf(e,'e'+i)]; } else sprite=e.type==='remote'?'bot_robot_blue':'bot_robot'; return characterItem(g,e,sprite,i+1); }
+  // Draw a sprite as a walker: legs strip (bottom 30%) animated per step, body bobbing above it,
+  // squash/stretch on each footfall and a slight lean, all pivoting on the feet.
+  function drawWalker(sb,view,m,key,t){ const img=sb.img,b=sb.b,k=sb.k,H=b.y1-b.y0,W=b.x1-b.x0, a=m.amt, ph=m.ph, s1=Math.sin(ph);
+    const cut=b.y0+H*.70, ovl=H*.07, lift=H*.055*a*k, bob=Math.abs(s1)*H*.04*a*k;
+    const sq=a>.02?1+Math.cos(ph*2)*.035*a:1+Math.sin(t*3+key)*.012; const ox=sb.base.x, oy=sb.box.y1;
+    const lean=(view==='left'?-1:view==='right'?1:0)*.05*a + (view==='front'||view==='back'?s1*.035*a:0);
+    ctx3.save(); ctx3.translate(ox,oy); ctx3.rotate(lean); ctx3.scale(1/sq,sq); ctx3.translate(-ox,-oy);
+    const legH=b.y1-cut+1, ly=sb.top+cut*k;
+    if(view==='left'||view==='right'){ const dir=view==='right'?1:-1, cx=sb.left+(b.x0+b.x1)/2*k;
+      ctx3.save(); ctx3.translate(cx,ly); ctx3.transform(1,0,s1*.28*a*dir,1,0,0); ctx3.drawImage(img,0,cut,img.width,legH,sb.left-cx,-Math.abs(s1)*lift*.5,img.width*k,legH*k); ctx3.restore(); }
+    else { const mid=(b.x0+b.x1)/2;
+      ctx3.drawImage(img,0,cut,mid,legH,sb.left,ly-Math.max(0,s1)*lift,mid*k,legH*k);
+      ctx3.drawImage(img,mid,cut,img.width-mid,legH,sb.left+mid*k,ly-Math.max(0,-s1)*lift,(img.width-mid)*k,legH*k); }
+    ctx3.drawImage(img,0,0,img.width,cut+ovl,sb.left,sb.top-bob,img.width*k,(cut+ovl)*k);
+    ctx3.restore(); return bob; }
+  function characterItem(g,actor,skin,key){ const m=animOf(actor,key); const view=skin.dir?FACE_SPRITE[faceOf(actor,m)]:'front'; const sprite=skin.dir?skin.base+'_'+view:skin.base; const t=performance.now()/1000;
+    const sb=spriteBox(sprite,actor.rx+.5,.12,actor.rz+.62,1.32,g); if(!sb) return null;
+    return {d:project({x:actor.rx+.5,y:.6,z:actor.rz+.5},g)?.d||0, box:sb.box, fn:()=>{ const bobPx=Math.abs(Math.sin(m.ph))*m.amt; groundShadow(g,actor.rx+.5,actor.rz+.62,.34*(1-bobPx*.12)); const bob=drawWalker(sb,view,m,key,t); if(actor.holding){ const hb=spriteBox(actor.holding.remote?'bomb_remote':'bomb',actor.rx+.5,1.42,actor.rz+.62,.5,g); if(hb){ hb.top-=bob; blit(hb); } } }}; }
+  function playerItem(g){ return characterItem(g,g.player,{base:'hero',dir:true},0); }
+  function enemyItem(g,e,i){ const skin=e.human?{base:HUMAN_SKINS[(e.slot||i+1)%4]||'p2',dir:true}:{base:e.type==='remote'?'bot_robot_blue':'bot_robot',dir:false}; return characterItem(g,e,skin,i+1); }
   function bombItem(g,b){ const t=performance.now()/1000; const urgent=!b.remote&&b.timer<.8; const pulse=1+Math.sin(t*(urgent?26:9))*(urgent?.09:.05); const sb=spriteBox(b.remote?'bomb_remote':'bomb',b.rx+.5,.12,b.rz+.55,.8,g); if(!sb) return null;
     return {d:project({x:b.rx+.5,y:.35,z:b.rz+.5},g)?.d||0, box:sb.box, fn:()=>{ groundShadow(g,b.rx+.5,b.rz+.55,.28); blit(sb,1,pulse,pulse); if(!b.remote){ const fx=art.fx_end; if(fx){ const s=sb.k*(sb.b.x1-sb.b.x0)*(.28+Math.random()*.08); const px=sb.left+(sb.b.x0+(sb.b.x1-sb.b.x0)*.62)*sb.k, py=sb.box.y1-(sb.box.y1-sb.box.y0)*pulse*.98; ctx3.save(); ctx3.globalCompositeOperation='lighter'; ctx3.globalAlpha=.85; ctx3.drawImage(fx,px-s/2,py-s/2,s,s); ctx3.restore(); } } }}; }
   function explosionItem(g,ex,all){ const alpha=clamp(ex.t/.46,0,1), grow=1+(1-alpha)*.25; let axis=ex.axis; if(!axis&&ex.kind!=='center'){ const h=all.some(o=>o!==ex&&o.z===ex.z&&Math.abs(o.x-ex.x)===1); axis=h?'x':'z'; }
@@ -821,7 +929,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
     draw.sort((a,b)=>b.d-a.d).forEach(it=>it.fn());
     ctx3.fillStyle='rgba(0,0,0,.28)'; ctx3.fillRect(0,h-40,w,40); ctx3.fillStyle='#fff7da'; ctx3.font='900 16px system-ui'; ctx3.textAlign='center'; ctx3.textBaseline='alphabetic'; ctx3.fillText(g.title, w/2, h-15);
   }
-  function bombLoop(ts){ if(!bm.state.lastTs) bm.state.lastTs=ts; const dt=Math.min(.05,(ts-bm.state.lastTs)/1000); bm.state.lastTs=ts; if(bm.state.active && bm.state.screen==='game') updateGame(dt); if(bm.state.active && bm.state.screen==='game') drawScene(); requestAnimationFrame(bombLoop); }
+  function bombLoop(ts){ if(!bm.state.lastTs) bm.state.lastTs=ts; const dt=Math.max(0,Math.min(.05,(ts-bm.state.lastTs)/1000)); bm.state.lastTs=ts; if(bm.state.active && bm.state.screen==='game'){ if(window.__bmReplicaMode){ if(bm.state.game) bmInterpStep(bm.state.game,dt,(performance.now()-(bm.state.snapAt||0))/1000); } else updateGame(dt); } if(bm.state.active && bm.state.screen==='game') drawScene(); requestAnimationFrame(bombLoop); }
   renderMenu(); resizeBMCanvas(); requestAnimationFrame(bombLoop);
 })();
 
@@ -833,7 +941,7 @@ let last=performance.now();function loop(now){const dt=Math.min(.033,(now-last)/
 })();
 </script>
 
-<script src="/bomberman/live.js?v=4"></script>
+<script src="/bomberman/live.js?v=5"></script>
 <script>setTimeout(()=>{const b=document.getElementById('bombModeBtn');if(b)b.dispatchEvent(new Event('pointerdown',{bubbles:true,cancelable:true}));},0);</script>
 </body>
 </html>

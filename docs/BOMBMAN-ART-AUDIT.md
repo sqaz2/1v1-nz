@@ -43,7 +43,9 @@ The only Bomb Man art in the repo or on the site is embedded in `index.html` as 
 | `21.jpeg` | Factory arena render | backdrop, Ice/Lava grades, stopwatch icon |
 | `22.jpeg` / `23.jpeg` | Temple arena render / garden scene | Temple map card (unchanged) / Temple backdrop |
 
-There is no higher-resolution original anywhere in git history or on the site. Both sheets are also **cropped** at the top: the UP and RIGHT poses and the top of the bomb fuse are cut off.
+`00_x4.webp` / `24_x4.webp` are 2880×1620 **Real-ESRGAN 4× (realesrgan-x4plus-anime)** upscales of the two sprite sheets, made on the box with `realesrgan-ncnn-vulkan` (CPU / lavapipe). `slice.py` still computes every cut-out mask on the original sheet (its tolerances are tuned for it), then upsamples the alpha and applies it to the cleaner 4× pixels. Characters (hero, rival skins, robot) are now 384 px instead of 256 px; bombs, FX, power-ups and kit tiles come from the 4× sheets too, so nothing is stretched from a 40-px face any more.
+
+There is no higher-resolution original anywhere in git history or on the site. Other bots on this machine (Grok Build / Grok, Helpoverload, Generative Download, Scribbles) and every other sqaz2 repo and branch were searched for a better bomber/hamster hero: none exists. The only other hamster art is the Namaste Hamster monk side-scroller cast (a different character), embedded in the same `index.html`. Both sheets are also **cropped** at the top: the UP and RIGHT poses and the top of the bomb fuse are cut off.
 
 Pipeline: `python3 scripts/bombman-art/slice.py` (numpy, opencv-python-headless, pillow). It keys out the sheet background with a border flood-fill and soft edge, drops the text-label components, trims, and fits each sprite into a 256 px square grid (characters and bombs bottom-anchored, everything else centred) as WebP with alpha. Tiles are 256 px opaque faces. It also writes `bomberman/sprites/manifest.json` (source box, cut vs derived, upscale factor) and is deterministic: re-running it reproduces the committed files.
 
@@ -75,7 +77,7 @@ Perf (headless Chrome, 844×390 at DPR 3, 8 bombs + 11 flame cells + pickups + 4
 
 ## Remaining gaps (need new art; generate these to close them)
 
-1. **High-res character sheet.** The source is a 720×405 JPEG, so sprites are upscaled 1.2–4.5× and look soft, and the hero's hat top is clipped in the source. Needed: Bomb Man at ≥1024 px, 4 directions × 4-frame walk, plus hurt/death and victory poses. Today there's one pose per direction, animated with code bob/squash.
+1. **High-res character sheet.** The 4× Real-ESRGAN pass makes the hero clean at phone sizes, but it is still one drawn pose per direction (right = mirrored left; the sheet's UP/RIGHT poses are cut off at the top). The walk is procedural: the legs strip steps (alternate foot lift front/back, stride shear sideways), the body bobs and leans, and the sprite squashes on each footfall. Needed for a hand-drawn walk: Bomb Man on a transparent background, ≥1024 px, 4 directions × 4 walk frames (contact, pass, contact, pass) + idle, plus hurt/death and victory poses, same goggles/red scarf/blue suit design.
 2. **Robot enemy:** back, left and right views plus a walk cycle. Only the front view exists.
 3. **Line Bomb power-up tile** in the set style. Currently a recoloured Bomb Up frame with three bombs.
 4. **Ice Cavern and Lava Forge arenas:** real backdrops and map-card art. Currently colour-graded Factory art.

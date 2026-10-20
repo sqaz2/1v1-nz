@@ -129,7 +129,8 @@ function startPublishing(){
   },100);
 }
 function startHeld(action){stopHeld();heldAction=action;sendAction(action);heldTimer=setInterval(()=>sendAction(action),135)}
-function stopHeld(){clearInterval(heldTimer);heldTimer=null;heldAction=null}
+// Releasing a held direction tells the host to stop gliding right away (it also stops by itself ~0.3 s after the last refresh).
+function stopHeld(){const was=heldAction;clearInterval(heldTimer);heldTimer=null;heldAction=null;if(slot>0&&['up','down','left','right'].includes(was))sendAction('stop')}
 
 document.addEventListener('pointerdown',e=>{
   if(!(slot>0))return;const target=e.target.closest('#bmTouch button');if(!target)return;
