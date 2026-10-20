@@ -679,13 +679,20 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
 
   // ---- camera (looks from the +z side so screen up/down/left/right match the controls)
   let CAM=null;
-  function camera(g){ const dpr=Math.min(2,window.devicePixelRatio||1), sw=bm.el.canvas.width/dpr, sh=bm.el.canvas.height/dpr; const aspect=sw/Math.max(1,sh); if(aspect>1.45){ const fov=Math.min(sw*1.15,sh*3.8); return {pos:{x:g.cols/2,y:5.8,z:g.rows+13},target:{x:g.cols/2,y:.12,z:g.rows/2},fov,sw,sh}; } const fov=Math.min(sw*1.05,sh*2.0); return {pos:{x:g.cols/2,y:11,z:g.rows+7},target:{x:g.cols/2,y:.12,z:g.rows/2},fov,sw,sh}; }
+  // Camera sits on the +z side (screen up/down/left/right match the controls) and auto-fits the whole arena to the canvas.
+  function camera(g){ const dpr=Math.min(2,window.devicePixelRatio||1), sw=bm.el.canvas.width/dpr, sh=bm.el.canvas.height/dpr; const aspect=sw/Math.max(1,sh);
+    const wide=aspect>1.45; const pos=wide?{x:g.cols/2,y:10.5,z:g.rows+6.2}:{x:g.cols/2,y:13,z:g.rows+3.2}; const target={x:g.cols/2,y:0,z:g.rows/2};
+    return {pos,target,fov:1,sw,sh,ox:0,oy:0}; }
   function vecSub(a,b){ return {x:a.x-b.x,y:a.y-b.y,z:a.z-b.z}; }
   function dot(a,b){ return a.x*b.x+a.y*b.y+a.z*b.z; }
   function cross(a,b){ return {x:a.y*b.z-a.z*b.y, y:a.z*b.x-a.x*b.z, z:a.x*b.y-a.y*b.x}; }
   function norm(v){ const d=Math.hypot(v.x,v.y,v.z)||1; return {x:v.x/d,y:v.y/d,z:v.z/d}; }
-  function setCamera(g){ const cv=camera(g); const forward=norm(vecSub(cv.target,cv.pos)); const right=norm(cross(forward,{x:0,y:1,z:0})); const up=cross(right,forward); CAM={...cv,forward,right,up}; return CAM; }
-  function project(pt,g){ const cv=CAM||setCamera(g); const rel=vecSub(pt,cv.pos); const cx=dot(rel,cv.right), cy=dot(rel,cv.up), cz=dot(rel,cv.forward); if(cz<=0.05) return null; const scale=cv.fov/cz; return {x:cv.sw/2 + cx*scale, y:cv.sh/2 - cy*scale, d:cz, s:scale}; }
+  let camFit={key:'',fov:1,ox:0,oy:0};
+  function setCamera(g){ const cv=camera(g); const forward=norm(vecSub(cv.target,cv.pos)); const right=norm(cross(forward,{x:0,y:1,z:0})); const up=cross(right,forward); CAM={...cv,forward,right,up};
+    const key=cv.sw+'x'+cv.sh+'|'+g.cols+'x'+g.rows; if(camFit.key!==key){ CAM.fov=1; CAM.ox=0; CAM.oy=0; let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; for(const X of [-.45,g.cols+.45]) for(const Y of [0,1.15]) for(const Z of [-.45,g.rows+.45]){ const p=project({x:X,y:Y,z:Z},g); if(!p) continue; x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); }
+      const fov=Math.min(cv.sw*.97/(x1-x0), (cv.sh-30)*.97/(y1-y0)); camFit={key,fov,ox:-((x0+x1)/2-cv.sw/2)*fov, oy:-((y0+y1)/2-cv.sh/2)*fov-12}; }
+    CAM.fov=camFit.fov; CAM.ox=camFit.ox; CAM.oy=camFit.oy; return CAM; }
+  function project(pt,g){ const cv=CAM||setCamera(g); const rel=vecSub(pt,cv.pos); const cx=dot(rel,cv.right), cy=dot(rel,cv.up), cz=dot(rel,cv.forward); if(cz<=0.05) return null; const scale=cv.fov/cz; return {x:cv.sw/2 + cv.ox + cx*scale, y:cv.sh/2 + cv.oy - cy*scale, d:cz, s:scale}; }
   function poly(points, fill){ if(points.some(p=>!p)) return; ctx3.beginPath(); ctx3.moveTo(points[0].x,points[0].y); for(let i=1;i<points.length;i++) ctx3.lineTo(points[i].x,points[i].y); ctx3.closePath(); if(fill){ ctx3.fillStyle=fill; ctx3.fill(); } }
 
   // ---- textured quads: two affine triangles per face (perspective-correct enough for one board cell)
@@ -721,7 +728,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
     const solids=[];
     for(let xx=-.25;xx<g.cols+.25;xx+=1){ solids.push({x:xx,y:0,z:-.35,w:1,h:.35,d:.25,top:rimTex,side:rimTex,rim:true}); solids.push({x:xx,y:0,z:g.rows+.1,w:1,h:.35,d:.25,top:rimTex,side:rimTex,rim:true}); }
     for(let z=-.35;z<g.rows+.35;z+=1){ solids.push({x:-.35,y:0,z,w:.25,h:.35,d:1,top:rimTex,side:rimTex,rim:true}); solids.push({x:g.cols+.1,y:0,z,w:.25,h:.35,d:1,top:rimTex,side:rimTex,rim:true}); }
-    for(let z=0;z<g.rows;z++) for(let xx=0;xx<g.cols;xx++){ const c=cell(g,xx,z); if(c.solid==='hard') solids.push({x:xx,y:.12,z,w:1,h:.92,d:1,top:mapTex(g.mapId,'hard'),side:mapTex(g.mapId,'hardSide')}); else if(c.solid==='crate') solids.push({x:xx+.04,y:.12,z:z+.04,w:.92,h:.84,d:.92,top:mapTex(g.mapId,'crate'),side:mapTex(g.mapId,'crateSide')}); }
+    for(let z=0;z<g.rows;z++) for(let xx=0;xx<g.cols;xx++){ const c=cell(g,xx,z); if(c.solid==='hard') solids.push({x:xx,y:.12,z,w:1,h:.78,d:1,top:mapTex(g.mapId,'hard'),side:mapTex(g.mapId,'hardSide')}); else if(c.solid==='crate') solids.push({x:xx+.05,y:.12,z:z+.05,w:.9,h:.7,d:.9,top:mapTex(g.mapId,'crate'),side:mapTex(g.mapId,'crateSide')}); }
     solids.forEach(s=>{ s.depth=project({x:s.x+s.w/2,y:s.y+s.h/2,z:s.z+s.d/2},g)?.d||0; }); solids.sort((a,b)=>b.depth-a.depth);
     for(const s of solids) drawSolid(x,g,s);
     boardCache.solids=solids; }
@@ -735,17 +742,17 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   const faceMemo=[];
   function faceOf(actor,key){ let f=actor.facing; const dx=actor.x-actor.rx, dz=actor.z-actor.rz; if(Math.abs(dx)+Math.abs(dz)>.03) f=Math.abs(dx)>Math.abs(dz)?(dx>0?'right':'left'):(dz>0?'down':'up'); if(!actor.facing||Math.abs(dx)+Math.abs(dz)>.03) faceMemo[key]=f||faceMemo[key]; return f||faceMemo[key]||'down'; }
   const FACE_SPRITE={down:'front',up:'back',left:'left',right:'right'};
-  function characterItem(g,actor,sprite,key){ const moving=Math.abs(actor.x-actor.rx)+Math.abs(actor.z-actor.rz)>.03; const t=performance.now()/1000; const bob=moving?Math.abs(Math.sin(t*16+key))*.07:0; const sb=spriteBox(sprite,actor.rx+.5,.12+bob,actor.rz+.62,1.08,g); if(!sb) return null;
-    return {d:project({x:actor.rx+.5,y:.6,z:actor.rz+.5},g)?.d||0, box:sb.box, fn:()=>{ groundShadow(g,actor.rx+.5,actor.rz+.62,.3); const squash=moving?1+Math.sin(t*32+key)*.035:1+Math.sin(t*3+key)*.012; blit(sb,1,1/squash,squash); if(actor.holding){ const hb=spriteBox(actor.holding.remote?'bomb_remote':'bomb',actor.rx+.5,1.2+bob,actor.rz+.62,.42,g); blit(hb); } }}; }
+  function characterItem(g,actor,sprite,key){ const moving=Math.abs(actor.x-actor.rx)+Math.abs(actor.z-actor.rz)>.03; const t=performance.now()/1000; const bob=moving?Math.abs(Math.sin(t*16+key))*.07:0; const sb=spriteBox(sprite,actor.rx+.5,.12+bob,actor.rz+.62,1.32,g); if(!sb) return null;
+    return {d:project({x:actor.rx+.5,y:.6,z:actor.rz+.5},g)?.d||0, box:sb.box, fn:()=>{ groundShadow(g,actor.rx+.5,actor.rz+.62,.34); const squash=moving?1+Math.sin(t*32+key)*.035:1+Math.sin(t*3+key)*.012; blit(sb,1,1/squash,squash); if(actor.holding){ const hb=spriteBox(actor.holding.remote?'bomb_remote':'bomb',actor.rx+.5,1.42+bob,actor.rz+.62,.5,g); blit(hb); } }}; }
   function playerItem(g){ const p=g.player; return characterItem(g,p,'hero_'+FACE_SPRITE[faceOf(p,'p')],0); }
   function enemyItem(g,e,i){ let sprite; if(e.human){ const skin=HUMAN_SKINS[(e.slot||i+1)%4]||'p2'; sprite=skin+'_'+FACE_SPRITE[faceOf(e,'e'+i)]; } else sprite=e.type==='remote'?'bot_robot_blue':'bot_robot'; return characterItem(g,e,sprite,i+1); }
-  function bombItem(g,b){ const t=performance.now()/1000; const urgent=!b.remote&&b.timer<.8; const pulse=1+Math.sin(t*(urgent?26:9))*(urgent?.09:.05); const sb=spriteBox(b.remote?'bomb_remote':'bomb',b.rx+.5,.12,b.rz+.55,.72,g); if(!sb) return null;
+  function bombItem(g,b){ const t=performance.now()/1000; const urgent=!b.remote&&b.timer<.8; const pulse=1+Math.sin(t*(urgent?26:9))*(urgent?.09:.05); const sb=spriteBox(b.remote?'bomb_remote':'bomb',b.rx+.5,.12,b.rz+.55,.8,g); if(!sb) return null;
     return {d:project({x:b.rx+.5,y:.35,z:b.rz+.5},g)?.d||0, box:sb.box, fn:()=>{ groundShadow(g,b.rx+.5,b.rz+.55,.28); blit(sb,1,pulse,pulse); if(!b.remote){ const fx=art.fx_end; if(fx){ const s=sb.k*(sb.b.x1-sb.b.x0)*(.28+Math.random()*.08); const px=sb.left+(sb.b.x0+(sb.b.x1-sb.b.x0)*.62)*sb.k, py=sb.box.y1-(sb.box.y1-sb.box.y0)*pulse*.98; ctx3.save(); ctx3.globalCompositeOperation='lighter'; ctx3.globalAlpha=.85; ctx3.drawImage(fx,px-s/2,py-s/2,s,s); ctx3.restore(); } } }}; }
   function explosionItem(g,ex,all){ const alpha=clamp(ex.t/.46,0,1), grow=1+(1-alpha)*.25; let axis=ex.axis; if(!axis&&ex.kind!=='center'){ const h=all.some(o=>o!==ex&&o.z===ex.z&&Math.abs(o.x-ex.x)===1); axis=h?'x':'z'; }
-    const name=ex.kind==='center'?'fx_center':ex.kind==='end'?'fx_end':(axis==='x'?'fx_segment':'fx_end'); const size=ex.kind==='center'?1.05:ex.kind==='end'?.86:(axis==='x'?.62:.9);
-    const sb=spriteBox(name,ex.x+.5,.12,ex.z+.55,size*grow,g); if(!sb) return null; if(name==='fx_segment'){ const base=project({x:ex.x,y:.12,z:ex.z+.55},g), base2=project({x:ex.x+1,y:.12,z:ex.z+.55},g); if(base&&base2){ const w=Math.abs(base2.x-base.x)*1.25; const k=w/(sb.b.x1-sb.b.x0); sb.k=k; sb.w=sb.img.width*k; sb.h=sb.img.height*k; sb.left=sb.base.x-((sb.b.x0+sb.b.x1)/2)*k; sb.top=sb.base.y-sb.b.y1*k+ (sb.b.y1-sb.b.y0)*k*.18; sb.box={x0:sb.left+sb.b.x0*k,y0:sb.top+sb.b.y0*k,x1:sb.left+sb.b.x1*k,y1:sb.top+sb.b.y1*k}; } }
+    const name=ex.kind==='center'?'fx_center':ex.kind==='end'?'fx_end':(axis==='x'?'fx_segment':'fx_end'); const size=ex.kind==='center'?1.25:ex.kind==='end'?1.0:(axis==='x'?.7:1.0);
+    const sb=spriteBox(name,ex.x+.5,.12,ex.z+.55,size*grow,g); if(!sb) return null; if(name==='fx_segment'){ const base=project({x:ex.x,y:.12,z:ex.z+.55},g), base2=project({x:ex.x+1,y:.12,z:ex.z+.55},g); if(base&&base2){ const w=Math.abs(base2.x-base.x)*1.45; const k=w/(sb.b.x1-sb.b.x0); sb.k=k; sb.w=sb.img.width*k; sb.h=sb.img.height*k; sb.left=sb.base.x-((sb.b.x0+sb.b.x1)/2)*k; sb.top=sb.base.y-sb.b.y1*k+ (sb.b.y1-sb.b.y0)*k*.18; sb.box={x0:sb.left+sb.b.x0*k,y0:sb.top+sb.b.y0*k,x1:sb.left+sb.b.x1*k,y1:sb.top+sb.b.y1*k}; } }
     return {d:(project({x:ex.x+.5,y:.5,z:ex.z+.5},g)?.d||0)-.01, box:sb.box, fn:()=>{ const p=project({x:ex.x+.5,y:.13,z:ex.z+.5},g); if(p){ ctx3.save(); ctx3.globalCompositeOperation='lighter'; const r=p.s*.75; const gl=ctx3.createRadialGradient(p.x,p.y,0,p.x,p.y,r); gl.addColorStop(0,`rgba(255,190,80,${.55*alpha})`); gl.addColorStop(1,'rgba(255,120,30,0)'); ctx3.fillStyle=gl; ctx3.beginPath(); ctx3.ellipse(p.x,p.y,r,r*.5,0,0,Math.PI*2); ctx3.fill(); ctx3.restore(); } blit(sb,Math.min(1,alpha*1.6)); if(ex.crate){ const ds=spriteBox('fx_dust',ex.x+.5,.3+(1-alpha)*.5,ex.z+.5,.9,g); blit(ds,alpha*.9); } }}; }
-  function pickupItem(g,x,z,kind){ const name=PICKUP_ART[kind]; if(!name) return null; const t=performance.now()/1000; const hover=.28+Math.sin(t*4.5+x*9+z*11)*.05; const sb=spriteBox(name,x+.5,.12+hover,z+.55,.66,g); if(!sb) return null;
+  function pickupItem(g,x,z,kind){ const name=PICKUP_ART[kind]; if(!name) return null; const t=performance.now()/1000; const hover=.28+Math.sin(t*4.5+x*9+z*11)*.05; const sb=spriteBox(name,x+.5,.12+hover,z+.55,.8,g); if(!sb) return null;
     return {d:project({x:x+.5,y:.3,z:z+.5},g)?.d||0, box:sb.box, fn:()=>{ groundShadow(g,x+.5,z+.55,.26); blit(sb); }}; }
 
   function drawScene(){ const g=bm.state.game; if(!g) return; const c=bm.el.canvas; const __dpr=Math.min(2,window.devicePixelRatio||1), w=c.width/__dpr, h=c.height/__dpr; setCamera(g);
