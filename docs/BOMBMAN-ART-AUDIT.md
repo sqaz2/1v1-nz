@@ -75,7 +75,7 @@ Perf (headless Chrome, 844×390 at DPR 3, 8 bombs + 11 flame cells + pickups + 4
 
 ## Remaining gaps (need new art; generate these to close them)
 
-1. **High-res character sheet.** The source is a 720×405 JPEG, so sprites are upscaled 1.3–4× and look soft, and the hero's hat top is clipped in the source. Needed: Bomb Man at ≥1024 px, 4 directions × 4-frame walk, plus hurt/death and victory poses. Today there's one pose per direction, animated with code bob/squash.
+1. **High-res character sheet.** The source is a 720×405 JPEG, so sprites are upscaled 1.2–4.5× and look soft, and the hero's hat top is clipped in the source. Needed: Bomb Man at ≥1024 px, 4 directions × 4-frame walk, plus hurt/death and victory poses. Today there's one pose per direction, animated with code bob/squash.
 2. **Robot enemy:** back, left and right views plus a walk cycle. Only the front view exists.
 3. **Line Bomb power-up tile** in the set style. Currently a recoloured Bomb Up frame with three bombs.
 4. **Ice Cavern and Lava Forge arenas:** real backdrops and map-card art. Currently colour-graded Factory art.
