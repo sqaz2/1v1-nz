@@ -167,5 +167,21 @@ for k,v in backs.items():
     b=ImageEnhance.Brightness(v.resize((480,270),Image.LANCZOS).filter(ImageFilter.GaussianBlur(5))).enhance(0.55)
     b.save(OUT+f'bg_{k}.webp','WEBP',quality=70,method=6)
     manifest[f'bg_{k}']={'file':f'bg_{k}.webp','kind':'backdrop','source':{'factory':'21','temple':'23','ice':'21 graded','lava':'21 graded'}[k]+'.jpeg','how':'derived: blurred + dimmed arena art'}
+# ---- menu key art: Factory arena render + the cut hero, robot and a lit bomb (replaces the raw sprite sheet in the menu)
+def key_art():
+    W,H=720,400; bg=Image.fromarray(S['21']).convert('RGB'); r=max(W/bg.width,H/bg.height)
+    bg=bg.resize((int(bg.width*r)+1,int(bg.height*r)+1),Image.LANCZOS); bg=bg.resize((int(bg.width*1.18),int(bg.height*1.18)),Image.LANCZOS); bg=bg.crop(((bg.width-W)//2,bg.height-H,(bg.width-W)//2+W,bg.height))
+    bg=ImageEnhance.Brightness(bg.filter(ImageFilter.GaussianBlur(2.2))).enhance(0.62).convert('RGBA')
+    yy,xx=np.mgrid[0:H,0:W]; v=np.clip(((xx-W*.36)/W)**2*1.6+((yy-H*.55)/H)**2*1.4,0,1); shade=Image.fromarray((v*200).astype(np.uint8),'L')
+    bg.alpha_composite(Image.merge('RGBA',[Image.new('L',(W,H),0)]*3+[shade]))
+    def put(name,h,cx,bottom,glow=None):
+        im=Image.open(OUT+name+'.webp').convert('RGBA'); im=im.crop(im.getbbox()); k=h/im.height; im=im.resize((int(im.width*k),h),Image.LANCZOS)
+        sh=Image.new('RGBA',(int(im.width*1.0),int(h*.16)),(0,0,0,0)); from PIL import ImageDraw as D; D.Draw(sh).ellipse((0,0,sh.width-1,sh.height-1),fill=(0,0,0,120)); sh=sh.filter(ImageFilter.GaussianBlur(6))
+        bg.alpha_composite(sh,(int(cx-sh.width/2),int(bottom-sh.height*.6))); bg.alpha_composite(im,(int(cx-im.width/2),int(bottom-h)))
+    fx=Image.open(OUT+'fx_center.webp').convert('RGBA'); fx=fx.resize((300,300),Image.LANCZOS); a_=np.array(fx).astype(np.float32); a_[...,3]*=.55; bg.alpha_composite(Image.fromarray(a_.astype(np.uint8)),(330,80))
+    put('bot_robot',180,620,380); put('bot_robot_blue',140,495,350); put('bomb',84,405,392); put('hero_front',430,195,418)
+    out=bg.convert('RGB'); out.save(OUT+'bg_menu.webp','WEBP',quality=82,method=6)
+    manifest['bg_menu']={'file':'bg_menu.webp','kind':'menu-art','source':'21.jpeg + hero_front, bot_robot(_blue), bomb, fx_center','how':'derived: composed key art for the menu card'}
+key_art()
 json.dump({'grid':G,'sprites':manifest},open(OUT+'manifest.json','w'),indent=1)
 print(len(manifest),'assets;',len(cut),'cut')

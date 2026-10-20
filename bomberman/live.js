@@ -28,10 +28,13 @@ function statusNode(){
   let el=document.getElementById('bmLiveStatus');
   if(el)return el;
   const top=document.getElementById('bmTopbar'); if(!top)return null;
-  el=document.createElement('div');el.id='bmLiveStatus';el.innerHTML='<i></i><span>LIVE · CONNECTING</span>';
+  el=document.createElement('div');el.id='bmLiveStatus';el.innerHTML='<i></i><span class="full">LIVE · CONNECTING</span><span class="short">LIVE…</span>';
   const back=document.getElementById('bombBackBtn');top.insertBefore(el,back||null);return el;
 }
-function setStatus(text,full=false,solo=false){const el=statusNode();if(!el)return;el.classList.toggle('full',full);el.classList.toggle('solo',solo);el.querySelector('span').textContent=text;}
+// Narrow portrait phones show a short form of the status (CSS swaps .full/.short) so the pill never clips.
+function shortStatus(t){const m=t.match(/HOST · (\d\/4)/)||t.match(/· (P\d) · (\d\/4)/);if(m)return m[2]?`${m[1]} ${m[2]}`:`HOST ${m[1]}`;
+  if(/REJOIN/.test(t))return 'REJOIN';if(/TAP TO JOIN/.test(t))return 'SOLO';if(/PREVIEW/.test(t))return 'SOLO';if(/FULL/.test(t))return 'FULL';if(/OFFLINE/.test(t))return 'OFFLINE';if(/RECONNECT/.test(t))return 'RECONNECT';if(/FINISHED/.test(t))return 'DONE';if(/CONNECTING/.test(t))return 'LIVE…';return t.split(' · ')[0]}
+function setStatus(text,full=false,solo=false){const el=statusNode();if(!el)return;el.classList.toggle('full',full);el.classList.toggle('solo',solo);const fs=el.querySelector('span');fs.textContent=text;let sh=el.querySelector('.short');if(!sh&&el.appendChild){sh=document.createElement('span');sh.className='short';el.appendChild(sh);}if(sh&&sh!==fs)sh.textContent=shortStatus(text);el.title=text;}
 function stored(){try{return JSON.parse(sessionStorage.getItem(SEAT_KEY)||'null')}catch{return null}}
 function remember(){try{sessionStorage.setItem(SEAT_KEY,JSON.stringify({token,slot}))}catch{}}
 function forget(){try{sessionStorage.removeItem(SEAT_KEY)}catch{} token='';slot=null;}

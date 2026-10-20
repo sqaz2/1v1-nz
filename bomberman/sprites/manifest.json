@@ -397,6 +397,12 @@
    "kind": "backdrop",
    "source": "21 graded.jpeg",
    "how": "derived: blurred + dimmed arena art"
+  },
+  "bg_menu": {
+   "file": "bg_menu.webp",
+   "kind": "menu-art",
+   "source": "21.jpeg + hero_front, bot_robot(_blue), bomb, fx_center",
+   "how": "derived: composed key art for the menu card"
   }
  }
 }
