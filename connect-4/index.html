@@ -2122,7 +2122,7 @@
       let mmName = '';
       let mmKeepalive = 0;
 
-      window.getGameActivity=()=>({state:mmSearching?'looking':mode==='online'&&activeSession?.phase==='confirmed'&&activeSession?.state?.players?.every(p=>p)?'playing':'browsing',joinable:false});
+      window.getGameActivity=()=>({state:mmSearching?'looking':mode==='online'&&activeSession?.phase==='confirmed'&&activeSession?.state?.status==='playing'?'playing':'browsing',joinable:false});
       setTimeout(()=>{if(new URLSearchParams(location.search).get('online')==='1')switchMode('online');},0);
       function matchPlayerId() {
         let id = null;
