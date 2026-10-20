@@ -49,8 +49,17 @@ function goSolo(text){
 function scheduleJoin(ms){clearTimeout(retry);if(localSolo||stopped)return;retry=setTimeout(join,ms)}
 function countHumans(){return (players||[]).filter(p=>p?.connected).length}
 function humanSlots(){return (players||[]).filter(p=>p?.slot>0&&p.connected).map(p=>p.slot)}
+// Guests depend on the host's snapshots. If the host seat sits empty (never connected, or the server has not
+// noticed it left) for longer than the server's grace window, drop the socket and rejoin; the server then
+// hands this browser a fresh arena instead of leaving it waiting forever.
+let hostWatch=null;
+function watchHost(){
+  const hostUp=!!(players||[]).find(p=>p?.slot===0&&p.connected);
+  if(!(slot>0)||hostUp){clearTimeout(hostWatch);hostWatch=null;return}
+  if(!hostWatch)hostWatch=setTimeout(()=>{hostWatch=null;const up=!!(players||[]).find(p=>p?.slot===0&&p.connected);if(slot>0&&!up&&!localSolo&&!stopped)lostConnection()},17000);
+}
 function refreshRole(){
-  const total=countHumans();
+  const total=countHumans();watchHost();
   document.body.classList.toggle('bm-live-guest',slot>0);
   document.body.classList.remove('bm-live-waiting');
   bm()?.setLocalSlot(slot??0);bm()?.setReplica(slot>0);

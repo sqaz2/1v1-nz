@@ -42,3 +42,9 @@ test('phone layouts: compact one-row HUD, board title on top in portrait, short 
   const cases = { 'SOLO · PREVIEW': 'SOLO', 'LIVE · HOST · 2/4': 'HOST 2/4', 'LIVE · P3 · 3/4': 'P3 3/4', 'LIVE · CONNECTING': 'LIVE…', 'LIVE OFFLINE · RETRYING': 'OFFLINE', 'LIVE FULL · RETRYING': 'FULL', 'LIVE LOST · SOLO · TAP TO REJOIN': 'REJOIN', 'SOLO · TAP TO JOIN LIVE': 'SOLO' };
   for (const [k, v] of Object.entries(cases)) { assert.equal(shortStatus(k), v, k); assert.ok(v.length <= 9, `${v} too long for the pill`); }
 });
+
+test('a guest waiting on an absent host rejoins instead of waiting forever', () => {
+  assert.match(live, /function watchHost\(\)/);
+  assert.match(live, /function refreshRole\(\)\{\s*const total=countHumans\(\);watchHost\(\);/);
+  assert.match(live, /setTimeout\(\(\)=>\{hostWatch=null;[^}]*lostConnection\(\)\},17000\)/, 'guest drops and rejoins after the 15 s server grace');
+});
