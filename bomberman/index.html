@@ -148,7 +148,7 @@ body{touch-action:none;overscroll-behavior:none}
 .bmResultCard p{margin:8px 0 14px;color:#e8f0ff;font:800 14px/1.35 system-ui,sans-serif}
 .bmResultBtns{display:flex;gap:10px}.bmResultBtns .bmBigBtn{min-height:56px;padding:0 10px;white-space:nowrap;font-size:clamp(16px,4.6vmin,24px)}
 @keyframes bmPop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
-#bmBoardWrap #bmMessage{top:12px;max-width:86%;text-align:center}
+#bmBoardWrap #bmMessage{top:12px;max-width:86%;text-align:center}@media (max-aspect-ratio:115/100){#bmBoardWrap #bmMessage{top:46px;width:max-content;max-width:min(86%,300px);font-size:clamp(13px,3.8vw,16px);padding:8px 12px}}
 #bmLiveStatus .short{display:none}
 .bmChip .bmIco{width:20px;height:20px}
 @media (orientation:portrait) and (max-width:620px){
