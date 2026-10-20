@@ -139,7 +139,7 @@ document.addEventListener('pointerdown',e=>{
 // A guest tapping MENU leaves the live arena so the menu stays open and is fully usable.
 document.addEventListener('click',e=>{if(slot>0&&e.target.closest('#bmMenuBtn'))goSolo('SOLO · TAP TO JOIN LIVE')},true);
 // Starting a game while not seated (offline, full, preview) is a solo game: stop trying to join mid-match.
-document.addEventListener('click',e=>{if(typeof slot!=='number'&&e.target.closest('#bmPlayBtn'))goSolo(liveEnabled?'SOLO · TAP TO JOIN LIVE':'SOLO · PREVIEW (LIVE OFF)')},true);
+document.addEventListener('click',e=>{if(typeof slot!=='number'&&e.target.closest('#bmPlayBtn'))goSolo(liveEnabled?'SOLO · TAP TO JOIN LIVE':'SOLO · PREVIEW')},true);
 document.addEventListener('click',e=>{const pill=e.target.closest('#bmLiveStatus');if(!pill||!localSolo||!liveEnabled)return;e.preventDefault();localSolo=false;bm()?.open();join()});
 // Only legacy direction buttons stop on any pointer release; the joystick reports its own release
 // via bm:stick, so lifting the BOMB finger never cancels movement (multitouch).
@@ -151,5 +151,5 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('keyup',e=>{if(slot>0){const k=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d'].includes(k))stopHeld();e.stopPropagation()}},true);
 
 addEventListener('pagehide',()=>{stopped=true;clearTimeout(retry);clearInterval(heartbeat);clearInterval(publishTimer);try{ws?.close()}catch{}});
-setTimeout(()=>{try{bm()?.open()}catch{}statusNode();if(liveEnabled)join();else goSolo('SOLO · PREVIEW (LIVE OFF)')},80);
+setTimeout(()=>{try{bm()?.open()}catch{}statusNode();if(liveEnabled)join();else goSolo('SOLO · PREVIEW')},80);
 })();
