@@ -1,6 +1,6 @@
 import numpy as np, cv2, json, os, colorsys
 from PIL import Image, ImageFilter, ImageEnhance, ImageOps
-E='emb/'; OUT='out/'
+E='scripts/bombman-art/sources/'; OUT='bomberman/sprites/'  # run from repo root: python3 scripts/bombman-art/slice.py (needs numpy, opencv-python-headless, pillow)
 S={k:np.array(Image.open(E+f).convert('RGB')) for k,f in [('00','00.jpeg'),('24','24.jpeg'),('21','21.jpeg'),('22','22.jpeg'),('23','23.jpeg')]}
 G=256
 manifest={}
