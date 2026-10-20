@@ -726,18 +726,19 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   function remoteAction(slot,action){if(action==='bomb')remotePlace(slot);else if(action==='act')remoteAct(slot);else if(action==='det')remoteDet(slot);else if(['left','right','up','down','stop'].includes(action))remoteMove(slot,action);}
   function setHumanSlots(slots){const active=new Set(slots||[]),g=bm.state.game;for(let slot=1;slot<=3;slot++){const e=active.has(slot)?ensureRemoteEnemy(slot):g?.enemies?.[slot-1];if(e)e.human=active.has(slot);}}
   function bmSnapshot(){return JSON.parse(JSON.stringify({screen:bm.state.screen,selected:bm.state.selected,rotation:bm.state.rotation,roundCount:bm.state.roundCount,queue:bm.state.queue,round:bm.state.round,ended:bm.state.ended,game:bm.state.game}));}
-  function bmApplySnapshot(s){if(!s)return;['selected','rotation','roundCount','queue','round','ended'].forEach(k=>{if(s[k]!==undefined)bm.state[k]=s[k]});const prev=bm.state.game;bm.state.game=s.game||null;bmCarryRender(prev,bm.state.game);bm.state.snapAt=performance.now();/* Switch screens only on a real change; re-running showGame/showMenu 10x a second re-laid out the page and re-rendered the menu. */const want=bm.state.game&&s.screen!=='menu'?'game':'menu';if(want==='game'){if(bm.state.screen!=='game')showGame();updateBMHud();}else if(bm.state.screen!=='menu')showMenu();}
+  function bmApplySnapshot(s){if(!s)return;['selected','rotation','roundCount','queue','round','ended'].forEach(k=>{if(s[k]!==undefined)bm.state[k]=s[k]});const prev=bm.state.game;bm.state.game=s.game||null;bmCarryRender(prev,bm.state.game);{const now=performance.now(),gap=(now-(bm.state.snapAt||0))/1000; if(gap>.02&&gap<.6) bm.state.snapDt=(bm.state.snapDt||.1)*.8+gap*.2; bm.state.snapAt=now;}/* Switch screens only on a real change; re-running showGame/showMenu 10x a second re-laid out the page and re-rendered the menu. */const want=bm.state.game&&s.screen!=='menu'?'game':'menu';if(want==='game'){if(bm.state.screen!=='game')showGame();updateBMHud();}else if(bm.state.screen!=='menu')showMenu();}
   /* bmInterp:start */
-  // Replica (online guest) rendering: snapshots arrive ~10x a second. Keep each actor's on-screen
-  // position from the previous frame and ease it toward the host position extrapolated by its velocity,
-  // so remote players glide instead of jumping a tile at a time.
+  // Replica (online guest) rendering: host snapshots arrive ~10x a second. On each snapshot every actor
+  // starts a short glide from where it is on screen now to the host's new position, spread over the
+  // measured snapshot interval. Remote players therefore move continuously, never overshoot and never
+  // step backwards (at the cost of one snapshot interval of display latency).
   function bmCarryRender(prev,next){ if(!next) return; const pa=prev?[prev.player,...(prev.enemies||[])]:[], na=[next.player,...(next.enemies||[])];
-    na.forEach((a,i)=>{ if(!a) return; if(a.fx==null){ a.fx=a.x; a.fz=a.z; } const o=pa[i]; if(o&&o.rx!=null&&Math.abs(o.rx-a.fx)+Math.abs(o.rz-a.fz)<2.5){ a.rx=o.rx; a.rz=o.rz; a.stride=o.stride||0; } else { a.rx=a.fx; a.rz=a.fz; } });
+    na.forEach((a,i)=>{ if(!a) return; if(a.fx==null){ a.fx=a.x; a.fz=a.z; } const o=pa[i]; if(o&&o.rx!=null&&Math.abs(o.rx-a.fx)+Math.abs(o.rz-a.fz)<2.5){ a.rx=a.sx=o.rx; a.rz=a.sz=o.rz; } else { a.rx=a.sx=a.fx; a.rz=a.sz=a.fz; } });
     (next.bombs||[]).forEach(b=>{ const o=prev&&(prev.bombs||[]).find(q=>q.owner===b.owner&&Math.abs(q.x-b.x)+Math.abs(q.z-b.z)<=6&&q.rx!=null); if(o&&(o.x!==b.x||o.z!==b.z)){ b.rx=o.rx; b.rz=o.rz; } }); }
-  function bmInterpStep(g,dt,sinceSnap){ const lead=Math.min(.12,Math.max(0,sinceSnap)); const k=Math.min(1,dt*14);
-    [g.player,...g.enemies].forEach(a=>{ if(!a) return; if(a.fx==null){ a.fx=a.x; a.fz=a.z; } if(a.rx==null){ a.rx=a.fx; a.rz=a.fz; }
-      const tx=a.fx+(a.vx||0)*lead, tz=a.fz+(a.vz||0)*lead; const ox=a.rx, oz=a.rz; a.rx+=(tx-a.rx)*k; a.rz+=(tz-a.rz)*k; a.stride=((a.stride||0)+Math.abs(a.rx-ox)+Math.abs(a.rz-oz))%4; });
-    g.bombs.forEach(b=>{ b.rx+=(b.x-b.rx)*Math.min(1,dt*10); b.rz+=(b.z-b.rz)*Math.min(1,dt*10); }); }
+  function bmInterpStep(g,dt,sinceSnap,interval){ const t=Math.min(1,Math.max(0,sinceSnap/Math.max(.03,interval||.1)));
+    [g.player,...g.enemies].forEach(a=>{ if(!a) return; if(a.fx==null){ a.fx=a.x; a.fz=a.z; } if(a.sx==null){ a.sx=a.rx??a.fx; a.sz=a.rz??a.fz; }
+      a.rx=a.sx+(a.fx-a.sx)*t; a.rz=a.sz+(a.fz-a.sz)*t; });
+    g.bombs.forEach(b=>{ if(b.rx==null){ b.rx=b.x; b.rz=b.z; } b.rx+=(b.x-b.rx)*Math.min(1,dt*10); b.rz+=(b.z-b.rz)*Math.min(1,dt*10); }); }
   /* bmInterp:end */
   window.BombManLegacy={getState:()=>bm.state,snapshot:bmSnapshot,applySnapshot:bmApplySnapshot,remoteAction,setHumanSlots,setReplica:on=>{window.__bmReplicaMode=!!on},setLocalSlot:slot=>{window.__bmLocalSlot=slot},showMessage:showBMMessage,open:bmOpen};
   function killPlayer(msg){ const g=bm.state.game; if(!g.player.alive) return; g.player.alive=false; g.status='lost'; showBMMessage(msg||'Boom.',1.1); tone(90,.18,'square',.06,-20); setTimeout(()=>{ if(bm.state.active) showMenu(); },1500); }
@@ -929,7 +930,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
     draw.sort((a,b)=>b.d-a.d).forEach(it=>it.fn());
     ctx3.fillStyle='rgba(0,0,0,.28)'; ctx3.fillRect(0,h-40,w,40); ctx3.fillStyle='#fff7da'; ctx3.font='900 16px system-ui'; ctx3.textAlign='center'; ctx3.textBaseline='alphabetic'; ctx3.fillText(g.title, w/2, h-15);
   }
-  function bombLoop(ts){ if(!bm.state.lastTs) bm.state.lastTs=ts; const dt=Math.max(0,Math.min(.05,(ts-bm.state.lastTs)/1000)); bm.state.lastTs=ts; if(bm.state.active && bm.state.screen==='game'){ if(window.__bmReplicaMode){ if(bm.state.game) bmInterpStep(bm.state.game,dt,(performance.now()-(bm.state.snapAt||0))/1000); } else updateGame(dt); } if(bm.state.active && bm.state.screen==='game') drawScene(); requestAnimationFrame(bombLoop); }
+  function bombLoop(ts){ if(!bm.state.lastTs) bm.state.lastTs=ts; const dt=Math.max(0,Math.min(.05,(ts-bm.state.lastTs)/1000)); bm.state.lastTs=ts; if(bm.state.active && bm.state.screen==='game'){ if(window.__bmReplicaMode){ if(bm.state.game) bmInterpStep(bm.state.game,dt,(performance.now()-(bm.state.snapAt||0))/1000,bm.state.snapDt||.1); } else updateGame(dt); } if(bm.state.active && bm.state.screen==='game') drawScene(); requestAnimationFrame(bombLoop); }
   renderMenu(); resizeBMCanvas(); requestAnimationFrame(bombLoop);
 })();
 

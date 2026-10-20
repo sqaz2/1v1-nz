@@ -118,12 +118,22 @@ test('game wiring: no more step timers; bots, guests and replicas glide', () => 
   assert.ok(live.includes("sendAction('stop')"), 'guest release stops the host-side glide');
 });
 
-test('replica interpolation eases toward the host position instead of jumping', () => {
+test('replica interpolation glides between snapshots without jumping, overshooting or stepping back', () => {
   const s = html.slice(html.indexOf('/* bmInterp:start */'), html.indexOf('/* bmInterp:end */'));
   const { bmInterpStep, bmCarryRender } = new Function(`${s}; return {bmInterpStep,bmCarryRender};`)();
-  const prev = { player: { x: 0, z: 0, fx: 0, fz: 0, rx: 0, rz: 0 }, enemies: [], bombs: [] };
-  const next = { player: { x: 1, z: 0, fx: 0.6, fz: 0, vx: 3.6, vz: 0, rx: 0.6, rz: 0 }, enemies: [], bombs: [] };
-  bmCarryRender(prev, next); assert.equal(next.player.rx, 0, 'keeps the on-screen position across a snapshot');
-  let last = 0; for (let i = 0; i < 6; i++) { bmInterpStep(next, 1 / 60, i / 60); assert.ok(next.player.rx > last, 'moves forward every frame'); last = next.player.rx; }
-  assert.ok(last < 0.6 + 3.6 * 0.12 + 1e-9, 'never overshoots the extrapolation window');
+  let prev = { player: { x: 0, z: 0, fx: 0, fz: 0, rx: 0, rz: 0 }, enemies: [], bombs: [] };
+  const seen = [];
+  // host moves 0.36 tiles per 100 ms snapshot, with jittery arrival times; guest renders at 60 fps
+  for (let k = 1; k <= 8; k++) {
+    const fx = Math.min(2, 0.36 * k), next = { player: { x: Math.round(fx), z: 0, fx, fz: 0, rx: fx, rz: 0 }, enemies: [], bombs: [] };
+    bmCarryRender(prev, next); assert.equal(next.player.rx, prev.player.rx, 'keeps the on-screen position across a snapshot');
+    const frames = k % 2 ? 5 : 8; for (let i = 1; i <= frames; i++) { bmInterpStep(next, 1 / 60, i / 60, 0.1); seen.push(next.player.rx); }
+    prev = next;
+  }
+  for (let i = 1; i < seen.length; i++) {
+    assert.ok(seen[i] >= seen[i - 1] - 1e-12, `never steps back (frame ${i})`);
+    assert.ok(seen[i] - seen[i - 1] < 0.12, `no tile jumps (frame ${i}: ${(seen[i] - seen[i - 1]).toFixed(3)})`);
+  }
+  assert.ok(Math.max(...seen) <= 2 + 1e-12, 'never overshoots the host position');
+  assert.ok(seen.at(-1) > 1.9, 'catches up to the host');
 });
