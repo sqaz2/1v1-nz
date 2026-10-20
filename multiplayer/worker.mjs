@@ -4,6 +4,7 @@ const CODE = /^[A-Z2-9]{8}$/;
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
 const fail = e => json({ error: e.code || 'server', message: e instanceof RoomError ? e.message : 'Multiplayer service unavailable.' }, e.status || 500);
 const allowed = (origin, env) => !origin || (env.ALLOWED_ORIGINS || 'https://1v1.nz,https://www.1v1.nz').split(',').some(value => value.trim() === origin || (value.trim() === 'https://*.1v1-nz.pages.dev' && /^https:\/\/[a-z0-9-]+\.1v1-nz\.pages\.dev$/.test(origin)));
+const LIVE_HOST_GRACE_MS = 15000;
 const makeCode = () => { const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return Array.from(crypto.getRandomValues(new Uint8Array(8)), n => alphabet[n & 31]).join(''); };
 async function body(request) {
   if (+request.headers.get('content-length') > 2048) throw new RoomError('size', 'Request too large.', 413);
@@ -107,11 +108,16 @@ export class StarMuffRoom {
       }
       if (path === '/live-join') {
         let data = {}; try { data = await body(request); } catch (e) { if (e.code !== 'json') throw e; }
-        const stale = !this.core.state || this.core.state.phase === 'closed' || this.core.now() >= this.core.state.expiresAt;
+        const s0 = this.core.state;
+        // A host seat that was reserved but never connected (tab closed between join and socket open) would
+        // otherwise freeze every later visitor as a guest of nobody until the room expires.
+        const ghostHost = !!s0 && s0.game === 'bomberman' && !s0.hostSeen && !s0.players[0]?.connected && this.core.now() - s0.createdAt > LIVE_HOST_GRACE_MS;
+        const stale = !s0 || s0.phase === 'closed' || this.core.now() >= s0.expiresAt || ghostHost;
         let result;
         if (stale) {
           if (this.checkpoint) clearTimeout(this.checkpoint);
           this.checkpoint = null;
+          for (const old of this.ctx.getWebSockets()) try { old.send(JSON.stringify({ kind: 'closed', reason: 'Arena reset. Rejoining the public arena…' })); old.close(4000, 'Arena reset'); } catch { /* already gone */ }
           await this.ctx.storage.deleteAll();
           this.core = new RoomCore();
           result = this.core.create('BOMBLIVE', 'bomberman');
@@ -131,6 +137,7 @@ export class StarMuffRoom {
         this.core.authenticate(token);
         const id = crypto.randomUUID(), pair = new WebSocketPair(), [client, server] = Object.values(pair);
         const info = this.core.connect(token, id);
+        if (info.slot === 0 && this.core.state.game === 'bomberman') this.core.state.hostSeen = true;
         for (const old of this.ctx.getWebSockets()) if (old.deserializeAttachment()?.id === info.replaced) old.close(4001, 'Seat resumed in another connection');
         server.serializeAttachment({ slot: info.slot, id }); this.ctx.acceptWebSocket(server);
         await this.flush(); server.send(JSON.stringify(info.welcome));

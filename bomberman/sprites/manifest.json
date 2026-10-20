@@ -1,0 +1,408 @@
+{
+ "grid": 256,
+ "sprites": {
+  "hero_front": {
+   "file": "hero_front.webp",
+   "kind": "character",
+   "source": "00_x4.webp (24, 0, 856, 672) (Real-ESRGAN 4x of 00.jpeg (6, 0, 214, 168))",
+   "how": "cut",
+   "anchor": "bottom",
+   "label": "BOMB MAN (FRONT 3/4)",
+   "upscale": 0.45
+  },
+  "hero_back": {
+   "file": "hero_back.webp",
+   "kind": "character",
+   "source": "00_x4.webp (840, 248, 1248, 672) (Real-ESRGAN 4x of 00.jpeg (210, 62, 312, 168))",
+   "how": "cut",
+   "anchor": "bottom",
+   "label": "DOWN (back view)",
+   "upscale": 0.84
+  },
+  "hero_left": {
+   "file": "hero_left.webp",
+   "kind": "character",
+   "source": "00_x4.webp (1312, 248, 1696, 672) (Real-ESRGAN 4x of 00.jpeg (328, 62, 424, 168))",
+   "how": "cut",
+   "anchor": "bottom",
+   "label": "LEFT",
+   "upscale": 0.84
+  },
+  "bot_robot": {
+   "file": "bot_robot.webp",
+   "kind": "character",
+   "source": "24_x4.webp (2012, 1152, 2400, 1620) (Real-ESRGAN 4x of 24.jpeg (503, 288, 600, 405))",
+   "how": "cut",
+   "anchor": "bottom",
+   "label": "ENEMIES: robot",
+   "upscale": 0.95
+  },
+  "bomb": {
+   "file": "bomb.webp",
+   "kind": "bomb",
+   "source": "00_x4.webp (1784, 0, 2168, 264) (Real-ESRGAN 4x of 00.jpeg (446, 0, 542, 66))",
+   "how": "cut",
+   "anchor": "bottom",
+   "label": "BOMB",
+   "upscale": 0.72
+  },
+  "bomb_remote": {
+   "file": "bomb_remote.webp",
+   "kind": "bomb",
+   "source": "00_x4.webp (2368, 0, 2808, 264) (Real-ESRGAN 4x of 00.jpeg (592, 0, 702, 66))",
+   "how": "cut",
+   "anchor": "bottom",
+   "label": "REMOTE BOMB",
+   "upscale": 0.66
+  },
+  "fx_center": {
+   "file": "fx_center.webp",
+   "kind": "fx",
+   "source": "00_x4.webp (1736, 344, 2132, 692) (Real-ESRGAN 4x of 00.jpeg (434, 86, 533, 173))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "EXPLOSION CENTER",
+   "upscale": 0.62
+  },
+  "fx_segment": {
+   "file": "fx_segment.webp",
+   "kind": "fx",
+   "source": "00_x4.webp (2108, 384, 2564, 688) (Real-ESRGAN 4x of 00.jpeg (527, 96, 641, 172))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "FLAME SEGMENT",
+   "upscale": 0.52
+  },
+  "fx_end": {
+   "file": "fx_end.webp",
+   "kind": "fx",
+   "source": "00_x4.webp (2540, 336, 2880, 692) (Real-ESRGAN 4x of 00.jpeg (635, 84, 720, 173))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "FLAME END",
+   "upscale": 0.74
+  },
+  "fx_dust": {
+   "file": "fx_dust.webp",
+   "kind": "fx",
+   "source": "24_x4.webp (1192, 1112, 1448, 1432) (Real-ESRGAN 4x of 24.jpeg (298, 278, 362, 358))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "DUST SKID",
+   "upscale": 0.87
+  },
+  "pu_bomb": {
+   "file": "pu_bomb.webp",
+   "kind": "powerup",
+   "source": "00_x4.webp (136, 884, 500, 1192) (Real-ESRGAN 4x of 00.jpeg (34, 221, 125, 298))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "BOMB UP",
+   "upscale": 0.68
+  },
+  "pu_fire": {
+   "file": "pu_fire.webp",
+   "kind": "powerup",
+   "source": "00_x4.webp (476, 884, 844, 1192) (Real-ESRGAN 4x of 00.jpeg (119, 221, 211, 298))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "FIRE RANGE UP",
+   "upscale": 0.64
+  },
+  "pu_remote": {
+   "file": "pu_remote.webp",
+   "kind": "powerup",
+   "source": "00_x4.webp (820, 884, 1180, 1192) (Real-ESRGAN 4x of 00.jpeg (205, 221, 295, 298))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "REMOTE DETONATE",
+   "upscale": 0.66
+  },
+  "pu_speed": {
+   "file": "pu_speed.webp",
+   "kind": "powerup",
+   "source": "00_x4.webp (1156, 884, 1524, 1192) (Real-ESRGAN 4x of 00.jpeg (289, 221, 381, 298))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "SPEED UP",
+   "upscale": 0.7
+  },
+  "pu_kick": {
+   "file": "pu_kick.webp",
+   "kind": "powerup",
+   "source": "00_x4.webp (1612, 884, 1980, 1192) (Real-ESRGAN 4x of 00.jpeg (403, 221, 495, 298))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "KICK",
+   "upscale": 0.64
+  },
+  "pu_punch": {
+   "file": "pu_punch.webp",
+   "kind": "powerup",
+   "source": "00_x4.webp (1956, 884, 2332, 1192) (Real-ESRGAN 4x of 00.jpeg (489, 221, 583, 298))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "PUNCH",
+   "upscale": 0.63
+  },
+  "pu_carry": {
+   "file": "pu_carry.webp",
+   "kind": "powerup",
+   "source": "24_x4.webp (2648, 388, 2860, 628) (Real-ESRGAN 4x of 24.jpeg (662, 97, 715, 157))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "CARRY",
+   "upscale": 1.01
+  },
+  "pu_shield": {
+   "file": "pu_shield.webp",
+   "kind": "powerup",
+   "source": "24_x4.webp (2404, 740, 2636, 976) (Real-ESRGAN 4x of 24.jpeg (601, 185, 659, 244))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "SHIELD",
+   "upscale": 1.12
+  },
+  "ic_fire": {
+   "file": "ic_fire.webp",
+   "kind": "icon",
+   "source": "00_x4.webp (1552, 1448, 1704, 1620) (Real-ESRGAN 4x of 00.jpeg (388, 362, 426, 405))",
+   "how": "cut",
+   "anchor": "center",
+   "label": "UI SAMPLE flame",
+   "upscale": 0.51
+  },
+  "ic_timer": {
+   "file": "ic_timer.webp",
+   "kind": "icon",
+   "source": "21.jpeg (381, 9, 409, 40)",
+   "how": "cut",
+   "anchor": "center",
+   "label": "arena HUD stopwatch",
+   "upscale": 3.0
+  },
+  "hero_right": {
+   "file": "hero_right.webp",
+   "kind": "character",
+   "source": "hero_left",
+   "how": "derived: mirrored",
+   "anchor": "bottom"
+  },
+  "p2_front": {
+   "file": "p2_front.webp",
+   "kind": "character",
+   "source": "hero_front",
+   "how": "derived: hue +-100\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p2_back": {
+   "file": "p2_back.webp",
+   "kind": "character",
+   "source": "hero_back",
+   "how": "derived: hue +-100\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p2_left": {
+   "file": "p2_left.webp",
+   "kind": "character",
+   "source": "hero_left",
+   "how": "derived: hue +-100\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p2_right": {
+   "file": "p2_right.webp",
+   "kind": "character",
+   "source": "hero_right",
+   "how": "derived: hue +-100\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p3_front": {
+   "file": "p3_front.webp",
+   "kind": "character",
+   "source": "hero_front",
+   "how": "derived: hue +140\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p3_back": {
+   "file": "p3_back.webp",
+   "kind": "character",
+   "source": "hero_back",
+   "how": "derived: hue +140\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p3_left": {
+   "file": "p3_left.webp",
+   "kind": "character",
+   "source": "hero_left",
+   "how": "derived: hue +140\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p3_right": {
+   "file": "p3_right.webp",
+   "kind": "character",
+   "source": "hero_right",
+   "how": "derived: hue +140\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p4_front": {
+   "file": "p4_front.webp",
+   "kind": "character",
+   "source": "hero_front",
+   "how": "derived: hue +60\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p4_back": {
+   "file": "p4_back.webp",
+   "kind": "character",
+   "source": "hero_back",
+   "how": "derived: hue +60\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p4_left": {
+   "file": "p4_left.webp",
+   "kind": "character",
+   "source": "hero_left",
+   "how": "derived: hue +60\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "p4_right": {
+   "file": "p4_right.webp",
+   "kind": "character",
+   "source": "hero_right",
+   "how": "derived: hue +60\u00b0 outfit recolour",
+   "anchor": "bottom"
+  },
+  "bot_robot_blue": {
+   "file": "bot_robot_blue.webp",
+   "kind": "character",
+   "source": "bot_robot",
+   "how": "derived: hue shift (remote bot)",
+   "anchor": "bottom"
+  },
+  "ic_hero": {
+   "file": "ic_hero.webp",
+   "kind": "icon",
+   "source": "hero_front",
+   "how": "derived: head crop",
+   "anchor": "center"
+  },
+  "pu_line": {
+   "file": "pu_line.webp",
+   "kind": "powerup",
+   "source": "pu_bomb + bomb",
+   "how": "derived: recoloured Bomb Up frame with three bombs",
+   "anchor": "center"
+  },
+  "tex_stone": {
+   "file": "tex_stone.webp",
+   "kind": "tile",
+   "source": "24.jpeg (15, 160, 65, 212)",
+   "how": "cut: front face of 3D ENVIRONMENT KIT cube",
+   "label": "STONE"
+  },
+  "tex_metal": {
+   "file": "tex_metal.webp",
+   "kind": "tile",
+   "source": "24.jpeg (71, 161, 114, 185)",
+   "how": "cut: top face (unforeshortened) of 3D ENVIRONMENT KIT cube",
+   "label": "METAL"
+  },
+  "tex_metal_side": {
+   "file": "tex_metal_side.webp",
+   "kind": "tile",
+   "source": "24.jpeg (71, 187, 114, 212)",
+   "how": "cut: top face (unforeshortened) of 3D ENVIRONMENT KIT cube",
+   "label": "METAL_SIDE"
+  },
+  "tex_crate": {
+   "file": "tex_crate.webp",
+   "kind": "tile",
+   "source": "24.jpeg (126, 161, 171, 185)",
+   "how": "cut: top face (unforeshortened) of 3D ENVIRONMENT KIT cube",
+   "label": "CRATE"
+  },
+  "tex_crate_side": {
+   "file": "tex_crate_side.webp",
+   "kind": "tile",
+   "source": "24.jpeg (126, 187, 171, 212)",
+   "how": "cut: top face (unforeshortened) of 3D ENVIRONMENT KIT cube",
+   "label": "CRATE_SIDE"
+  },
+  "tex_ice": {
+   "file": "tex_ice.webp",
+   "kind": "tile",
+   "source": "24.jpeg (181, 159, 224, 212)",
+   "how": "cut: front face of 3D ENVIRONMENT KIT cube",
+   "label": "ICE"
+  },
+  "tex_lava": {
+   "file": "tex_lava.webp",
+   "kind": "tile",
+   "source": "24.jpeg (233, 159, 276, 212)",
+   "how": "cut: front face of 3D ENVIRONMENT KIT cube",
+   "label": "LAVA"
+  },
+  "tex_conveyor": {
+   "file": "tex_conveyor.webp",
+   "kind": "tile",
+   "source": "24.jpeg (286, 160, 330, 211)",
+   "how": "cut: front face of 3D ENVIRONMENT KIT cube",
+   "label": "CONVEYOR"
+  },
+  "tex_bush": {
+   "file": "tex_bush.webp",
+   "kind": "tile",
+   "source": "24.jpeg (337, 160, 385, 204)",
+   "how": "cut: front face of 3D ENVIRONMENT KIT cube",
+   "label": "BUSH"
+  },
+  "tex_water": {
+   "file": "tex_water.webp",
+   "kind": "tile",
+   "source": "tex_ice",
+   "how": "derived: deeper hue + blur"
+  },
+  "map_ice": {
+   "file": "map_ice.webp",
+   "kind": "map-thumb",
+   "source": "21.jpeg (Factory arena art)",
+   "how": "derived: colour graded"
+  },
+  "map_lava": {
+   "file": "map_lava.webp",
+   "kind": "map-thumb",
+   "source": "21.jpeg (Factory arena art)",
+   "how": "derived: colour graded"
+  },
+  "bg_factory": {
+   "file": "bg_factory.webp",
+   "kind": "backdrop",
+   "source": "21.jpeg",
+   "how": "derived: blurred + dimmed arena art"
+  },
+  "bg_temple": {
+   "file": "bg_temple.webp",
+   "kind": "backdrop",
+   "source": "23.jpeg",
+   "how": "derived: blurred + dimmed arena art"
+  },
+  "bg_ice": {
+   "file": "bg_ice.webp",
+   "kind": "backdrop",
+   "source": "21 graded.jpeg",
+   "how": "derived: blurred + dimmed arena art"
+  },
+  "bg_lava": {
+   "file": "bg_lava.webp",
+   "kind": "backdrop",
+   "source": "21 graded.jpeg",
+   "how": "derived: blurred + dimmed arena art"
+  },
+  "bg_menu": {
+   "file": "bg_menu.webp",
+   "kind": "menu-art",
+   "source": "21.jpeg + hero_front, bot_robot(_blue), bomb, fx_center",
+   "how": "derived: composed key art for the menu card"
+  }
+ }
+}
