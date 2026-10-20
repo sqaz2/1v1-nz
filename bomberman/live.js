@@ -151,6 +151,9 @@ document.addEventListener('pointerdown',e=>{
 },true);
 // A guest tapping MENU leaves the live arena so the menu stays open and is fully usable.
 document.addEventListener('click',e=>{if(slot>0&&e.target.closest('#bmMenuBtn'))goSolo('SOLO · TAP TO JOIN LIVE')},true);
+// Practice is always local and must never overwrite the public arena.
+document.addEventListener('click',e=>{if(e.target.closest('#bmPlayBtn')&&document.getElementById('bmMode')?.value==='practice')goSolo('PRACTICE · TAP TO JOIN LIVE')},true);
+window.getGameActivity=()=>({state:screen()==='game'?'playing':'browsing',joinable:!localSolo&&typeof slot==='number'&&countHumans()<4});
 // Starting a game while not seated (offline, full, preview) is a solo game: stop trying to join mid-match.
 document.addEventListener('click',e=>{if(typeof slot!=='number'&&e.target.closest('#bmPlayBtn'))goSolo(liveEnabled?'SOLO · TAP TO JOIN LIVE':'SOLO · PREVIEW')},true);
 document.addEventListener('click',e=>{const pill=e.target.closest('#bmLiveStatus');if(!pill||!localSolo||!liveEnabled)return;e.preventDefault();localSolo=false;bm()?.open();join()});

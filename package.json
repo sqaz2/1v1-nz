@@ -8,7 +8,8 @@
     "check": "npm run build && npm run typecheck && npm test",
     "dev:multiplayer": "node multiplayer/local-server.mjs --port 8787",
     "deploy:multiplayer": "wrangler deploy --config multiplayer/wrangler.toml",
-    "check:worker": "wrangler deploy --config multiplayer/wrangler.toml --dry-run"
+    "check:worker": "wrangler deploy --config multiplayer/wrangler.toml --dry-run",
+    "build:bomberman": "esbuild bomberman/arena3d.mjs --bundle --format=iife --minify --outfile=bomberman/arena3d.js"
   },
   "dependencies": {
     "@dimforge/rapier3d-deterministic-compat": "0.21.0",

@@ -1,3 +1,4 @@
+import { ACTIVITY_GAMES, ACTIVITY_TTL, handleActivityRoom } from './activity.mjs';
 import { RoomCore, RoomError, GAMES, LIMITS } from './room-core.mjs';
 
 const CODE = /^[A-Z2-9]{8}$/;
@@ -27,6 +28,13 @@ export default {
     if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
     try {
       const path = url.pathname.replace(/^\/api\/starmuff/, '').replace(/\/$/, '') || '/';
+      if(path==='/activity'&&request.method==='GET'){
+        const games=await Promise.all(Object.keys(ACTIVITY_GAMES).map(async id=>{const stub=env.STARMUFF_ROOMS.get(env.STARMUFF_ROOMS.idFromName('ACTIVITY:'+id));const r=await stub.fetch(new Request('https://room.internal/activity'));return {id,...await r.json()};}));return cors(json({games}));
+      }
+      if(path.startsWith('/activity/')&&request.method==='POST'){
+        const id=path.slice('/activity/'.length);if(!Object.hasOwn(ACTIVITY_GAMES,id))throw new RoomError('game','Unknown game.');
+        const stub=env.STARMUFF_ROOMS.get(env.STARMUFF_ROOMS.idFromName('ACTIVITY:'+id));return cors(await stub.fetch(new Request('https://room.internal/activity',{method:'POST',body:await request.text()})));
+      }
       if (path === '/health') return cors(json({ ok: true, transport: 'websocket', version: 1, games: [...GAMES] }));
       if (request.method === 'POST' && path === '/bomberman-live/join') {
         const stub = env.STARMUFF_ROOMS.get(env.STARMUFF_ROOMS.idFromName('BOMBLIVE'));
@@ -101,6 +109,7 @@ export class StarMuffRoom {
   async fetch(request) {
     try {
       const path = new URL(request.url).pathname;
+      if(path==='/activity')return handleActivityRoom(this.ctx,request);
       if (path === '/create') {
         const data = await body(request), result = this.core.create(data.code, data.game);
         await this.save(); await this.ctx.storage.setAlarm(this.core.state.expiresAt);
@@ -166,6 +175,7 @@ export class StarMuffRoom {
   }
   async webSocketError(socket) { await this.webSocketClose(socket); }
   async alarm() {
+    if(!this.core.state){const entries=await this.ctx.storage.list({prefix:'visitor:'});const stale=[...entries].filter(([,v])=>Date.now()-v.at>=ACTIVITY_TTL).map(([k])=>k);if(stale.length)await this.ctx.storage.delete(stale);if(entries.size>stale.length)await this.ctx.storage.setAlarm(Date.now()+ACTIVITY_TTL);return;}
     if (this.checkpoint) clearTimeout(this.checkpoint); this.checkpoint = null;
     for (const socket of this.ctx.getWebSockets()) socket.close(4004, 'Room expired');
     await this.ctx.storage.deleteAll(); this.core = new RoomCore();
