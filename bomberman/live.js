@@ -3,7 +3,7 @@
 const API='/api/starmuff';
 const SEAT_KEY='bombman:public-seat:v1';
 let ws=null,token='',slot=null,matchId=null,nextSeq=1,appliedThrough=0,players=[],retry=null,heartbeat=null,publishTimer=null,joining=false,stopped=false;
-let heldTimer=null,heldAction=null;
+let heldTimer=null,heldAction=null,heldFromButton=false;
 const bm=()=>window.BombManLegacy;
 
 const style=document.createElement('style');
@@ -110,9 +110,12 @@ function stopHeld(){clearInterval(heldTimer);heldTimer=null;heldAction=null}
 document.addEventListener('pointerdown',e=>{
   if(!(slot>0))return;const target=e.target.closest('#bmTouch button');if(!target)return;
   let action=target.dataset.dir||null;if(target.id==='bmBombBtn')action='bomb';if(target.id==='bmActBtn')action='act';if(target.id==='bmDetBtn')action='det';if(target.id==='bmMenuBtn')return;
-  if(!action)return;e.preventDefault();e.stopImmediatePropagation();if(['up','down','left','right'].includes(action))startHeld(action);else sendAction(action);
+  if(!action)return;e.preventDefault();e.stopImmediatePropagation();if(['up','down','left','right'].includes(action)){heldFromButton=true;startHeld(action)}else sendAction(action);
 },true);
-['pointerup','pointercancel'].forEach(type=>document.addEventListener(type,e=>{if(slot>0){stopHeld();e.stopPropagation()}},true));
+// Only legacy direction buttons stop on any pointer release; the joystick reports its own release
+// via bm:stick, so lifting the BOMB finger never cancels movement (multitouch).
+['pointerup','pointercancel'].forEach(type=>document.addEventListener(type,()=>{if(slot>0&&heldFromButton){heldFromButton=false;stopHeld()}},true));
+addEventListener('bm:stick',e=>{if(!(slot>0))return;const d=e.detail&&e.detail.dir;if(d){if(heldAction!==d)startHeld(d)}else if(['up','down','left','right'].includes(heldAction))stopHeld()});
 document.addEventListener('keydown',e=>{
   if(!(slot>0))return;let a=null;const k=e.key.toLowerCase();if(k==='arrowup'||k==='w')a='up';if(k==='arrowdown'||k==='s')a='down';if(k==='arrowleft'||k==='a')a='left';if(k==='arrowright'||k==='d')a='right';if(k===' ')a='bomb';if(k==='j')a='act';if(k==='k')a='det';if(!a)return;e.preventDefault();e.stopImmediatePropagation();if(['up','down','left','right'].includes(a)){if(!e.repeat)startHeld(a)}else if(!e.repeat)sendAction(a);
 },true);

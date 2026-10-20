@@ -89,8 +89,26 @@ body{touch-action:none;overscroll-behavior:none}
 .bmHudCard strong{font-size:22px;color:#ffd35b}
 #bmBoardWrap{position:relative;min-height:320px;height:100%;border-radius:26px;overflow:hidden;background:radial-gradient(circle at 50% 20%,#8bbcff,#1c3559 62%,#09111a 100%);border:1px solid #ffffff18;box-shadow:inset 0 0 60px #0005,0 12px 34px #0008}
 #bmCanvas{display:block;width:100%;height:100%;min-height:320px;touch-action:none}
-#bmTouch{position:absolute;left:12px;right:12px;bottom:12px;z-index:5;display:flex;justify-content:space-between;gap:14px;align-items:flex-end;flex-wrap:wrap;pointer-events:none}
-.bmDpad{display:grid;grid-template-columns:62px 62px 62px;grid-template-rows:62px 62px 62px;gap:8px}
+#bmTouch{position:absolute;inset:0;z-index:5;pointer-events:none;touch-action:none}
+/* Parallax Hearts-style invisible controller: touch anywhere in the left area, a joystick spawns under the thumb */
+#bmMoveZone{position:absolute;left:0;top:0;bottom:0;width:58%;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#bmJoy{--joy:clamp(104px,26vmin,150px);position:absolute;left:0;top:0;width:var(--joy);height:var(--joy);margin:calc(var(--joy)/-2) 0 0 calc(var(--joy)/-2);border-radius:50%;border:2px solid rgba(137,238,246,.42);background:radial-gradient(circle,rgba(40,105,130,.22),rgba(4,10,25,.58));box-shadow:0 12px 35px rgba(0,0,0,.34),inset 0 0 30px rgba(82,224,236,.08);pointer-events:none;opacity:0;transform:scale(.85);transition:opacity .12s ease,transform .12s ease}
+#bmJoy::before,#bmJoy::after{content:"";position:absolute;left:50%;top:50%;background:rgba(193,248,252,.18);transform:translate(-50%,-50%);border-radius:99px}
+#bmJoy::before{width:74%;height:2px}#bmJoy::after{width:2px;height:74%}
+#bmJoy.on{opacity:1;transform:scale(1)}
+#bmJoyKnob{position:absolute;left:50%;top:50%;width:44%;height:44%;border-radius:50%;transform:translate(-50%,-50%);background:linear-gradient(145deg,rgba(80,207,224,.82),rgba(64,113,165,.78));border:2px solid rgba(222,253,255,.72);box-shadow:0 6px 20px rgba(0,0,0,.38),0 0 18px rgba(91,229,240,.28);pointer-events:none}
+/* Right-thumb arc: BOMB biggest in the corner, ACT / DET / MENU fanned around it */
+.bmActions{--b:clamp(88px,24vmin,100px);--s:clamp(64px,17vmin,72px);--m:clamp(54px,13vmin,60px);--r:calc(var(--b)/2 + var(--s)/2 + 12px);position:absolute;right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));width:calc(var(--b) + var(--r));height:calc(var(--b) + var(--r) + 10px);pointer-events:none;touch-action:none}
+.bmActions .bmTouchBtn{position:absolute;padding:0;display:grid;place-content:center;justify-items:center;border-radius:50%;opacity:.94;-webkit-tap-highlight-color:transparent}
+#bmBombBtn{width:var(--b);height:var(--b);right:0;bottom:0;font-size:17px;border-width:3px}
+#bmBombBtn .bmBtnIco{width:calc(var(--b)*.44);height:calc(var(--b)*.44);margin:0 0 2px}
+#bmActBtn{width:var(--s);height:var(--s);right:calc(var(--b)/2 + var(--r) - var(--s)/2);bottom:calc(var(--b)/2 - var(--s)/2)}
+#bmDetBtn{width:var(--s);height:var(--s);right:calc(var(--b)/2 + var(--r)*.62 - var(--s)/2);bottom:calc(var(--b)/2 + var(--r)*.79 - var(--s)/2)}
+#bmMenuBtn{width:var(--m);height:var(--m);right:calc(var(--b)/2 - var(--m)/2);bottom:calc(var(--b)/2 + var(--r)*1.05 - var(--m)/2 + 4px);font-size:12px;opacity:.8}
+#bmActBtn .bmBtnIco,#bmDetBtn .bmBtnIco{width:calc(var(--s)*.42);height:calc(var(--s)*.42);margin:0 0 2px}
+@media (orientation:portrait) and (max-width:620px){#bmHud .row:first-child .bmHudCard:first-child{display:none}}
+@media (orientation:portrait) and (max-width:380px){#bmTopbar{gap:6px}#bmTopbar .brand{font-size:17px !important}.bmTopBtn{padding:8px 8px;font-size:10px;white-space:nowrap;flex-shrink:0}#bmTopbar .brand{flex-shrink:0}#bmLiveStatus{min-width:0;overflow:hidden;margin-right:0 !important}#bmLiveStatus span{overflow:hidden;text-overflow:ellipsis}#bmLiveStatus{padding:6px 7px !important;font-size:8px !important;letter-spacing:.02em !important}#bmTopbar .brand{white-space:nowrap}#bmTopbar{padding:6px 10px}#bmTopbar .brand{font-size:22px}#bmTopbar .brand small{display:none}#bmHud{padding:6px;gap:6px}#bmHud .row{gap:5px}.bmHudCard{padding:6px 8px;font-size:12px;gap:5px;border-radius:10px}.bmHudCard strong{font-size:15px}.bmIco{width:17px;height:17px}}
+.bmActions .bmTouchBtn.down{transform:translateY(3px) scale(.95);box-shadow:0 3px 0 #0006,0 6px 14px #0008}
 .bmTouchBtn{pointer-events:auto;border-radius:18px;border:2px solid #ffffff22;background:linear-gradient(180deg,#243753,#101827);color:#fff;font:900 16px/1 Impact,Haettenschweiler,'Arial Narrow Bold',system-ui,sans-serif;box-shadow:0 8px 0 #0006,0 12px 24px #0008;min-width:62px;min-height:62px;touch-action:none;cursor:pointer}
 .bmTouchBtn:active,.bmTouchBtn.down{transform:translateY(4px);box-shadow:0 4px 0 #0006,0 8px 18px #0008}
 .bmTouchBtn.gold{background:linear-gradient(180deg,#ffd35b,#e28b10);color:#241700}
@@ -100,7 +118,8 @@ body{touch-action:none;overscroll-behavior:none}
 .bmIco{width:24px;height:24px;object-fit:contain;display:block;filter:drop-shadow(0 1px 1px #000)}
 .bmBtnIco{width:30px;height:30px;object-fit:contain;display:block;margin:0 auto 2px;pointer-events:none;filter:drop-shadow(0 2px 1px #0008)}
 #bmBoardWrap{background:#0a1220}
-@media (orientation:landscape){.bmIco{width:19px;height:19px}.bmBtnIco{width:24px;height:24px;margin-bottom:1px}}
+@media (orientation:landscape){.bmIco{width:19px;height:19px}}
+#bmGame,#bmBoardWrap{touch-action:none;overscroll-behavior:none}
 .bmFooterNote{color:#dce8ff;font:800 12px/1.35 system-ui,sans-serif;text-align:center;opacity:.94}.bmScreen#bmGame>.bmFooterNote{display:none}
 @media (orientation:landscape){
 #bmApp{gap:6px;padding:6px max(8px,env(safe-area-inset-right)) 6px max(8px,env(safe-area-inset-left))}
@@ -115,12 +134,9 @@ body{touch-action:none;overscroll-behavior:none}
 .bmHudCard strong{font-size:18px}
 #bmBoardWrap{min-height:260px;border-radius:18px}
 #bmCanvas{min-height:260px}
-.bmDpad{grid-template-columns:52px 52px 52px;grid-template-rows:52px 52px 52px;gap:6px}
-.bmTouchBtn{min-width:52px;min-height:52px;border-radius:15px;font-size:14px;opacity:.88}
-#bmTouch{bottom:10px;left:10px;right:10px}
 }
 @media(max-width:1100px){#bmMapCards{grid-template-columns:repeat(2,1fr)}.bmHero{grid-template-columns:160px 1fr}.bmCurrency{grid-column:1/-1;justify-content:flex-start}}
-@media(max-width:760px){.bmHero{grid-template-columns:1fr}.bmPortrait{width:100%;height:170px}#bmMapCards{grid-template-columns:1fr}.bmDpad{grid-template-columns:56px 56px 56px;grid-template-rows:56px 56px 56px}.bmTouchBtn{min-width:56px;min-height:56px}#bmTouch{justify-content:center}.bmActions{justify-content:center}}
+@media(max-width:760px){.bmHero{grid-template-columns:1fr}.bmPortrait{width:100%;height:170px}#bmMapCards{grid-template-columns:1fr}}
 
 #modeHint{position:fixed;z-index:13;left:50%;bottom:132px;transform:translateX(-50%);width:min(90vw,760px);text-align:center;color:#ffe8af;font:800 13px/1.25 system-ui,sans-serif;text-shadow:0 2px 4px #000;pointer-events:none}
 #modeHint.hidden{display:none}
@@ -179,16 +195,14 @@ body{touch-action:none;overscroll-behavior:none}
       <div id="bmHud"></div>
       <div id="bmBoardWrap"><canvas id="bmCanvas" width="1280" height="720"></canvas></div>
       <div id="bmTouch">
-        <div class="bmDpad">
-          <div></div><button class="bmTouchBtn" data-dir="up" type="button">▲</button><div></div>
-          <button class="bmTouchBtn" data-dir="left" type="button">◀</button><div></div><button class="bmTouchBtn" data-dir="right" type="button">▶</button>
-          <div></div><button class="bmTouchBtn" data-dir="down" type="button">▼</button><div></div>
+        <div id="bmMoveZone" aria-label="Movement area: touch and drag anywhere here">
+          <div id="bmJoy" aria-hidden="true"><div id="bmJoyKnob"></div></div>
         </div>
-        <div class="bmActions">
-          <button id="bmBombBtn" class="bmTouchBtn gold" type="button"><img class="bmBtnIco" src="/bomberman/sprites/bomb.webp?v=1" alt="">BOMB</button>
-          <button id="bmActBtn" class="bmTouchBtn" type="button"><img class="bmBtnIco" src="/bomberman/sprites/pu_punch.webp?v=1" alt="">ACT</button>
-          <button id="bmDetBtn" class="bmTouchBtn" type="button"><img class="bmBtnIco" src="/bomberman/sprites/pu_remote.webp?v=1" alt="">DET</button>
-          <button id="bmMenuBtn" class="bmTouchBtn" type="button">MENU</button>
+        <div class="bmActions" id="bmActions">
+          <button id="bmBombBtn" class="bmTouchBtn gold" type="button" aria-label="Drop or throw bomb"><img class="bmBtnIco" src="/bomberman/sprites/bomb.webp?v=1" alt="">BOMB</button>
+          <button id="bmActBtn" class="bmTouchBtn" type="button" aria-label="Kick, punch or carry"><img class="bmBtnIco" src="/bomberman/sprites/pu_punch.webp?v=1" alt="">ACT</button>
+          <button id="bmDetBtn" class="bmTouchBtn" type="button" aria-label="Remote detonate"><img class="bmBtnIco" src="/bomberman/sprites/pu_remote.webp?v=1" alt="">DET</button>
+          <button id="bmMenuBtn" class="bmTouchBtn" type="button" aria-label="Menu">MENU</button>
         </div>
       </div>
       <div class="bmFooterNote">Walk into bombs to kick them if you have Kick. Punch launches bombs multiple tiles. Line drops a row of bombs. Carry lets you pick up a bomb with ACT, then throw it with BOMB.</div>
@@ -508,18 +522,52 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   bm.el.bomb.addEventListener('pointerdown',e=>{ e.preventDefault(); queuePress('bombQueued'); });
   bm.el.act.addEventListener('pointerdown',e=>{ e.preventDefault(); queuePress('actQueued'); });
   bm.el.det.addEventListener('pointerdown',e=>{ e.preventDefault(); queuePress('detQueued'); });
-  document.querySelectorAll('#bmTouch [data-dir]').forEach(btn=>{
-    const d=btn.dataset.dir;
-    btn.addEventListener('pointerdown',e=>{ e.preventDefault(); ensureAudio(); bm.state.dir=d; btn.classList.add('down'); });
-    ['pointerup','pointercancel','pointerleave'].forEach(ev=>btn.addEventListener(ev,()=>{ if(bm.state.dir===d) bm.state.dir=null; btn.classList.remove('down'); }));
-  });
+  // ---- Touch movement: Parallax Hearts-style floating joystick mapped to the 4-way grid.
+  /* bmStickDir:start */
+  // dx,dy are the knob offset normalised to the stick radius (-1..1, +y = down the screen).
+  // Dominant axis wins; a deadzone ignores small drags; hysteresis keeps the current axis until
+  // the other one is clearly stronger, so diagonals don't flicker. `alt` is the minor axis, used
+  // for corner-sliding when the main direction is blocked.
+  function bmStickDir(dx,dy,prev,dead=0.28,hyst=1.3){
+    const ax=Math.abs(dx), ay=Math.abs(dy);
+    if(Math.hypot(dx,dy)<dead) return {dir:null,alt:null};
+    let horiz;
+    if(prev==='left'||prev==='right') horiz = ay <= ax*hyst;
+    else if(prev==='up'||prev==='down') horiz = ax > ay*hyst;
+    else horiz = ax>=ay;
+    const dir = horiz ? (dx<0?'left':'right') : (dy<0?'up':'down');
+    const minor = horiz ? ay : ax;
+    const alt = minor>dead*0.9 ? (horiz ? (dy<0?'up':'down') : (dx<0?'left':'right')) : null;
+    return {dir,alt};
+  }
+  /* bmStickDir:end */
+  window.bmStickDir=bmStickDir;
+  (function wireJoystick(){
+    const zone=$id('bmMoveZone'), joy=$id('bmJoy'), knob=$id('bmJoyKnob'); if(!zone||!joy||!knob) return;
+    let pid=null, cx=0, cy=0, cur=null;
+    const emit=(dir,alt)=>{ const changed=dir!==bm.state.stickDir; bm.state.stickDir=dir; bm.state.stickAlt=alt;
+      if(changed){ if(dir){ bm.state.dir=dir; bm.state.dirTimer=0; } else if(bm.state.dir&&!bm.state.keyDir) bm.state.dir=null;
+        window.dispatchEvent(new CustomEvent('bm:stick',{detail:{dir,alt}})); } };
+    const place=(e)=>{ const r=zone.getBoundingClientRect(); cx=e.clientX; cy=e.clientY; joy.style.left=(cx-r.left)+'px'; joy.style.top=(cy-r.top)+'px'; };
+    const move=(e)=>{ const range=Math.max(40, joy.clientWidth*.42); let dx=e.clientX-cx, dy=e.clientY-cy; const mag=Math.hypot(dx,dy)||1, k=Math.min(1,range/mag); dx*=k; dy*=k;
+      knob.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; const r=bmStickDir(dx/range,dy/range,cur); cur=r.dir; emit(r.dir,r.alt); };
+    const end=(e)=>{ if(pid!==e.pointerId) return; pid=null; cur=null; joy.classList.remove('on'); knob.style.transform='translate(-50%,-50%)'; emit(null,null); };
+    zone.addEventListener('pointerdown',e=>{ if(pid!==null) return; e.preventDefault(); ensureAudio(); pid=e.pointerId; try{ zone.setPointerCapture(pid); }catch(_){} place(e); joy.classList.add('on'); move(e); },{passive:false});
+    zone.addEventListener('pointermove',e=>{ if(pid!==e.pointerId) return; e.preventDefault(); move(e); },{passive:false});
+    ['pointerup','pointercancel','lostpointercapture'].forEach(t=>zone.addEventListener(t,end));
+    ['bmBombBtn','bmActBtn','bmDetBtn','bmMenuBtn'].forEach(id=>{ const el=$id(id); if(!el) return; el.addEventListener('pointerdown',()=>el.classList.add('down')); ['pointerup','pointercancel','pointerleave'].forEach(t=>el.addEventListener(t,()=>el.classList.remove('down'))); });
+    // no pinch-zoom / double-tap zoom / page scroll while playing
+    ['gesturestart','gesturechange'].forEach(t=>document.addEventListener(t,e=>{ if(bm.state.screen==='game') e.preventDefault(); },{passive:false}));
+    $id('bmGame').addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+    $id('bmGame').addEventListener('dblclick',e=>e.preventDefault());
+  })();
   document.addEventListener('keydown',e=>{
     if(!bm.state.active) return;
     const k=e.key;
-    if(['ArrowUp','w','W'].includes(k)) bm.state.dir='up';
-    if(['ArrowDown','s','S'].includes(k)) bm.state.dir='down';
-    if(['ArrowLeft','a','A'].includes(k)) bm.state.dir='left';
-    if(['ArrowRight','d','D'].includes(k)) bm.state.dir='right';
+    if(['ArrowUp','w','W'].includes(k)) bm.state.dir=bm.state.keyDir='up';
+    if(['ArrowDown','s','S'].includes(k)) bm.state.dir=bm.state.keyDir='down';
+    if(['ArrowLeft','a','A'].includes(k)) bm.state.dir=bm.state.keyDir='left';
+    if(['ArrowRight','d','D'].includes(k)) bm.state.dir=bm.state.keyDir='right';
     if(k===' '){ bm.state.bombQueued=true; e.preventDefault(); }
     if(['j','J'].includes(k)){ bm.state.actQueued=true; e.preventDefault(); }
     if(['k','K'].includes(k)){ bm.state.detQueued=true; e.preventDefault(); }
@@ -527,7 +575,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   });
   document.addEventListener('keyup',e=>{
     if(!bm.state.active) return;
-    if(['ArrowUp','w','W','ArrowDown','s','S','ArrowLeft','a','A','ArrowRight','d','D'].includes(e.key)) bm.state.dir=null;
+    if(['ArrowUp','w','W','ArrowDown','s','S','ArrowLeft','a','A','ArrowRight','d','D'].includes(e.key)){ bm.state.keyDir=null; bm.state.dir=bm.state.stickDir||null; }
   });
 
   function makeGrid(mapId){
@@ -627,7 +675,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   function updateGame(dt){ const g=bm.state.game; if(!g||g.status!=='playing'||window.__bmReplicaMode) return; if(bm.state.msgT>0){ bm.state.msgT-=dt; if(bm.state.msgT<=0) hideBMMessage(); }
     g.timer=Math.max(0,g.timer-dt); if(g.timer<=0) killPlayer('Time ran out.');
     if(g.player.moveCd>0) g.player.moveCd=Math.max(0,g.player.moveCd-dt);
-    if(bm.state.dir){ bm.state.dirTimer-=dt; if(bm.state.dirTimer<=0){ movePlayer(bm.state.dir); bm.state.dirTimer=Math.max(.08,.21-(g.player.speed-1)*.03); } } else bm.state.dirTimer=0;
+    if(bm.state.dir){ bm.state.dirTimer-=dt; if(bm.state.dirTimer<=0){ const px=g.player.x, pz=g.player.z; movePlayer(bm.state.dir); if(px===g.player.x&&pz===g.player.z&&g.player.moveCd<=0&&bm.state.stickAlt&&bm.state.stickDir===bm.state.dir){ movePlayer(bm.state.stickAlt); } bm.state.dirTimer=Math.max(.08,.21-(g.player.speed-1)*.03); } } else bm.state.dirTimer=0;
     if(bm.state.bombQueued){ placeBomb(); bm.state.bombQueued=false; }
     if(bm.state.actQueued){ tryCarryOrAction(); bm.state.actQueued=false; }
     if(bm.state.detQueued){ detonateRemote(); bm.state.detQueued=false; }
@@ -689,8 +737,10 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   function norm(v){ const d=Math.hypot(v.x,v.y,v.z)||1; return {x:v.x/d,y:v.y/d,z:v.z/d}; }
   let camFit={key:'',fov:1,ox:0,oy:0};
   function setCamera(g){ const cv=camera(g); const forward=norm(vecSub(cv.target,cv.pos)); const right=norm(cross(forward,{x:0,y:1,z:0})); const up=cross(right,forward); CAM={...cv,forward,right,up};
-    const key=cv.sw+'x'+cv.sh+'|'+g.cols+'x'+g.rows; if(camFit.key!==key){ CAM.fov=1; CAM.ox=0; CAM.oy=0; let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; for(const X of [-.45,g.cols+.45]) for(const Y of [0,1.15]) for(const Z of [-.45,g.rows+.45]){ const p=project({x:X,y:Y,z:Z},g); if(!p) continue; x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); }
-      const fov=Math.min(cv.sw*.97/(x1-x0), (cv.sh-30)*.97/(y1-y0)); camFit={key,fov,ox:-((x0+x1)/2-cv.sw/2)*fov, oy:-((y0+y1)/2-cv.sh/2)*fov-12}; }
+    // keep the board clear of the right-thumb button arc: reserve the side (landscape) or bottom strip (portrait) it occupies
+    let rR=0,rB=0; const ab=$id('bmActions'), cvr=bm.el.canvas.getBoundingClientRect(); if(ab&&cvr.width){ const r=ab.getBoundingClientRect(); if(r.width){ if(cv.sw/cv.sh>1.15) rR=Math.min(cv.sw*.3,Math.max(0,cvr.right-r.left+6)); else rB=Math.min(cv.sh*.45,Math.max(0,cvr.bottom-r.top+6)); } }
+    const key=cv.sw+'x'+cv.sh+'|'+g.cols+'x'+g.rows+'|'+Math.round(rR)+'|'+Math.round(rB); if(camFit.key!==key){ CAM.fov=1; CAM.ox=0; CAM.oy=0; let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; for(const X of [-.45,g.cols+.45]) for(const Y of [0,1.15]) for(const Z of [-.45,g.rows+.45]){ const p=project({x:X,y:Y,z:Z},g); if(!p) continue; x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); }
+      const aw=cv.sw-rR, ah=cv.sh-30-rB; const fov=Math.min(aw*.97/(x1-x0), ah*.97/(y1-y0)); camFit={key,fov,ox:aw/2-cv.sw/2-((x0+x1)/2-cv.sw/2)*fov, oy:ah/2+4-cv.sh/2-((y0+y1)/2-cv.sh/2)*fov}; }
     CAM.fov=camFit.fov; CAM.ox=camFit.ox; CAM.oy=camFit.oy; return CAM; }
   function project(pt,g){ const cv=CAM||setCamera(g); const rel=vecSub(pt,cv.pos); const cx=dot(rel,cv.right), cy=dot(rel,cv.up), cz=dot(rel,cv.forward); if(cz<=0.05) return null; const scale=cv.fov/cz; return {x:cv.sw/2 + cv.ox + cx*scale, y:cv.sh/2 + cv.oy - cy*scale, d:cz, s:scale}; }
   function poly(points, fill){ if(points.some(p=>!p)) return; ctx3.beginPath(); ctx3.moveTo(points[0].x,points[0].y); for(let i=1;i<points.length;i++) ctx3.lineTo(points[i].x,points[i].y); ctx3.closePath(); if(fill){ ctx3.fillStyle=fill; ctx3.fill(); } }
@@ -783,7 +833,7 @@ let last=performance.now();function loop(now){const dt=Math.min(.033,(now-last)/
 })();
 </script>
 
-<script src="/bomberman/live.js?v=1"></script>
+<script src="/bomberman/live.js?v=2"></script>
 <script>setTimeout(()=>{const b=document.getElementById('bombModeBtn');if(b)b.dispatchEvent(new Event('pointerdown',{bubbles:true,cancelable:true}));},0);</script>
 </body>
 </html>
