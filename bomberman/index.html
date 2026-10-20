@@ -657,7 +657,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   function remoteAction(slot,action){if(action==='bomb')remotePlace(slot);else if(action==='act')remoteAct(slot);else if(action==='det')remoteDet(slot);else if(['left','right','up','down'].includes(action))remoteMove(slot,action);}
   function setHumanSlots(slots){const active=new Set(slots||[]),g=bm.state.game;for(let slot=1;slot<=3;slot++){const e=active.has(slot)?ensureRemoteEnemy(slot):g?.enemies?.[slot-1];if(e)e.human=active.has(slot);}}
   function bmSnapshot(){return JSON.parse(JSON.stringify({screen:bm.state.screen,selected:bm.state.selected,rotation:bm.state.rotation,roundCount:bm.state.roundCount,queue:bm.state.queue,round:bm.state.round,ended:bm.state.ended,game:bm.state.game}));}
-  function bmApplySnapshot(s){if(!s)return;['selected','rotation','roundCount','queue','round','ended'].forEach(k=>{if(s[k]!==undefined)bm.state[k]=s[k]});bm.state.game=s.game||null;bm.state.lastTs=performance.now();if(bm.state.game){showGame();updateBMHud();}else showMenu();}
+  function bmApplySnapshot(s){if(!s)return;['selected','rotation','roundCount','queue','round','ended'].forEach(k=>{if(s[k]!==undefined)bm.state[k]=s[k]});bm.state.game=s.game||null;bm.state.lastTs=performance.now();/* Switch screens only on a real change; re-running showGame/showMenu 10x a second re-laid out the page and re-rendered the menu. */const want=bm.state.game&&s.screen!=='menu'?'game':'menu';if(want==='game'){if(bm.state.screen!=='game')showGame();updateBMHud();}else if(bm.state.screen!=='menu')showMenu();}
   window.BombManLegacy={getState:()=>bm.state,snapshot:bmSnapshot,applySnapshot:bmApplySnapshot,remoteAction,setHumanSlots,setReplica:on=>{window.__bmReplicaMode=!!on},setLocalSlot:slot=>{window.__bmLocalSlot=slot},showMessage:showBMMessage,open:bmOpen};
   function killPlayer(msg){ const g=bm.state.game; if(!g.player.alive) return; g.player.alive=false; g.status='lost'; showBMMessage(msg||'Boom.',1.1); tone(90,.18,'square',.06,-20); setTimeout(()=>{ if(bm.state.active) showMenu(); },1500); }
   function explodeBomb(g,b){ if(b.dead) return; b.dead=true; const boomCells=[]; boomCells.push({x:b.x,z:b.z,kind:'center'}); const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
@@ -699,7 +699,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
     if(html!==bm.lastHud){ bm.lastHud=html; bm.el.hud.innerHTML=html; }
   }
 
-  function resizeBMCanvas(){ const rect=bm.el.wrap.getBoundingClientRect(); const dpr=Math.min(2, window.devicePixelRatio||1); const cssW=Math.max(320,rect.width||window.innerWidth-20), cssH=Math.max(260,rect.height||Math.max(300,window.innerHeight*.55)); bm.el.canvas.width=Math.floor(cssW*dpr); bm.el.canvas.height=Math.floor(cssH*dpr); ctx3.setTransform(dpr,0,0,dpr,0,0); }
+  function resizeBMCanvas(){ const rect=bm.el.wrap.getBoundingClientRect(); const dpr=Math.min(2, window.devicePixelRatio||1); const cssW=Math.max(320,rect.width||window.innerWidth-20), cssH=Math.max(260,rect.height||Math.max(300,window.innerHeight*.55)); const w=Math.floor(cssW*dpr), h=Math.floor(cssH*dpr); /* Only touch the backing store when the size really changes: assigning canvas.width clears the canvas, and doing that on every live snapshot made guests flicker. */ if(bm.el.canvas.width!==w||bm.el.canvas.height!==h){ bm.el.canvas.width=w; bm.el.canvas.height=h; } ctx3.setTransform(dpr,0,0,dpr,0,0); }
   window.addEventListener('resize', resizeBMCanvas); if(window.ResizeObserver){ new ResizeObserver(()=>{ if(bm.state.active&&bm.state.screen==='game') resizeBMCanvas(); }).observe(bm.el.wrap); }
   /* ===== Bomb Man sprite renderer =====
      Every gameplay visual below is drawn from sprite/texture files in /bomberman/sprites/,
@@ -833,7 +833,7 @@ let last=performance.now();function loop(now){const dt=Math.min(.033,(now-last)/
 })();
 </script>
 
-<script src="/bomberman/live.js?v=2"></script>
+<script src="/bomberman/live.js?v=3"></script>
 <script>setTimeout(()=>{const b=document.getElementById('bombModeBtn');if(b)b.dispatchEvent(new Event('pointerdown',{bubbles:true,cancelable:true}));},0);</script>
 </body>
 </html>
