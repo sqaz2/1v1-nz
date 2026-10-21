@@ -176,7 +176,9 @@ body{touch-action:none;overscroll-behavior:none}
 
 #bmGame{display:flex;flex-direction:column}#bmBoardWrap{flex:1;height:auto}#bmBoardWrap,#bmCanvas{min-height:0}#bmBoardWrap{background:#080f1b}#bmWebGL{border-radius:inherit}#bmArenaLabel{position:absolute;top:8px;left:12px;z-index:2;pointer-events:none;color:#d1e4f5;font:800 12px system-ui}#bmApp{padding-top:42px}#bmResult{z-index:4}@media(orientation:landscape) and (max-height:500px){#bmHud{top:45px}}
 </style>
-<script src="/bomberman/bot-ai.js?v=3"></script><script defer src="/bomberman/arena3d.js?v=3"></script><script defer src="/activity.js?v=3"></script></head>
+<link rel="stylesheet" href="/bomberman/round-ui.css?v=1">
+<script src="/bomberman/zoom.js?v=1"></script><script src="/bomberman/round-ui.js?v=1"></script>
+<script src="/bomberman/bot-ai.js?v=3"></script><script defer src="/bomberman/arena3d.js?v=4"></script><script defer src="/activity.js?v=3"></script></head>
 <body>
 <div id="wrap"><canvas id="game" width="1280" height="720" aria-label="Namaste Hamster game canvas"></canvas></div>
 <div id="rotate"><div class="card"><span class="phone">📱</span><h2>TURN SIDEWAYS</h2><p>Namaste Hamster is built like a cabinet beat-’em-up. Landscape gives you the full arcade lane.</p></div></div>
@@ -226,7 +228,7 @@ body{touch-action:none;overscroll-behavior:none}
 
     <section id="bmGame" class="bmScreen hidden">
       <div id="bmHud"></div>
-      <div id="bmBoardWrap"><span id="bmArenaLabel">3D ARENA</span><canvas id="bmCanvas" width="1280" height="720"></canvas><div id="bmResult" class="hidden" role="dialog" aria-live="polite"><div class="bmResultCard"><img id="bmResultArt" src="/bomberman/sprites/hero_front.webp?v=2" alt=""><h2 id="bmResultTitle">VICTORY</h2><p id="bmResultSub"></p><div class="bmResultBtns"><button id="bmRetryBtn" class="bmBigBtn play" type="button">PLAY AGAIN</button><button id="bmResultMenuBtn" class="bmBigBtn alt" type="button">MENU</button></div></div></div></div>
+      <div id="bmBoardWrap"><span id="bmArenaLabel">3D ARENA</span><canvas tabindex="0" id="bmCanvas" width="1280" height="720"></canvas><div id="bmResult" class="hidden" role="dialog" aria-live="polite"><div class="bmResultCard"><img id="bmResultArt" src="/bomberman/sprites/hero_front.webp?v=2" alt=""><h2 id="bmResultTitle">VICTORY</h2><p id="bmResultSub"></p><div class="bmResultBtns"><button id="bmRetryBtn" class="bmBigBtn play" type="button">PLAY AGAIN</button><button id="bmResultMenuBtn" class="bmBigBtn alt" type="button">MENU</button></div></div></div></div>
       <div id="bmTouch">
         <div id="bmMoveZone" aria-label="Movement area: touch and drag anywhere here">
           <div id="bmJoy" aria-hidden="true"><div id="bmJoyKnob"></div></div>
@@ -523,8 +525,8 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   const ctx3 = bm.el.canvas.getContext('2d');
   if(bm.el.msg&&bm.el.wrap) bm.el.wrap.appendChild(bm.el.msg);
   function bmMap(id){ return bm.maps.find(m=>m.id===id) || bm.maps[0]; }
-  function showBMMessage(text, sec=1.2){ bm.state.msg=text; bm.state.msgT=sec; bm.el.msg.textContent=text; bm.el.msg.classList.remove('hidden'); }
-  function hideBMMessage(){ bm.el.msg.classList.add('hidden'); }
+  function showBMMessage(text, sec=1.2){ const duration=Math.max(1.35,sec); bm.state.msg=text; bm.state.msgT=duration; if(window.BombManRoundUI) window.BombManRoundUI.notify(bm.el.msg,text,duration); else { bm.el.msg.textContent=text; bm.el.msg.classList.remove('hidden'); } }
+  function hideBMMessage(){ bm.state.msgT=0; if(window.BombManRoundUI) window.BombManRoundUI.hideNotice(bm.el.msg); else bm.el.msg.classList.add('hidden'); }
   function rand(a,b){ return Math.random()*(b-a)+a; }
   function randi(a,b){ return Math.floor(rand(a,b+1)); }
   function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
@@ -552,10 +554,10 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   function renderStats(){ const st=loadStats(); const set=(id,v)=>{ const el=$id(id); if(el) el.textContent=v; }; set('bmStatWins',st.wins); set('bmStatRounds',st.rounds); set('bmStatBest',st.best?st.best+'s':'–'); }
   function hideResult(){ $id('bmResult')?.classList.add('hidden'); }
   function showResult(won,sub){ const box=$id('bmResult'); if(!box) return; hideBMMessage(); box.querySelector('.bmResultCard').classList.toggle('lost',!won); $id('bmResultTitle').textContent=won?'VICTORY':'KNOCKED OUT'; $id('bmResultSub').textContent=sub||''; $id('bmResultArt').src=ART_BASE+(won?'hero_front':'fx_center')+'.webp?v='+ART_V; box.classList.remove('hidden'); }
-  function showMenu(){ hideResult(); renderStats(); bm.state.screen='menu'; bm.el.menu.classList.remove('hidden'); bm.el.game.classList.add('hidden'); renderMenu(); }
+  function showMenu(){ window.BombManRoundUI?.hide(); hideBMMessage(); hideResult(); renderStats(); bm.state.screen='menu'; bm.el.menu.classList.remove('hidden'); bm.el.game.classList.add('hidden'); renderMenu(); }
   function showGame(){ bm.state.screen='game'; bm.el.menu.classList.add('hidden'); bm.el.game.classList.remove('hidden'); resizeBMCanvas(); requestAnimationFrame(()=>{resizeBMCanvas();requestAnimationFrame(resizeBMCanvas)}); setTimeout(resizeBMCanvas,120); }
   function bmOpen(){ bm.state.active=true; showMenu(); }
-  function bmClose(){ bm.state.active=false; bm.state.dir=null; bm.state.bombQueued=bm.state.actQueued=bm.state.detQueued=false; }
+  function bmClose(){ window.BombManRoundUI?.hide(); hideBMMessage(); bm.state.active=false; bm.state.dir=null; bm.state.bombQueued=bm.state.actQueued=bm.state.detQueued=false; }
   window.bmOpen=bmOpen; window.bmClose=bmClose;
 
   bm.el.rot.addEventListener('change',renderMenu); bm.el.rounds.addEventListener('change',renderMenu);
@@ -564,7 +566,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   $id('bmRetryBtn')?.addEventListener('click',()=>{ ensureAudio(); if(!bm.state.queue.length) bm.state.queue=buildQueue(); bm.state.round=0; bm.state.ended=false; startRound(); });
   $id('bmResultMenuBtn')?.addEventListener('click',()=>showMenu());
   bm.el.menuBtn.addEventListener('click',()=>showMenu());
-  function queuePress(name){ ensureAudio(); bm.state[name]=true; }
+  function queuePress(name){ ensureAudio(); if(bmRoundReady(bm.state.game)) bm.state[name]=true; }
   bm.el.bomb.addEventListener('pointerdown',e=>{ e.preventDefault(); queuePress('bombQueued'); });
   bm.el.act.addEventListener('pointerdown',e=>{ e.preventDefault(); queuePress('actQueued'); });
   bm.el.det.addEventListener('pointerdown',e=>{ e.preventDefault(); queuePress('detQueued'); });
@@ -715,9 +717,22 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
       {x:grid.cols-1,z:0,rx:grid.cols-1,rz:0,type:mapId==='factory'?'remote':'bot',alive:true,moveCd:.8,bombCd:2.2,bombsMax:1,fire:mapId==='lava'?3:2,remote:mapId==='factory',kick:mapId==='temple'},
     ];
     if(mapId==='lava') enemies.push({x:0,z:grid.rows-1,rx:0,rz:grid.rows-1,type:'bot',alive:true,moveCd:1.1,bombCd:2.4,bombsMax:1,fire:3,remote:false,kick:true});
-    if(mode==='blitz') Object.assign(player,{bombsMax:3,fire:3,kick:true,punch:true,line:true}); if(mode==='practice') Object.assign(player,{bombsMax:4,kick:true,punch:true,carry:true,line:true}); enemies.forEach((e,i)=>{e.botId='bot:'+i;if(mode==='blitz')Object.assign(e,{bombsMax:3,fire:3});}); return { mapId, mode, difficulty, duration:mode==='blitz'?90:150, title:bmMap(mapId).title, ...grid, player, enemies, bombs:[], explosions:[], timer:mode==='blitz'?90:150, status:'playing' };
+    if(mode==='blitz') Object.assign(player,{bombsMax:3,fire:3,kick:true,punch:true,line:true}); if(mode==='practice') Object.assign(player,{bombsMax:4,kick:true,punch:true,carry:true,line:true}); enemies.forEach((e,i)=>{e.botId='bot:'+i;if(mode==='blitz')Object.assign(e,{bombsMax:3,fire:3});}); return { mapId, mode, difficulty, duration:mode==='blitz'?90:150, title:bmMap(mapId).title, ...grid, player, enemies, bombs:[], explosions:[], timer:mode==='blitz'?90:150, status:'playing', countdown:3, goTime:0, roundId:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7), zoomGuide:!window.__bmReplicaMode&&!!window.BombManRoundUI?.needsGuide() };
   }
-  function startRound(){ hideResult(); const id=bm.state.queue[bm.state.round]; bm.state.game=createGame(id); showGame(); updateBMHud(); showBMMessage(`${bm.state.game.title} · Round ${bm.state.round+1}/${bm.state.queue.length}`,1.5); tone(180,.12,'square',.04,80); }
+  function startRound(){ ensureAudio(); hideResult(); hideBMMessage(); const id=bm.state.queue[bm.state.round]; bm.state.game=createGame(id); bm.state.bombQueued=bm.state.actQueued=bm.state.detQueued=false; showGame(); updateBMHud(); syncRoundUI(); }
+  /* bmRoundFlow:start */
+  function bmRoundReady(g){ return !!g&&g.status==='playing'&&!g.zoomGuide&&!(g.countdown>0); }
+  // All timers, bombs, bots and movement stay frozen until the host's shared countdown reaches zero.
+  function bmAdvanceCountdown(g,dt){
+    if(g.zoomGuide) return false;
+    if(g.countdown>0){ g.countdown=Math.max(0,g.countdown-dt); if(g.countdown===0)g.goTime=.7; return false; }
+    if(g.goTime>0)g.goTime=Math.max(0,g.goTime-dt);
+    return true;
+  }
+  function acknowledgeZoomGuide(g){ if(window.__bmReplicaMode||bm.state.game!==g)return; g.zoomGuide=false; bm.state.bombQueued=bm.state.actQueued=bm.state.detQueued=false; ensureAudio(); }
+  /* bmRoundFlow:end */
+  function syncRoundUI(){ window.BombManRoundUI?.sync(bm.state.game,{active:bm.state.active&&bm.state.screen==='game',round:bm.state.round+1,total:bm.state.queue.length,replica:!!window.__bmReplicaMode,onReady:acknowledgeZoomGuide,onBeat:beat=>{if(beat==='GO!'){tone(880,.16,'triangle',.05,180);window.bmHaptic?.([18,30,30]);}else{tone(330+(3-Number(beat))*110,.09,'triangle',.035,0);window.bmHaptic?.(12);}}}); }
+
   function inBounds(g,x,z){ return x>=0 && z>=0 && x<g.cols && z<g.rows; }
   function cell(g,x,z){ return inBounds(g,x,z) ? g.cells[z][x] : null; }
   function bombAt(g,x,z){ return g.bombs.find(b=>!b.dead && b.x===x && b.z===z); }
@@ -769,7 +784,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   function remotePlace(slot){const g=bm.state.game,e=ensureRemoteEnemy(slot);if(!e?.alive)return;if(e.holding){remoteThrow(g,e,slot);return;}if(!remoteDrop(g,e,slot,e.x,e.z))return;if(e.line){const[dx,dz]=dirVec(e.facing);for(let i=1;i<=6&&remoteBombCount(g,slot)<e.bombsMax;i++){const x=e.x+dx*i,z=e.z+dz*i;if(blocked(g,x,z,true)||enemyAt(g,x,z)||bombAt(g,x,z))break;remoteDrop(g,e,slot,x,z);}}}
   function remoteAct(slot){const g=bm.state.game,e=ensureRemoteEnemy(slot);if(!e?.alive)return;const[dx,dz]=dirVec(e.facing);const here=bombAt(g,e.x,e.z),front=bombAt(g,e.x+dx,e.z+dz);if(e.carry&&!e.holding&&(here||front)){const b=here||front;e.holding={range:b.range,remote:b.remote};b.dead=true;return;}if(front&&e.punch){punchBomb(g,front,e.facing);return;}if(front&&e.kick)kickBomb(g,front,e.facing);}
   function remoteDet(slot){const g=bm.state.game;g?.bombs.forEach(b=>{if(!b.dead&&b.owner===`human:${slot}`&&b.remote)b.timer=.01;});}
-  function remoteAction(slot,action){if(action==='bomb')remotePlace(slot);else if(action==='act')remoteAct(slot);else if(action==='det')remoteDet(slot);else if(['left','right','up','down','stop'].includes(action))remoteMove(slot,action);}
+  function remoteAction(slot,action){if(!bmRoundReady(bm.state.game))return;if(action==='bomb')remotePlace(slot);else if(action==='act')remoteAct(slot);else if(action==='det')remoteDet(slot);else if(['left','right','up','down','stop'].includes(action))remoteMove(slot,action);}
   function setHumanSlots(slots){const active=new Set(slots||[]),g=bm.state.game;for(let slot=1;slot<=3;slot++){const e=active.has(slot)?ensureRemoteEnemy(slot):g?.enemies?.[slot-1];if(e)e.human=active.has(slot);}}
   function bmSnapshot(){return JSON.parse(JSON.stringify({screen:bm.state.screen,selected:bm.state.selected,rotation:bm.state.rotation,roundCount:bm.state.roundCount,queue:bm.state.queue,round:bm.state.round,ended:bm.state.ended,game:bm.state.game}));}
   function bmApplySnapshot(s){if(!s)return;['selected','rotation','roundCount','queue','round','ended'].forEach(k=>{if(s[k]!==undefined)bm.state[k]=s[k]});const prev=bm.state.game;bm.state.game=s.game||null;bmCarryRender(prev,bm.state.game);{const now=performance.now(),gap=(now-(bm.state.snapAt||0))/1000; if(gap>.02&&gap<.6) bm.state.snapDt=(bm.state.snapDt||.1)*.8+gap*.2; bm.state.snapAt=now;}/* Switch screens only on a real change; re-running showGame/showMenu 10x a second re-laid out the page and re-rendered the menu. */const want=bm.state.game&&s.screen!=='menu'?'game':'menu';if(want==='game'){if(bm.state.screen!=='game')showGame();updateBMHud();}else if(bm.state.screen!=='menu')showMenu();}
@@ -814,6 +829,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
       else{e.moving=false;e.vx=0;e.vz=0;}
     }); }
   function updateGame(dt){ const g=bm.state.game; if(!g||g.status!=='playing'||window.__bmReplicaMode) return; if(bm.state.msgT>0){ bm.state.msgT-=dt; if(bm.state.msgT<=0) hideBMMessage(); }
+    if(!bmAdvanceCountdown(g,dt)){ bm.state.bombQueued=bm.state.actQueued=bm.state.detQueued=false; return; }
     if(g.mode!=="practice")g.timer=Math.max(0,g.timer-dt); if(g.timer<=0) killPlayer('Time ran out.');
     movePlayer(dt);
     if(bm.state.bombQueued){ placeBomb(); bm.state.bombQueued=false; }
@@ -880,10 +896,10 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   let camFit={key:'',fov:1,ox:0,oy:0};
   function setCamera(g){ const cv=camera(g); const forward=norm(vecSub(cv.target,cv.pos)); const right=norm(cross(forward,{x:0,y:1,z:0})); const up=cross(right,forward); CAM={...cv,forward,right,up};
     // keep the board clear of the right-thumb button arc: reserve the side (landscape) or bottom strip (portrait) it occupies
-    let rR=0,rB=0; const ab=$id('bmActions'), cvr=bm.el.canvas.getBoundingClientRect(); if(ab&&cvr.width){ const r=ab.getBoundingClientRect(); if(r.width){ if(cv.sw/cv.sh>1.15) rR=Math.min(cv.sw*.3,Math.max(0,cvr.right-r.left+6)); else rB=Math.min(cv.sh*.45,Math.max(0,cvr.bottom-r.top+6)); } }
+    let rR=0,rB=0; const ab=$id('bmActions'), cvr=bm.el.wrap.getBoundingClientRect(); if(ab&&cvr.width){ const r=ab.getBoundingClientRect(); if(r.width){ if(cv.sw/cv.sh>1.15) rR=Math.min(cv.sw*.3,Math.max(0,cvr.right-r.left+6)); else rB=Math.min(cv.sh*.45,Math.max(0,cvr.bottom-r.top+6)); } }
     const key=cv.sw+'x'+cv.sh+'|'+g.cols+'x'+g.rows+'|'+Math.round(rR)+'|'+Math.round(rB); if(camFit.key!==key){ CAM.fov=1; CAM.ox=0; CAM.oy=0; let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; for(const X of [-.45,g.cols+.45]) for(const Y of [0,1.15]) for(const Z of [-.45,g.rows+.45]){ const p=project({x:X,y:Y,z:Z},g); if(!p) continue; x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); }
       const topT=titleOnTop(cv)?30:0, aw=cv.sw-rR, ah=cv.sh-30-rB; const fov=Math.min(aw*.98/(x1-x0), ah*.98/(y1-y0)); camFit={key,fov,ox:aw/2-cv.sw/2-((x0+x1)/2-cv.sw/2)*fov, oy:topT+ah/2+(topT?0:4)-cv.sh/2-((y0+y1)/2-cv.sh/2)*fov}; }
-    CAM.fov=camFit.fov; CAM.ox=camFit.ox; CAM.oy=camFit.oy; return CAM; }
+    CAM.fov=camFit.fov; CAM.ox=camFit.ox; CAM.oy=camFit.oy; CAM.view={left:0,top:titleOnTop(cv)?30:0,width:cv.sw-rR,height:cv.sh-30-rB}; return CAM; }
   function project(pt,g){ const cv=CAM||setCamera(g); const rel=vecSub(pt,cv.pos); const cx=dot(rel,cv.right), cy=dot(rel,cv.up), cz=dot(rel,cv.forward); if(cz<=0.05) return null; const scale=cv.fov/cz; return {x:cv.sw/2 + cv.ox + cx*scale, y:cv.sh/2 + cv.oy - cy*scale, d:cz, s:scale}; }
   function poly(points, fill){ if(points.some(p=>!p)) return; ctx3.beginPath(); ctx3.moveTo(points[0].x,points[0].y); for(let i=1;i<points.length;i++) ctx3.lineTo(points[i].x,points[i].y); ctx3.closePath(); if(fill){ ctx3.fillStyle=fill; ctx3.fill(); } }
 
@@ -969,7 +985,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
   function pickupItem(g,x,z,kind){ const name=PICKUP_ART[kind]; if(!name) return null; const t=performance.now()/1000; const hover=.28+Math.sin(t*4.5+x*9+z*11)*.05; const sb=spriteBox(name,x+.5,.12+hover,z+.55,.8,g); if(!sb) return null;
     return {d:project({x:x+.5,y:.3,z:z+.5},g)?.d||0, box:sb.box, fn:()=>{ groundShadow(g,x+.5,z+.55,.26); blit(sb); }}; }
 
-  function drawScene(){ const g=bm.state.game; if(!g) return; if(window.BombMan3D?.draw(g)){bm.el.canvas.style.visibility='hidden';$id('bmArenaLabel').textContent=g.title+' · '+(g.mode||'classic')+' · '+(g.difficulty||'normal');return;}$id('bmArenaLabel').textContent='Compatibility renderer · 3D unavailable'; bm.el.canvas.style.visibility='visible'; const c=bm.el.canvas; const __dpr=Math.min(2,window.devicePixelRatio||1), w=c.width/__dpr, h=c.height/__dpr; setCamera(g);
+  function drawScene(){ const g=bm.state.game; if(!g) return; if(window.BombMan3D?.draw(g)){window.BombManZoom?.resetFallback(bm.el.canvas);bm.el.canvas.style.visibility='hidden';$id('bmArenaLabel').textContent=g.title+' · '+(g.mode||'classic')+' · '+(g.difficulty||'normal');return;}$id('bmArenaLabel').textContent='Compatibility renderer · 3D unavailable'; bm.el.canvas.style.visibility='visible'; const c=bm.el.canvas; const __dpr=Math.min(2,window.devicePixelRatio||1), w=c.width/__dpr, h=c.height/__dpr; setCamera(g); const local=[g.player,...g.enemies][window.__bmLocalSlot||0]||g.player; window.BombManZoom?.applyFallback(c,project({x:(local.rx??local.x)+.5,y:.65,z:(local.rz??local.z)+.5},g),{...CAM.view,roundId:g.roundId});
     if(!artReady){ ctx3.fillStyle='#0a1220'; ctx3.fillRect(0,0,w,h); ctx3.fillStyle='#ffd35b'; ctx3.font='900 20px system-ui'; ctx3.textAlign='center'; ctx3.fillText('Loading arena art…', w/2, h/2); return; }
     const key=boardKey(g); if(boardCache.key!==key){ buildBoard(g); boardCache.key=key; }
     ctx3.save(); ctx3.setTransform(1,0,0,1,0,0); ctx3.drawImage(boardCache.canvas,0,0); ctx3.restore();
@@ -985,7 +1001,7 @@ function formatTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return `${m}
     draw.sort((a,b)=>b.d-a.d).forEach(it=>it.fn());
     const top=titleOnTop(CAM); ctx3.fillStyle='rgba(0,0,0,.28)'; ctx3.fillRect(0,top?0:h-40,w,top?32:40); ctx3.fillStyle='#fff7da'; ctx3.font='900 16px system-ui'; ctx3.textAlign='center'; ctx3.textBaseline='alphabetic'; ctx3.fillText(g.title, w/2, top?22:h-15);
   }
-  function bombLoop(ts){ if(!bm.state.lastTs) bm.state.lastTs=ts; const dt=Math.max(0,Math.min(.05,(ts-bm.state.lastTs)/1000)); bm.state.lastTs=ts; if(bm.state.active && bm.state.screen==='game'){ if(window.__bmReplicaMode){ if(bm.state.game) bmInterpStep(bm.state.game,dt,(performance.now()-(bm.state.snapAt||0))/1000,bm.state.snapDt||.1); } else updateGame(dt); } if(bm.state.active && bm.state.screen==='game') drawScene(); requestAnimationFrame(bombLoop); }
+  function bombLoop(ts){ if(!bm.state.lastTs) bm.state.lastTs=ts; const dt=Math.max(0,Math.min(.05,(ts-bm.state.lastTs)/1000)); bm.state.lastTs=ts; if(bm.state.active && bm.state.screen==='game'){ if(window.__bmReplicaMode){ if(bm.state.game) bmInterpStep(bm.state.game,dt,(performance.now()-(bm.state.snapAt||0))/1000,bm.state.snapDt||.1); } else updateGame(dt); } if(bm.state.active && bm.state.screen==='game'){ syncRoundUI(); drawScene(); } requestAnimationFrame(bombLoop); }
   renderMenu(); resizeBMCanvas(); requestAnimationFrame(bombLoop);
 })();
 
