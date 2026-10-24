@@ -587,7 +587,7 @@
     .chat-rec { color: var(--red) !important; font-size: 13px; font-weight: 700; margin: 8px 0 0 !important; }
     .chat-rec button { margin-left: 8px; border: 1px solid var(--red); background: transparent; color: var(--red); border-radius: 9px; padding: 5px 10px; font-weight: 700; cursor: pointer; }
   </style>
-</head>
+<script defer src="/activity.js?v=3"></script></head>
 <body>
   <canvas id="sky" aria-hidden="true"></canvas>
   <main class="shell">
@@ -2122,6 +2122,8 @@
       let mmName = '';
       let mmKeepalive = 0;
 
+      window.getGameActivity=()=>({state:mmSearching?'looking':mode==='online'&&activeSession?.phase==='confirmed'&&activeSession?.state?.status==='playing'?'playing':'browsing',joinable:false});
+      setTimeout(()=>{if(new URLSearchParams(location.search).get('online')==='1')switchMode('online');},0);
       function matchPlayerId() {
         let id = null;
         try { id = storeGet(MATCH_PLAYER_KEY); } catch (_) {}
