@@ -33,7 +33,7 @@
   }
   header button.armed { background: #b91c1c; border-color: #f87171; }
   main { width: 100%; max-width: 560px; flex: 1; display: flex; flex-direction: column; }
-  #stage { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  #stage { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; touch-action: none; }
   #stage[hidden], #menu[hidden], #endScreen[hidden], #pausedOverlay[hidden], #onlineSection[hidden] { display: none !important; }
   canvas {
     display: block; border-radius: 18px; touch-action: none;
@@ -97,6 +97,7 @@
   <section id="menu" class="overlay" style="position:relative; inset:auto; background:none; backdrop-filter:none;">
     <h1>Air <span>Hockey</span></h1>
     <p class="tag">Thumb down. Guard the crease. Lift — and your goal stands open.</p>
+    <button class="btn pink" id="resumeMatchBtn" type="button" hidden></button>
     <ul class="rules">
       <li><b>Paddle exists only while you touch.</b> No thumb on the screen, no paddle — for you and for what your opponent sees.</li>
       <li><b>Only inside your net area.</b> Touch down outside the shaded crease and nothing appears. You work the crease; the puck does the travelling.</li>
@@ -118,6 +119,7 @@
       <h2>Paused</h2>
       <p id="pausedText">Waiting to resume…</p>
       <button class="btn" id="resumeBtn" type="button">Resume</button>
+      <button class="btn secondary" id="leaveBtn" type="button" hidden>Leave match</button>
     </div>
     <div id="endScreen" class="overlay" hidden>
       <h2 id="endTitle">You win!</h2>
@@ -144,6 +146,7 @@ import {
   GOALS_TO_WIN, DT, zoneRect, inZone, clampToZone, createMatch, applyInput,
   step, createCpu, cpuInput, snapshot, restoreSnapshot,
 } from './physics.mjs';
+import { RESUME_KEY, encodeResume, decodeResume, shouldTrapBack } from './exit-guard.mjs';
 
 /* ---------------- state ---------------- */
 const $ = id => document.getElementById(id);
@@ -172,6 +175,8 @@ let lastGuestInput = { x: TABLE_W / 2, y: 200, vx: 0, vy: 0, touching: false };
 let snapPrev = null, snapCur = null, snapPrevAt = 0, snapCurAt = 0, lastSnapScores = [0, 0];
 let publishTick = 0;
 let resignArmedAt = 0;
+let guardArmed = false, leaving = false, exitReturn = null, fsOurs = false;
+let lastSaveAt = 0;
 
 /* Per-side local paddle state: position, velocity, touch flag, fade (visual only). */
 function blankSide() {
@@ -496,6 +501,9 @@ function showPlay() {
 }
 function showMenu() {
   screen = 'menu';
+  disarmExitGuard();
+  exitFullscreenIfOurs();
+  exitReturn = null;
   state = null;
   menuEl.hidden = false;
   stageEl.hidden = true;
@@ -529,9 +537,14 @@ function startMatch() {
   screen = 'play';
   showPlay();
   updateScoreboard();
+  armExitGuard();
+  tryEnterFullscreen();
+  saveResume();
 }
 function endMatch(winner) {
   if (screen === 'end' || !state) return;
+  disarmExitGuard();
+  clearResume();
   if (!state.counted) {
     state.counted = true;
     if (winner === meSideForScore()) series.me++; else series.opp++;
@@ -564,6 +577,7 @@ function handleEvent(ev) {
     goalFlash = { side: ev.scorer, until: performance.now() + 900 };
     trail = [];
     updateScoreboard();
+    saveResume();
   }
   else if (ev.type === 'match') finishMatch(ev.winner);
 }
@@ -685,15 +699,69 @@ function setPause(reason, text) {
   pauseReason = reason;
   paused = true;
   $('pausedText').textContent = text;
-  $('resumeBtn').hidden = reason !== 'manual';
+  $('resumeBtn').hidden = reason !== 'manual' && reason !== 'exit';
+  $('resumeBtn').textContent = reason === 'exit' ? 'Keep playing' : 'Resume';
+  $('leaveBtn').hidden = reason !== 'exit';
   pausedEl.hidden = false;
 }
 function clearPause() {
   pauseReason = '';
   paused = false;
+  exitReturn = null;
+  $('leaveBtn').hidden = true;
   pausedEl.hidden = true;
   lastFrame = performance.now();
   acc = 0;
+}
+
+/* ---------------- exit hardening: back-gesture trap + resume ---------------- */
+// Android's left-edge swipe is the system back gesture, which no web page can
+// disable. So the first back press during a match is swallowed and becomes a
+// pause + "leave?" confirm, and CPU/local matches are snapshotted so a real
+// exit can still resume from the menu.
+function tryEnterFullscreen() {
+  try {
+    const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+    if (p && p.then) p.then(() => { fsOurs = true; }).catch(() => {});
+  } catch (_) {}
+}
+function exitFullscreenIfOurs() {
+  if (!fsOurs) return;
+  fsOurs = false;
+  try {
+    const p = document.exitFullscreen && document.exitFullscreen();
+    if (p && p.catch) p.catch(() => {});
+  } catch (_) {}
+}
+function armExitGuard() {
+  if (guardArmed) return;
+  try { history.pushState({ ahGuard: 1 }, ''); guardArmed = true; } catch (_) {}
+}
+function disarmExitGuard() {
+  if (!guardArmed) return;
+  guardArmed = false;
+  try { history.back(); } catch (_) {}
+}
+function showExitConfirm() {
+  if (pauseReason === 'exit') return; // already asking
+  exitReturn = { wasPaused: paused, reason: pauseReason, text: $('pausedText').textContent };
+  setPause('exit', 'You swiped back — match paused. Keep playing, or leave?');
+}
+window.addEventListener('popstate', () => {
+  if (!shouldTrapBack({ screen, guardArmed, leaving })) { guardArmed = false; return; }
+  try { history.pushState({ ahGuard: 1 }, ''); guardArmed = true; } catch (_) {}
+  showExitConfirm();
+});
+function saveResume() {
+  if (screen !== 'play' || mode === 'online' || !state || state.phase === 'finished') return;
+  try {
+    const str = encodeResume({ mode, difficulty, scores: state.scores, series, matchCount, snap: snapshot(state), savedAt: Date.now() });
+    if (str) sessionStorage.setItem(RESUME_KEY, str);
+  } catch (_) {}
+}
+function clearResume() { try { sessionStorage.removeItem(RESUME_KEY); } catch (_) {} }
+function loadResume() {
+  try { return decodeResume(sessionStorage.getItem(RESUME_KEY)); } catch (_) { return null; }
 }
 function frame(now) {
   requestAnimationFrame(frame);
@@ -742,6 +810,7 @@ function frame(now) {
   if (n >= 12) acc = 0;
   drawSim(acc / DT, now);
   updateScoreboard();
+  if (now - lastSaveAt > 5000) { lastSaveAt = now; saveResume(); }
 }
 
 /* ---------------- online (site room adapter) ---------------- */
@@ -768,6 +837,8 @@ async function mountOnline() {
         screen = 'play';
         showPlay();
         updateScoreboard();
+        armExitGuard();
+        tryEnterFullscreen();
         return;
       }
       startMatch();
@@ -831,6 +902,35 @@ function pickCpu(d) {
 $('cpuEasyBtn').onclick = () => { pickCpu('easy'); mode = 'cpu'; resetSeries(); matchCount = 0; startMatch(); };
 $('cpuHardBtn').onclick = () => { pickCpu('hard'); mode = 'cpu'; resetSeries(); matchCount = 0; startMatch(); };
 $('localBtn').onclick = () => { mode = 'local'; resetSeries(); matchCount = 0; startMatch(); };
+$('resumeMatchBtn').onclick = () => {
+  const data = loadResume();
+  if (!data) { $('resumeMatchBtn').hidden = true; return; }
+  mode = data.mode; difficulty = data.difficulty;
+  series = { me: data.series.me, opp: data.series.opp };
+  matchCount = data.matchCount;
+  state = createMatch({ firstServer: 1 });
+  state.counted = false;
+  restoreSnapshot(state, data.snap);
+  pointers.clear();
+  sides = [blankSide(), blankSide()];
+  sides[0].y = TABLE_L - 200; sides[1].y = 200;
+  cpu = mode === 'cpu' ? createCpu(difficulty) : null;
+  cpuClock = 0;
+  trail = []; goalFlash = null; zoneFlash = [0, 0];
+  matchStartAt = performance.now();
+  prevPuck = { ...state.puck };
+  acc = 0; lastFrame = performance.now();
+  snapPrev = null; snapCur = null; lastSnapScores = [...state.scores];
+  paused = false; pauseReason = ''; pausedEl.hidden = true;
+  endEl.hidden = true;
+  coachEl.hidden = coached;
+  screen = 'play';
+  showPlay();
+  updateScoreboard();
+  armExitGuard();
+  tryEnterFullscreen();
+  saveResume();
+};
 $('onlineBtn').onclick = async () => {
   mode = 'online';
   menuEl.hidden = true;
@@ -875,9 +975,24 @@ $('resignBtn').onclick = () => {
     }
   }, 3100);
 };
-$('resumeBtn').onclick = () => { if (pauseReason === 'manual') clearPause(); };
+$('resumeBtn').onclick = () => {
+  if (pauseReason !== 'manual' && pauseReason !== 'exit') return;
+  const ret = exitReturn;
+  clearPause();
+  if (ret && ret.wasPaused) setPause(ret.reason, ret.text);
+};
+$('leaveBtn').onclick = () => {
+  clearResume();
+  leaving = true;
+  exitFullscreenIfOurs();
+  try { history.back(); } catch (_) {}
+  // If there was no history to go back to, the back press was a no-op and
+  // we are still here 400ms later — exit to the homepage instead.
+  setTimeout(() => { if (screen === 'play' && !document.hidden) location.href = '/'; }, 400);
+};
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
+    saveResume();
     if (screen === 'play' && mode !== 'online') setPause('manual', 'Paused — tap Resume to keep playing.');
     if (screen === 'play' && mode === 'online') {
       for (const s of sides) { s.touching = false; s.vx = 0; s.vy = 0; }
@@ -888,12 +1003,20 @@ document.addEventListener('visibilitychange', () => {
     // Stay paused until the player taps Resume (a backgrounded CPU match must not run away).
   }
 });
+window.addEventListener('pagehide', saveResume);
 window.addEventListener('resize', resize);
 
 /* ---------------- boot ---------------- */
 setSoundButton();
 resize();
 updateScoreboard();
+const storedResume = loadResume();
+if (storedResume) {
+  $('resumeMatchBtn').textContent = storedResume.mode === 'cpu'
+    ? `Resume match — You ${storedResume.scores[0]} · ${storedResume.scores[1]} CPU`
+    : `Resume match — Bottom ${storedResume.scores[0]} · ${storedResume.scores[1]} Top`;
+  $('resumeMatchBtn').hidden = false;
+}
 requestAnimationFrame(frame);
 new ResizeObserver(resize).observe(stageEl);
 (async () => {
