@@ -1,6 +1,7 @@
 /** Shared room state machine: used unchanged by the Worker and local WebSocket server. */
 export const GAMES = new Set(['tetris', 'pinball', 'simon', 'skirmish', 'odyssey-tanks', 'minigolf', 'bomberman', 'air-hockey']);
 export const LIMITS = Object.freeze({ message: 100 * 1024, snapshot: 96 * 1024, event: 8 * 1024, result: 4096, replay: 96 * 1024, rate: 120, ttl: 6 * 60 * 60 * 1000 });
+export const SEAT_GRACE_MS = 5 * 60 * 1000; // a disconnected seat is held for reconnects this long, then freed (guest, lobby) or the room closes (host / live match)
 const bytes = value => new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const randomToken = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), x => x.toString(16).padStart(2, '0')).join('');
 const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
@@ -22,12 +23,39 @@ export class RoomCore {
     this.state = { code, game, createdAt: this.now(), expiresAt: this.now() + LIMITS.ttl, phase: 'lobby', players, matchId: null, seed: null, epoch: 0, serverSeq: 0, snapshot: null, snapshotSeq: 0, events: [], result: null };
     return { code, game, token, slot: 0 };
   }
-  player(token) { return { token, ready: false, connected: false, connectionId: null, lastSeq: 0 }; }
-  valid() {
+  player(token) { return { token, ready: false, connected: false, connectionId: null, disconnectedAt: null, lastSeq: 0 }; }
+  valid({ allowClosed = false } = {}) {
+    this.sweep();
     assert(this.state, 'not-found', 'Room not found. Check the invite code.', 404);
     assert(this.now() < this.state.expiresAt, 'expired', 'This room expired. Create a new room.', 410);
-    assert(this.state.phase !== 'closed', 'closed', 'This room has closed. Create a new room.', 410);
+    if (!allowClosed) assert(this.state.phase !== 'closed', 'closed', 'This room has closed. Create a new room.', 410);
     return this.state;
+  }
+  // Grace expiry for disconnected seats. Runs lazily on every room access, so
+  // no alarm or background job is needed. Returns true when the room closed.
+  // Bomberman is untouched: it already frees/closes seats on disconnect.
+  sweep() {
+    const s = this.state;
+    if (!s || s.phase === 'closed' || s.game === 'bomberman') return false;
+    const now = this.now();
+    let staleHost = false, staleGuest = false;
+    s.players.forEach((p, slot) => {
+      if (!p || p.connected) return;
+      if (p.disconnectedAt == null) { p.disconnectedAt = now; return; }
+      if (now - p.disconnectedAt > SEAT_GRACE_MS) { if (slot === 0) staleHost = true; else staleGuest = true; }
+    });
+    if (!staleHost && !staleGuest) return false;
+    // A live or finished match cannot continue or refill with a missing seat,
+    // and a room without its host is over — close instead of ghosting.
+    if (s.phase !== 'lobby' || staleHost) {
+      s.phase = 'closed'; s.players.forEach(p => { if (p) p.ready = false; });
+      return true;
+    }
+    // Lobby: free stale guest seats so the host can invite someone else.
+    s.players.forEach((p, slot) => {
+      if (slot > 0 && p && !p.connected && p.disconnectedAt != null && now - p.disconnectedAt > SEAT_GRACE_MS) s.players[slot] = null;
+    });
+    return false;
   }
   join(game, token) {
     const s = this.valid();
@@ -50,7 +78,7 @@ export class RoomCore {
   }
   connect(token, connectionId) {
     const slot = this.authenticate(token), p = this.state.players[slot], replaced = p.connectionId;
-    p.connected = true; p.connectionId = connectionId;
+    p.connected = true; p.connectionId = connectionId; p.disconnectedAt = null;
     return { slot, replaced, welcome: { kind: 'welcome', ...this.view(), slot, nextSeq: p.lastSeq + 1, snapshot: this.state.snapshot, snapshotSeq: this.state.snapshotSeq, events: this.state.events } };
   }
   disconnect(slot, connectionId) {
@@ -65,6 +93,7 @@ export class RoomCore {
       this.state.players[slot] = null;
     } else {
       p.connected = false; p.connectionId = null;
+      if (p.disconnectedAt == null) p.disconnectedAt = this.now();
       if (this.state.phase !== 'active') p.ready = false;
     }
     return [{ to: 'all', message: { kind: 'presence', ...this.view() } }];
@@ -77,8 +106,9 @@ export class RoomCore {
     return { code: s.code, game: s.game, phase: s.phase, matchId: s.matchId, seed: s.seed, expiresAt: s.expiresAt, result: s.result, connected, players: s.players.map((p, slot) => ({ slot, occupied: !!p, connected: !!p?.connected, ready: !!p?.ready })) };
   }
   receive(slot, connectionId, raw) {
-    const s = this.valid(), p = s.players[slot];
+    const s = this.valid({ allowClosed: true }), p = s.players[slot];
     assert(p?.connected && p.connectionId === connectionId, 'connection', 'This connection is no longer the active seat.', 401);
+    if (s.phase === 'closed') return [{ to: 'all', message: { kind: 'closed', reason: 'This room has closed.', ...this.view() } }];
     assert(typeof raw === 'string' && new TextEncoder().encode(raw).byteLength <= LIMITS.message, 'size', 'Message is too large.');
     const time = this.now(), bucket = this.buckets.get(slot);
     if (!bucket || time - bucket.start >= 1000) this.buckets.set(slot, { start: time, count: 1 });
@@ -109,6 +139,14 @@ export class RoomCore {
       return out;
     }
     if (m.kind === 'leave') {
+      // A guest leaving an open lobby just frees the seat so the host can
+      // invite someone else. Leaving mid-match, or the host leaving at any
+      // time, still closes the room (an active seat is never recycled into
+      // another match). Bomberman keeps its existing close-on-leave behavior.
+      if (slot > 0 && s.phase === 'lobby' && s.game !== 'bomberman') {
+        s.players[slot] = null;
+        return [...out, { to: 'all', message: { kind: 'presence', ...this.view() } }];
+      }
       s.phase = 'closed'; s.players.forEach(player => { if (player) player.ready = false; });
       return [...out, { to: 'all', message: { kind: 'closed', reason: `Player ${slot + 1} left the room.`, ...this.view() } }];
     }

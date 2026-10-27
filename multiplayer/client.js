@@ -34,8 +34,15 @@
     function callback(name, value) { if (typeof options[name] === 'function') try { options[name](value); } catch (error) { console.error('[StarMuff multiplayer]', name, error); show('The game could not apply the online state. Leave and rejoin before continuing.', true); } }
     function show(message, error) { status.textContent = message; status.className = 'sm-mp-status' + (error ? ' sm-mp-error' : ''); }
     function storageKey(code) { return 'starmuff:seat:v1:' + options.game + ':' + code; }
-    function remember() { try { sessionStorage.setItem(storageKey(roomCode), JSON.stringify({ token: token, slot: slot })); } catch (_) { /* still playable for this tab */ } }
-    function remembered(code) { try { return JSON.parse(sessionStorage.getItem(storageKey(code)) || 'null'); } catch (_) { return null; } }
+    // Seat tokens live in both stores: localStorage survives a tab close so a
+    // return reclaims the same seat, sessionStorage covers browsers where
+    // localStorage is unavailable (and the VM test harness, which only
+    // provides sessionStorage). Reads prefer localStorage, then sessionStorage.
+    function remember() { try { localStorage.setItem(storageKey(roomCode), JSON.stringify({ token: token, slot: slot })); } catch (_) {} try { sessionStorage.setItem(storageKey(roomCode), JSON.stringify({ token: token, slot: slot })); } catch (_) {} }
+    function remembered(code) {
+      try { var value = localStorage.getItem(storageKey(code)); if (value) return JSON.parse(value); } catch (_) {}
+      try { return JSON.parse(sessionStorage.getItem(storageKey(code)) || 'null'); } catch (_) { return null; }
+    }
     function shareURL() { var url = new URL(location.href); url.searchParams.set('room', roomCode); return url.href; }
     function render() {
       lobbyControls.classList.toggle('sm-mp-hidden', !!roomCode); roomPanel.classList.toggle('sm-mp-hidden', !roomCode);
@@ -136,7 +143,12 @@
         var saved = !create && remembered(code), data = await request(create ? '/rooms' : '/rooms/' + code + '/join', { game: options.game, token: saved?.token });
         token = data.token; slot = data.slot; roomCode = data.code; stopped = false; state = { phase: 'lobby', matchId: null, seed: null, connected: false, players: [] };
         remember(); var url = new URL(location.href); url.searchParams.set('room', roomCode); history.replaceState(null, '', url); connect();
-      } catch (error) { show(error.message, true); } finally { busy = false; render(); }
+      } catch (error) {
+        // A dead seat token (expired/closed/revoked room) must not linger:
+        // clear it so the next attempt joins fresh instead of re-presenting it.
+        if (!create && code && ['expired', 'closed', 'unauthorized', 'not-found'].includes(error.code)) { try { localStorage.removeItem(storageKey(code)); } catch (_) {} try { sessionStorage.removeItem(storageKey(code)); } catch (_) {} }
+        show(error.message, true);
+      } finally { busy = false; render(); }
     }
     function transmit(value) {
       if (!socket || socket.readyState !== 1 || stopped || !roomCode) return false;
@@ -151,7 +163,7 @@
     }
     function leave() {
       transmit({ kind: 'leave' }); stopped = true; clearTimeout(retry); clearInterval(heartbeat);
-      if (roomCode) try { sessionStorage.removeItem(storageKey(roomCode)); } catch (_) {}
+      if (roomCode) { try { localStorage.removeItem(storageKey(roomCode)); } catch (_) {} try { sessionStorage.removeItem(storageKey(roomCode)); } catch (_) {} }
       if (socket) socket.close(1000, 'Left room'); socket = null; roomCode = null; token = null; slot = null; initializedMatch = null; nextSeq = 1;
       state = { phase: 'lobby', matchId: null, seed: null, connected: false, players: [] };
       var url = new URL(location.href); url.searchParams.delete('room'); history.replaceState(null, '', url);
