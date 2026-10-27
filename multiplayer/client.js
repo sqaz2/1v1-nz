@@ -13,7 +13,7 @@
   function el(tag, text, cls) { var node = document.createElement(tag); if (text) node.textContent = text; if (cls) node.className = cls; return node; }
   function mount(options) {
     options = options || {};
-    if (!['tetris', 'pinball', 'simon', 'skirmish', 'odyssey-tanks', 'minigolf', 'bomberman'].includes(options.game)) throw new Error('Unknown StarMuff game.');
+    if (!['tetris', 'pinball', 'simon', 'skirmish', 'odyssey-tanks', 'minigolf', 'bomberman', 'air-hockey'].includes(options.game)) throw new Error('Unknown StarMuff game.');
     if (!document.querySelector('link[data-starmuff-multiplayer]')) { var css = el('link'); css.rel = 'stylesheet'; css.href = '/multiplayer/client.css'; css.dataset.starmuffMultiplayer = 'true'; document.head.appendChild(css); }
     var host = typeof options.container === 'string' ? document.querySelector(options.container) : options.container;
     if (!host) { host = el('div'); document.body.prepend(host); }

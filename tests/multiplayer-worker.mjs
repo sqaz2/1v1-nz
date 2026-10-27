@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RoomCore } from '../multiplayer/room-core.mjs';
+import { RoomCore, GAMES } from '../multiplayer/room-core.mjs';
 import worker, { StarMuffRoom } from '../multiplayer/worker.mjs';
 
 // This exercises the actual Worker class against an explicit Durable Object API mock.
@@ -112,7 +112,7 @@ test('Worker public routing applies the configured origin allowlist and returns 
   const env = { ALLOWED_ORIGINS: 'https://1v1.nz,https://*.1v1-nz.pages.dev' };
   const response = await worker.fetch(new Request('https://worker.example/api/starmuff/health', { headers: { origin: 'https://fix-originals.1v1-nz.pages.dev' } }), env);
   assert.equal(response.status, 200); assert.equal(response.headers.get('access-control-allow-origin'), 'https://fix-originals.1v1-nz.pages.dev');
-  const health = await response.json(); assert.equal(health.version, 1); assert.equal(health.transport, 'websocket'); assert.equal(health.games.length, 6);
+  const health = await response.json(); assert.equal(health.version, 1); assert.equal(health.transport, 'websocket'); assert.equal(health.games.length, GAMES.size); assert.ok(health.games.includes('air-hockey'));
   const denied = await worker.fetch(new Request('https://worker.example/api/starmuff/health', { headers: { origin: 'https://evil.example' } }), env);
   assert.equal(denied.status, 403); assert.equal((await denied.json()).error, 'origin');
 });
